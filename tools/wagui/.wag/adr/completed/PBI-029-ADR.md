@@ -1,7 +1,7 @@
 # ADR: PBI-029 Transcript Polling & Display
 
 ## Status
-DRAFT
+APPROVED
 
 ## Context
 
@@ -255,18 +255,18 @@ Add visual indicator for transcript-sourced messages:
 
 ## Acceptance Criteria
 
-- [ ] Server derives transcript path from app's appRoot
-- [ ] Server polls transcript file for new content
-- [ ] File offset tracked to avoid re-reading (transcript_offsets table)
-- [ ] Messages deduped by UUID before insert
-- [ ] Transcript entries normalized to WagMessage format
-- [ ] User messages (`type: "user"`) displayed
-- [ ] Assistant text (`type: "assistant"`, content.type: "text") displayed
+- [x] Server derives transcript path from app's appRoot
+- [x] Server polls transcript file for new content
+- [x] File offset tracked to avoid re-reading (transcript_offsets table)
+- [x] Messages deduped by UUID before insert
+- [x] Transcript entries normalized to WagMessage format
+- [x] User messages (`type: "user"`) displayed
+- [x] Assistant text (`type: "assistant"`, content.type: "text") displayed
 - [ ] Tool calls optionally shown (toggle in UI) - DEFERRED
-- [ ] Interruptions captured and displayed
-- [ ] Switching apps switches transcript watching
-- [ ] Messages sorted chronologically (transcript + wag_send_message interleaved)
-- [ ] Tests written for transcript parsing
+- [x] Interruptions captured and displayed
+- [x] Switching apps switches transcript watching
+- [x] Messages sorted chronologically (transcript + wag_send_message interleaved)
+- [x] Tests written for transcript parsing
 
 ## Risks
 
