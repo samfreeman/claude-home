@@ -1,0 +1,52 @@
+# Runtime/session data (Claude Code generated)
+projects/
+todos/
+file-history/
+session-environment/
+session-env/
+history.jsonl
+plans/
+cache/
+debug/
+telemetry/
+statsig/
+ide/
+shell-snapshots/
+plugins/
+.credentials.json
+stats-cache.json
+
+# Backup files
+*.backup
+*.backup.*
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+.cache/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Test outputs
+playwright-report/
+test-results/

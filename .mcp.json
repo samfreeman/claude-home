@@ -1,0 +1,22 @@
+{
+	"mcpServers": {
+		"playwright": {
+			"command": "node",
+			"args": [
+				"/home/samf/.claude/mcp-servers/playwright-mcp/cli.js",
+				"--config",
+				"/home/samf/.claude/mcp-servers/playwright-mcp/playwright-mcp.config.json",
+				"--no-sandbox",
+				"--isolated"
+			],
+			"env": {
+				"NODE_ENV": "production",
+				"PLAYWRIGHT_BROWSERS_PATH": "/home/samf/.cache/ms-playwright"
+			}
+		},
+		"wag": {
+			"command": "node",
+			"args": ["/home/samf/.claude/mcp-servers/wag-mcp/dist/index.js"]
+		}
+	}
+}

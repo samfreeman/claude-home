@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "pbi-mcp-server": {
+      "command": "node",
+      "args": ["/home/samf/source/pay-onward-tools/mcp-servers/pbi-mcp-server/index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    },
+    "bitbucket-mcp-server": {
+      "command": "node",
+      "args": ["/home/samf/source/pay-onward-tools/mcp-servers/bitbucket-mcp-server/index.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  }
+}

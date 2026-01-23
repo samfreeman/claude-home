@@ -1,0 +1,23 @@
+{
+  "name": "wag-mcp",
+  "version": "1.0.0",
+  "description": "WAG workflow communication MCP server with SSE for real-time UI updates",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

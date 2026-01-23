@@ -1,0 +1,73 @@
+{
+	"permissions": {
+		"allow": [
+			"Bash(npm test:*)",
+			"Bash(npm install)",
+			"Bash(npm install:*)",
+			"Bash(npx vitest:*)",
+			"Bash(npx create-next-app@latest:*)",
+			"Bash(npx playwright test:*)",
+			"Bash(pnpm test:*)",
+			"Bash(pnpm test:parser:*)",
+			"Bash(pnpm test:e2e:*)",
+			"Bash(pnpm format:*)",
+			"Bash(pnpm format:check:*)",
+			"Bash(pnpm lint:*)",
+			"Bash(pnpm type-check:*)",
+			"Bash(pnpm build:*)",
+			"Bash(pnpm samx:*)",
+			"Bash(pnpm server:*)",
+			"Bash(pnpm tsc:*)",
+			"Bash(git add:*)",
+			"Bash(git push:*)",
+			"Bash(cat:*)",
+			"Bash(rm:*)",
+			"Bash(ls:*)",
+			"Bash(tree:*)",
+			"Bash(du:*)",
+			"Bash(lsof:*)",
+			"Bash(curl:*)",
+			"Bash(xargs:*)",
+			"Bash(while read f)",
+			"Edit(**/.wag/state.json)",
+			"Write(**/.wag/state.json)",
+			"Edit(**/.wag/Status.md)",
+			"Write(**/.wag/Status.md)",
+			"mcp__playwright__browser_navigate",
+			"mcp__playwright__browser_snapshot",
+			"mcp__playwright__browser_click",
+			"mcp__playwright__browser_type",
+			"mcp__playwright__browser_press_key",
+			"mcp__playwright__browser_tab_new",
+			"mcp__playwright__browser_tab_close",
+			"mcp__playwright__browser_tab_select",
+			"mcp__playwright__browser_close",
+			"mcp__playwright__browser_resize",
+			"mcp__playwright__browser_take_screenshot",
+			"mcp__wag__wag_send_message",
+			"mcp__wag__wag_get_history",
+			"mcp__wag__wag_get_state"
+		],
+		"deny": [],
+		"defaultMode": "default"
+	},
+	"hooks": {
+		"PreToolUse": [
+			{
+				"matcher": "*",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "/home/samf/.claude/hooks/wagui-notify.sh",
+						"timeout": 2
+					}
+				]
+			}
+		]
+	},
+	"enableAllProjectMcpServers": true,
+	"enabledMcpjsonServers": [
+		"playwright",
+		"wag"
+	]
+}
