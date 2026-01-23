@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "server": "npx tsx server/index.ts",
-    "server:build": "npx tsc server/index.ts --outDir server/dist --esModuleInterop --module NodeNext --moduleResolution NodeNext"
+    "server:build": "npx tsc server/index.ts --outDir server/dist --esModuleInterop --module NodeNext --moduleResolution NodeNext",
+    "wag:start": "fuser -k 3098/tcp 3099/tcp 2>/dev/null; sleep 1; npx tsx server/index.ts & pnpm dev & sleep 3; /mnt/c/Windows/explorer.exe 'http://localhost:3098' || true",
+    "wag:stop": "fuser -k 3098/tcp 3099/tcp 2>/dev/null || true"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

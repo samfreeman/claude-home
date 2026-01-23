@@ -11,21 +11,52 @@ WAGU = WAG + real-time UI broadcasting via MCP.
 
 ---
 
+## App Detection & Working Directory
+
+On entry to any mode, detect the target app and its root folder.
+
+**All bash commands must be prefixed with `cd [appRoot] &&`** to ensure they run from the app's root folder.
+
+For wagui, appRoot is: `/home/samf/.claude/tools/wagui`
+
+---
+
+## Startup Scripts
+
+Use the package.json scripts for starting/stopping wagui:
+
+```bash
+cd /home/samf/.claude/tools/wagui && pnpm wag:start
+```
+
+This script:
+1. Kills existing processes on ports 3098/3099
+2. Starts the server (port 3099)
+3. Starts the frontend (port 3098)
+4. Opens browser in Windows (WSL2 compatible)
+
+To stop:
+```bash
+cd /home/samf/.claude/tools/wagui && pnpm wag:stop
+```
+
+---
+
 ## MCP Broadcasting Rules
 
 ### 1. On mode entry
 ```
 wag_set_state(app, appRoot, repo?, mode, branch: "dev", context, pbi?)
 ```
-- `appRoot`: Absolute path to app root directory (e.g., the cwd where Claude is running)
+- `appRoot`: Absolute path to app root directory
 - `repo`: Optional repo root if different from appRoot
 
 Example:
 ```typescript
 wag_set_state({
   app: "wagui",
-  appRoot: "/home/samf/source/claude/tools/wagui",
-  repo: "/home/samf/source/claude",
+  appRoot: "/home/samf/.claude/tools/wagui",
+  repo: "/home/samf/.claude",
   mode: "DEV",
   branch: "dev",
   context: "Starting development",
@@ -53,14 +84,13 @@ If someone reads only wagui (not Claude Code), can they follow the conversation?
 
 ## Startup (`/wagu start`)
 
-1. Check ports with `ss -tlnp 2>/dev/null | grep [port]`
-2. Kill existing: `pkill -f "next-server"` / `pkill -f "tsx server"`
-3. Start server: `cd tools/wagui && pnpm server &`
-4. Start frontend: `cd tools/wagui && pnpm dev &`
-5. Open browser: `/mnt/c/Windows/explorer.exe "http://localhost:3098"`
-6. Call `wag_clear()`
+```bash
+cd [appRoot] && pnpm wag:start
+```
 
-For `/wagu adr` and `/wagu dev`: check ports, start if needed.
+Then call `wag_clear()` to reset state.
+
+For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if needed.
 
 ---
 
@@ -117,7 +147,7 @@ For `/wagu adr` and `/wagu dev`: check ports, start if needed.
 6. If REJECT → Discuss, do NOT write
 
 **On "approve" (all work done):**
-1. Run quality gates: `pnpm format && pnpm lint && pnpm type-check && pnpm test`
+1. Run quality gates: `cd [appRoot] && pnpm lint && pnpm test`
 2. Mark criteria `[x]` on ADR and PBI
 3. `mv adr/active/*.md adr/completed/`
 4. `mv backlog/PBI-XXX.md backlog/_completed/`
