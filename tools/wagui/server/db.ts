@@ -25,6 +25,7 @@ export interface WagMessage {
 		task?: number
 		pbi?: string
 		approved?: boolean
+		source?: 'transcript' | 'wag'
 	}
 }
 
@@ -53,6 +54,13 @@ interface StoredApp {
 	app_root: string
 	repo_root: string | null
 	last_used: number
+}
+
+interface StoredTranscriptOffset {
+	app: string
+	file_path: string
+	byte_offset: number
+	updated_at: number
 }
 
 let db: Database.Database | null = null
@@ -92,6 +100,15 @@ export function initDb(dbPath?: string): Database.Database {
 			app_root TEXT NOT NULL,
 			repo_root TEXT,
 			last_used INTEGER NOT NULL
+		)
+	`)
+
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS transcript_offsets (
+			app TEXT PRIMARY KEY,
+			file_path TEXT NOT NULL,
+			byte_offset INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
 		)
 	`)
 
@@ -144,6 +161,30 @@ export function getMessages(limit = 100): WagMessage[] {
 			content: row.content,
 			metadata: row.metadata ? JSON.parse(row.metadata) : undefined
 		}))
+}
+
+export function getMessageById(id: string): WagMessage | null {
+	const database = getDb()
+	const row = database.prepare(
+		'SELECT * FROM messages WHERE id = ?'
+	).get(id) as StoredMessage | undefined
+
+	if (!row) return null
+
+	return {
+		id: row.id,
+		timestamp: row.timestamp,
+		header: {
+			mode: row.mode as WagMode,
+			app: row.app,
+			branch: row.branch,
+			context: row.context
+		},
+		role: row.role as WagRole,
+		type: row.type as MessageType,
+		content: row.content,
+		metadata: row.metadata ? JSON.parse(row.metadata) : undefined
+	}
 }
 
 export function clearMessages(): void {
@@ -203,4 +244,31 @@ export function getApp(name: string): App | null {
 		repoRoot: row.repo_root,
 		lastUsed: row.last_used
 	}
+}
+
+export function getTranscriptOffset(app: string): { filePath: string, byteOffset: number } | null {
+	const database = getDb()
+	const row = database.prepare(
+		'SELECT * FROM transcript_offsets WHERE app = ?'
+	).get(app) as StoredTranscriptOffset | undefined
+
+	if (!row) return null
+
+	return {
+		filePath: row.file_path,
+		byteOffset: row.byte_offset
+	}
+}
+
+export function setTranscriptOffset(app: string, filePath: string, byteOffset: number): void {
+	const database = getDb()
+	const stmt = database.prepare(`
+		INSERT INTO transcript_offsets (app, file_path, byte_offset, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(app) DO UPDATE SET
+			file_path = excluded.file_path,
+			byte_offset = excluded.byte_offset,
+			updated_at = excluded.updated_at
+	`)
+	stmt.run(app, filePath, byteOffset, Date.now())
 }

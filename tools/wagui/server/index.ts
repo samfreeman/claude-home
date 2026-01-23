@@ -4,6 +4,7 @@ import {
 	initDb,
 	saveMessage,
 	getMessages,
+	getMessageById,
 	clearMessages,
 	upsertApp,
 	getApps,
@@ -14,6 +15,7 @@ import {
 	type MessageType,
 	type App
 } from './db'
+import { startPolling, stopPolling } from './transcript'
 
 const PORT = parseInt(process.env.PORT || '3099')
 const HOST = process.env.HOST || '0.0.0.0'
@@ -48,6 +50,19 @@ function broadcast(event: string, data: unknown): void {
 	const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
 	for (const client of sseClients)
 		client.write(payload)
+}
+
+function startTranscriptPolling(app: string, appRoot: string): void {
+	startPolling(
+		app,
+		appRoot,
+		(msg) => {
+			const existing = getMessageById(msg.id)
+			if (!existing) {
+				saveMessage(msg)
+				broadcast('message', msg)
+			}
+		})
 }
 
 function parseBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -102,6 +117,7 @@ function handleState(req: IncomingMessage, res: ServerResponse): void {
 					repoRoot: repo || null,
 					lastUsed: Date.now()
 				}
+				startTranscriptPolling(app, appRoot)
 			}
 
 			state = {
@@ -279,6 +295,7 @@ function handleSelect(req: IncomingMessage, res: ServerResponse): void {
 
 			state.selectedApp = app
 			state.header.app = app.name
+			startTranscriptPolling(app.name, app.appRoot)
 
 			broadcast('state', state)
 			broadcast('app-changed', { app })
@@ -327,6 +344,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 	res.writeHead(404, { 'Content-Type': 'text/plain' })
 	res.end('Not found')
 })
+
+process.on('SIGTERM', () => stopPolling())
+process.on('SIGINT', () => stopPolling())
 
 server.listen(PORT, HOST, () => {
 	console.log(`wagui server listening on http://${HOST}:${PORT}`)
