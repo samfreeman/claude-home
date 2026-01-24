@@ -153,14 +153,20 @@ prompt: |
   ## ADR Requirements
   [ADR content]
 
-  ## Code Style Rules
+  ## Code Style Rules (apply to project src/ code only)
+  For files in src/** (project source code):
   - Single quotes, no semicolons, tabs, no trailing commas
   - == not ===, else/catch on new lines
+
+  Do NOT apply these style rules to:
+  - Third-party code, vendor files, or node_modules
+  - Generated files (e.g., package-lock.json, pnpm-lock.yaml)
+  - Framework boilerplate or config files
 
   ## Review
   1. Does the changeset fulfill ADR requirements?
   2. Are there design concerns or missing pieces?
-  3. Code style violations?
+  3. Code style violations in project source code?
 
   Return: APPROVE or REJECT
   Then: Summary of findings (what's good, what needs work)
