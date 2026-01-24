@@ -5,7 +5,7 @@ import { WagMessage, getTranscriptOffset, setTranscriptOffset } from './db'
 
 interface TranscriptEntry {
 	type: 'user' | 'assistant' | 'progress' | string
-	message?: { content: Array<{ type: string; text?: string }> }
+	message?: { content: unknown }
 	uuid: string
 	timestamp: string
 }
@@ -14,7 +14,7 @@ let pollInterval: NodeJS.Timeout | null = null
 let currentApp: string | null = null
 
 export function getTranscriptDir(appRoot: string): string {
-	const encoded = appRoot.replace(/\//g, '-')
+	const encoded = appRoot.replace(/[\/\.]/g, '-')
 	return path.join(os.homedir(), '.claude', 'projects', encoded)
 }
 
@@ -41,11 +41,22 @@ export function parseTranscriptEntry(entry: TranscriptEntry, app: string): WagMe
 	if (!entry.message?.content)
 		return null
 
-	const textBlocks = entry.message.content.filter(c => c.type == 'text')
-	if (textBlocks.length == 0)
+	const content = entry.message.content
+	let text: string
+
+	if (Array.isArray(content)) {
+		const textBlocks = content.filter((c: { type: string; text?: string }) => c.type == 'text')
+		if (textBlocks.length == 0)
+			return null
+		text = textBlocks.map((b: { text?: string }) => b.text).join('\n')
+	}
+	else if (typeof content == 'string')
+		text = content
+	else
 		return null
 
-	const content = textBlocks.map(b => b.text).join('\n')
+	if (!text)
+		return null
 
 	return {
 		id: entry.uuid,
@@ -58,7 +69,7 @@ export function parseTranscriptEntry(entry: TranscriptEntry, app: string): WagMe
 		},
 		role: entry.type == 'user' ? 'user' : 'dev',
 		type: 'chat',
-		content,
+		content: text,
 		metadata: { source: 'transcript' }
 	}
 }
