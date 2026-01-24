@@ -52,7 +52,16 @@
       "mcp__wag__wag_clear",
       "Bash(pnpm wag:start:*)"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(git commit*)",
+      "Bash(git revert*)",
+      "Bash(git reset*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push*origin dev*)",
+      "Bash(git push*origin main*)",
+      "Bash(git push*origin master*)"
+    ],
     "defaultMode": "default"
   },
   "enableAllProjectMcpServers": true,

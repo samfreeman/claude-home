@@ -18,6 +18,7 @@ import {
 } from './db'
 import { startPolling, stopPolling } from './transcript'
 import { runCop, canClear } from './cop'
+import { runGate } from './gate'
 
 const PORT = parseInt(process.env.PORT || '3099')
 const HOST = process.env.HOST || '0.0.0.0'
@@ -353,6 +354,35 @@ function handleCop(req: IncomingMessage, res: ServerResponse): void {
 	sendJson(res, { error: 'Method not allowed' }, 405)
 }
 
+function handleGate(req: IncomingMessage, res: ServerResponse): void {
+	if (req.method == 'POST') {
+		parseBody(req).then(body => {
+			const { pbi } = body as { pbi: string }
+
+			if (!pbi) {
+				sendJson(res, { success: false, error: 'pbi is required' }, 400)
+				return
+			}
+
+			if (!state.selectedApp) {
+				sendJson(res, { success: false, error: 'No app selected' }, 400)
+				return
+			}
+
+			runGate(state.selectedApp.name, state.selectedApp.appRoot, pbi, broadcast).then(result => {
+				sendJson(res, { success: true, ...result })
+			}).catch(err => {
+				sendJson(res, { success: false, error: err.message }, 500)
+			})
+		}).catch(err => {
+			sendJson(res, { success: false, error: err.message }, 400)
+		})
+		return
+	}
+
+	sendJson(res, { error: 'Method not allowed' }, 405)
+}
+
 const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 	res.setHeader('Access-Control-Allow-Origin', '*')
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
@@ -380,6 +410,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
 	if (url == '/api/v1/cop')
 		return handleCop(req, res)
+
+	if (url == '/api/v1/gate')
+		return handleGate(req, res)
 
 	if (url == '/events')
 		return handleEvents(req, res)

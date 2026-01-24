@@ -179,6 +179,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 					},
 					required: ['pbi']
 				}
+			},
+			{
+				name: 'wag_gate',
+				description: 'Run pre-commit gate check. Runs cop (lint + tests) and broadcasts results. If cop passes, returns diff and ADR for architect review. Must run before committing to dev.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						pbi: {
+							type: 'string',
+							description: 'PBI being worked on (e.g., PBI-028)'
+						}
+					},
+					required: ['pbi']
+				}
 			}
 		]
 	}
@@ -244,6 +258,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 			case 'wag_cop': {
 				const { pbi } = args as { pbi: string }
 				const result = await apiCall('POST', '/cop', { pbi })
+				return {
+					content: [{
+						type: 'text',
+						text: JSON.stringify(result, null, 2)
+					}]
+				}
+			}
+
+			case 'wag_gate': {
+				const { pbi } = args as { pbi: string }
+				const result = await apiCall('POST', '/gate', { pbi })
 				return {
 					content: [{
 						type: 'text',
