@@ -48,7 +48,9 @@
       "mcp__wag__wag_get_history",
       "mcp__wag__wag_get_state",
       "mcp__wag__wag_set_state",
-      "Bash(ss:*)"
+      "Bash(ss:*)",
+      "mcp__wag__wag_clear",
+      "Bash(pnpm wag:start:*)"
     ],
     "deny": [],
     "defaultMode": "default"
@@ -57,19 +59,5 @@
   "enabledMcpjsonServers": [
     "playwright",
     "wag"
-  ],
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/samf/.claude/hooks/wagui-notify.sh",
-            "timeout": 2
-          }
-        ]
-      }
-    ]
-  }
+  ]
 }

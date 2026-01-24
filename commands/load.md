@@ -56,10 +56,16 @@ Load a previously saved conversation context and restore the state:
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
    ✅ Todo list restored with X items
+   🗑️ Context file deleted
    🔄 Ready to continue from saved state
 
    **Note**: You are Claude Code in a fresh session. Use the context above to continue the work seamlessly.
    ```
+
+7. **Delete the context file**:
+   - After successfully loading and displaying the context, delete the JSON file using `rm`
+   - This prevents stale context from being accidentally reloaded
+   - Only delete if the load was successful (not for "list" command)
 
 Example usage:
 
