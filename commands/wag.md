@@ -7,18 +7,18 @@ allowed-tools: Read, Write, Grep, Glob, TodoWrite, Bash, Task
 
 **Journey:** `/wag docs` → `/wag adr` → `/wag dev`
 
-## Core Principle: Sandbox + Gate
+## Core Principle: Gate Before Push
 
-AI has **complete freedom** on feature branches. Gates (lint/tests + architect + user) validate before merging to dev.
+AI works on dev branch. Gates (lint/tests + architect + user) validate before pushing.
 
 ```
-feature/PBI-XXX (sandbox)     dev (protected)
-       │                           │
-       │  AI works freely          │
-       │  commits, experiments     │
-       │                           │
-       └──► gate ──► user ──►──────┘
-            (lint+tests+architect)  approves
+dev branch
+    │
+    │  AI works, commits locally
+    │  user reviews each change
+    │
+    └──► gate ──► user ──► push
+         (lint+tests+architect)  approves
 ```
 
 ## Critical Rules
@@ -27,7 +27,6 @@ feature/PBI-XXX (sandbox)     dev (protected)
 2. **Infrastructure (.wag/*)** → Edit tool is fine
 3. **All code** → Follow `/home/samf/.claude/documents/typescript-rules.md`
 4. **All new code must have tests** → Every PBI/ADR includes test coverage requirement
-5. **Feature branch workflow** → AI works on feature/PBI-XXX, not dev
 
 ## Directory Structure
 
@@ -95,10 +94,9 @@ Create Architecture Decision Record for a PBI.
 
 ### On Entry
 
-1. Create and switch to feature branch:
+1. Switch to dev branch and pull:
    ```bash
    git checkout dev && git pull
-   git checkout -b feature/[PBI] # e.g., feature/PBI-028
    ```
 2. Update state.json: `current_mode = "DEV"`
 3. Verify ADR exists in `adr/active/`
@@ -106,16 +104,14 @@ Create Architecture Decision Record for a PBI.
 5. Create implementation plan
 6. Begin implementation
 
-### Development Phase (Sandbox)
+### Development Phase
 
-Dev has **complete freedom** on the feature branch:
 - Each file change → Write tool → user approves diff
 - Follow ADR requirements
 - Write tests as specified in ADR
-- Commit as needed (user approves each commit)
-- Push to feature branch freely
+- Commit locally as needed (user approves each commit)
 
-### Gate Check (Before Merge to Dev)
+### Gate Check (Before Push)
 
 When dev work is complete, run the gate:
 
@@ -138,7 +134,7 @@ When dev work is complete, run the gate:
 - If lint/tests failed → dev fixes, restart gate
 - If architect rejects → dev fixes, restart gate
 - If user disapproves → dev fixes, restart gate
-- All pass → proceed to merge
+- All pass → proceed to push
 
 ### Spawning the Architect Agent (Gate Check)
 
@@ -146,7 +142,7 @@ Use Task tool with:
 ```
 subagent_type: "architect"
 prompt: |
-  Review this complete changeset before merge to dev.
+  Review this complete changeset before push to dev.
 
   ## Changes
   ```diff
@@ -169,21 +165,20 @@ prompt: |
   Then: Summary of findings (what's good, what needs work)
 ```
 
-### On Merge (all gates pass)
+### On Complete (all gates pass)
 
 1. Mark criteria `[x]` on both ADR and PBI
 2. Move ADR to `adr/completed/`
 3. Move PBI to `backlog/_completed/`
-4. Commit final state on feature branch
-5. Merge to dev:
+4. Commit final state
+5. Push to dev:
    ```bash
-   git checkout dev
-   git merge feature/[PBI] --no-ff -m "Merge feature/[PBI]: [description]"
    git push origin dev
    ```
 6. Clear state.json (mode=null, active_pbi=null)
 7. Update Status.md
 8. Commit and push
+
 ---
 
 ## `/wag create [type] [app]` - Create New App
@@ -238,8 +233,7 @@ Every response starts with:
 
 **Branches:**
 - `main` - Production
-- `dev` - Protected integration branch
-- `feature/PBI-XXX` - AI sandbox (one per PBI)
+- `dev` - Integration branch (gate-checked before push)
 
 **Commit format:**
 ```
@@ -252,11 +246,10 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ```
 
 **AI can freely:**
-- Commit to feature branch
-- Push to feature branch
+- Commit locally to dev
 
-**AI cannot (enforced by deny list):**
-- Push directly to dev
+**AI cannot (enforced by gate):**
+- Push to dev without passing gate
 - Push directly to main
 - Force push
 
@@ -265,8 +258,8 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ## Success Criteria
 
 WAG is working if:
-- Dev works freely on feature branch
-- Gate check validates before merge (lint/tests → architect → user)
-- All three must approve before code is merged to dev
+- Dev works on dev branch, commits locally
+- Gate check validates before push (lint/tests → architect → user)
+- All three must approve before code is pushed
 - typescript-rules.md violations caught by lint
-- No merges to dev without your final approval
+- No pushes to dev without your final approval
