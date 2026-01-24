@@ -44,13 +44,17 @@ as required by the ADR.
 2. **Code Style** - Read `/home/samf/.claude/documents/typescript-rules.md` for TypeScript/JavaScript rules:
    - Single quotes for strings
    - No semicolons at end of lines
-   - Tabs for indentation (4 spaces wide)
    - No trailing commas
    - `==` instead of `===`
    - Single-statement blocks without braces
    - else/catch on new lines
 3. **Design** - Is the approach sound? Any obvious bugs?
 4. **Security** - Any injection risks, exposed secrets, etc.?
+
+## Important Clarifications
+
+- **Indentation (tabs vs spaces)**: Do NOT check indentation in code proposals. Markdown code blocks cannot reliably represent tabs. Indentation is enforced by lint tooling.
+- **Third-party code**: Code style rules apply only to the developer's code, NOT to third-party library APIs. For example, vitest's `toBe()` matcher is not a violation of the `==` rule - that rule applies to comparison operators written by the developer, not library method names.
 
 ## Keep It Brief
 
