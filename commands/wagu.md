@@ -124,8 +124,10 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 **Workflow:** User selects PBI → Architect explores and writes ADR → Discuss → PM for business alignment if needed.
 
+**ADR naming:** `adr/active/PBI-XXX-ADR.md` (matches PBI number)
+
 **On "approve":**
-1. Ensure ADR in `adr/active/`
+1. Finalize `adr/active/PBI-XXX-ADR.md`
 2. Update state.json, Status.md
 3. Commit and push
 4. `wag_send_message("architect", "decision", "ADR approved for [PBI]")`
@@ -143,7 +145,7 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
    ```
 2. `wag_set_state(app, "DEV", "dev", "Starting development", pbi)`
 3. Update state.json: `current_mode = "DEV"`
-4. Verify ADR in `adr/active/`
+4. Verify ADR exists in `adr/active/PBI-XXX-ADR.md`
 5. Read ADR, create plan
 6. `wag_send_message("dev", "system", "Starting DEV mode")`
 
@@ -221,8 +223,8 @@ Wait for user approval before proceeding.
 
 After user approves:
 1. Mark criteria `[x]` on ADR and PBI
-2. `mv adr/active/*.md adr/completed/`
-3. `mv backlog/PBI-XXX.md backlog/_completed/`
+2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
+3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
 4. Commit final state
 5. Push to dev:
    ```bash

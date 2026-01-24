@@ -44,6 +44,7 @@ dev branch
 │   └── _completed/         # Done PBIs (moved here after merge)
 └── adr/
     ├── active/             # 0 or 1 ADR (current work)
+    │   └── PBI-XXX-ADR.md  # Named to match PBI
     └── completed/          # Done ADRs
 ```
 
@@ -76,7 +77,7 @@ Create Architecture Decision Record for a PBI.
 - Update state.json: `current_mode = "ADR"`, `active_pbi = "PBI-XXX"`
 - If `adr/active/` has an ADR → User probably hit a problem in DEV. Discuss what to do.
 - List PBIs from `backlog/`, recommend one based on dependencies
-- Create ADR (draft) while discussing with user
+- Create ADR as `adr/active/PBI-XXX-ADR.md` (draft) while discussing with user
 
 **ADR must include test requirements:**
 - Every ADR must have a "Testing" section
@@ -84,7 +85,7 @@ Create Architecture Decision Record for a PBI.
 - Include acceptance criterion: `[ ] Tests written for new code`
 
 **On "approve":**
-1. Move ADR to `adr/active/`
+1. Finalize `adr/active/PBI-XXX-ADR.md`
 2. Update state.json and Status.md
 3. Commit and push
 
@@ -99,7 +100,7 @@ Create Architecture Decision Record for a PBI.
    git checkout dev && git pull
    ```
 2. Update state.json: `current_mode = "DEV"`
-3. Verify ADR exists in `adr/active/`
+3. Verify ADR exists in `adr/active/PBI-XXX-ADR.md`
 4. Read ADR content
 5. Create implementation plan
 6. Begin implementation
@@ -168,8 +169,8 @@ prompt: |
 ### On Complete (all gates pass)
 
 1. Mark criteria `[x]` on both ADR and PBI
-2. Move ADR to `adr/completed/`
-3. Move PBI to `backlog/_completed/`
+2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
+3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
 4. Commit final state
 5. Push to dev:
    ```bash
