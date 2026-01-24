@@ -10,7 +10,51 @@ interface TranscriptEntry {
 	timestamp: string
 }
 
+export interface FilterConfig {
+	skipIfStartsWith: string[]
+	skipIfContains: string[]
+	stripPatterns: string[]
+	transformations: Record<string, string>
+}
+
+const defaultFilters: FilterConfig = {
+	skipIfStartsWith: [
+		'<command-message>',
+		'<command-name>',
+		'<ide_opened_file>'
+	],
+	skipIfContains: [],
+	stripPatterns: [
+		'<system-reminder>[\\s\\S]*?</system-reminder>'
+	],
+	transformations: {
+		'This session is being continued from a previous conversation': '[Session resumed]'
+	}
+}
+
+let filters: FilterConfig = { ...defaultFilters }
 let pollInterval: NodeJS.Timeout | null = null
+
+export function loadFilters(appRoot: string): void {
+	const configPath = path.join(appRoot, '.wag', 'filters.json')
+
+	if (fs.existsSync(configPath)) {
+		try {
+			const content = fs.readFileSync(configPath, 'utf8')
+			filters = JSON.parse(content)
+		}
+		catch {
+			filters = { ...defaultFilters }
+		}
+	}
+	else {
+		filters = { ...defaultFilters }
+	}
+}
+
+export function getFilters(): FilterConfig {
+	return filters
+}
 
 export function getTranscriptDir(appRoot: string): string {
 	const encoded = appRoot.replace(/[\/\.]/g, '-')
@@ -57,20 +101,30 @@ export function parseTranscriptEntry(entry: TranscriptEntry, app: string): WagMe
 	if (!text)
 		return null
 
-	// Layer 1: Skip command/IDE tags
-	if (text.startsWith('<command-message>') || text.startsWith('<command-name>'))
-		return null
-	if (text.startsWith('<ide_opened_file>'))
-		return null
+	// Apply skipIfStartsWith filters
+	for (const prefix of filters.skipIfStartsWith) {
+		if (text.startsWith(prefix))
+			return null
+	}
 
-	// Transform context compaction to summary
-	if (text.includes('This session is being continued from a previous conversation'))
-		text = '[Session resumed]'
+	// Apply skipIfContains filters
+	for (const needle of filters.skipIfContains) {
+		if (text.includes(needle))
+			return null
+	}
 
-	// Strip system-reminder tags
-	text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim()
+	// Apply transformations
+	for (const [match, replacement] of Object.entries(filters.transformations)) {
+		if (text.includes(match))
+			text = replacement
+	}
 
-	// Layer 2: Fallback - user messages starting with < are system-injected
+	// Apply stripPatterns
+	for (const pattern of filters.stripPatterns) {
+		text = text.replace(new RegExp(pattern, 'g'), '').trim()
+	}
+
+	// Fallback: user messages starting with < are system-injected
 	if (entry.type == 'user' && text.trimStart().startsWith('<'))
 		return null
 

@@ -1,0 +1,19 @@
+{
+	"skipIfStartsWith": [
+		"<command-message>",
+		"<command-name>",
+		"<ide_opened_file>",
+		"# WAGU",
+		"# WAG -"
+	],
+	"skipIfContains": [
+		"ARGUMENTS:",
+		"This session is being continued from a previous conversation"
+	],
+	"stripPatterns": [
+		"<system-reminder>[\\s\\S]*?</system-reminder>"
+	],
+	"transformations": {
+		"This session is being continued": "[Session resumed]"
+	}
+}

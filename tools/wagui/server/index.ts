@@ -16,7 +16,7 @@ import {
 	type MessageType,
 	type App
 } from './db'
-import { startPolling, stopPolling } from './transcript'
+import { startPolling, stopPolling, loadFilters } from './transcript'
 import { runCop, canClear } from './cop'
 import { runGate } from './gate'
 
@@ -56,6 +56,7 @@ function broadcast(event: string, data: unknown): void {
 }
 
 function startTranscriptPolling(app: string, appRoot: string): void {
+	loadFilters(appRoot)
 	startPolling(
 		app,
 		appRoot,

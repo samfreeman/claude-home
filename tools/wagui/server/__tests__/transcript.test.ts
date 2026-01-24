@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { getTranscriptDir, findLatestTranscript, parseTranscriptEntry } from '../transcript'
+import { getTranscriptDir, findLatestTranscript, parseTranscriptEntry, loadFilters, getFilters } from '../transcript'
 
 describe('server/transcript', () => {
 	describe('getTranscriptDir', () => {
@@ -21,6 +21,57 @@ describe('server/transcript', () => {
 			expect(result).toBe(
 				path.join(os.homedir(), '.claude', 'projects', '-home-samf-source-claude-tools-wagui')
 			)
+		})
+	})
+
+	describe('loadFilters', () => {
+		let testDir: string
+
+		beforeEach(() => {
+			testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'filter-test-'))
+		})
+
+		afterEach(() => {
+			fs.rmSync(testDir, { recursive: true, force: true })
+		})
+
+		it('loads filters from .wag/filters.json', () => {
+			const wagDir = path.join(testDir, '.wag')
+			fs.mkdirSync(wagDir)
+			fs.writeFileSync(path.join(wagDir, 'filters.json'), JSON.stringify({
+				skipIfStartsWith: ['# TEST'],
+				skipIfContains: ['CUSTOM_NEEDLE'],
+				stripPatterns: ['<custom>.*?</custom>'],
+				transformations: { 'old text': 'new text' }
+			}))
+
+			loadFilters(testDir)
+			const filters = getFilters()
+
+			expect(filters.skipIfStartsWith).toContain('# TEST')
+			expect(filters.skipIfContains).toContain('CUSTOM_NEEDLE')
+			expect(filters.stripPatterns).toContain('<custom>.*?</custom>')
+			expect(filters.transformations['old text']).toBe('new text')
+		})
+
+		it('uses default filters when no config file exists', () => {
+			loadFilters(testDir)
+			const filters = getFilters()
+
+			expect(filters.skipIfStartsWith).toContain('<command-message>')
+			expect(filters.skipIfStartsWith).toContain('<command-name>')
+			expect(filters.skipIfStartsWith).toContain('<ide_opened_file>')
+		})
+
+		it('uses default filters when config is invalid JSON', () => {
+			const wagDir = path.join(testDir, '.wag')
+			fs.mkdirSync(wagDir)
+			fs.writeFileSync(path.join(wagDir, 'filters.json'), 'not valid json')
+
+			loadFilters(testDir)
+			const filters = getFilters()
+
+			expect(filters.skipIfStartsWith).toContain('<command-message>')
 		})
 	})
 
@@ -235,6 +286,53 @@ describe('server/transcript', () => {
 
 			expect(result).not.toBeNull()
 			expect(result!.content).toBe('<example>This is example code</example>')
+		})
+	})
+
+	describe('parseTranscriptEntry with custom filters', () => {
+		let testDir: string
+
+		beforeEach(() => {
+			testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'custom-filter-test-'))
+			const wagDir = path.join(testDir, '.wag')
+			fs.mkdirSync(wagDir)
+			fs.writeFileSync(path.join(wagDir, 'filters.json'), JSON.stringify({
+				skipIfStartsWith: ['# WAGU', '# WAG -'],
+				skipIfContains: ['ARGUMENTS:'],
+				stripPatterns: ['<system-reminder>[\\s\\S]*?</system-reminder>'],
+				transformations: {}
+			}))
+			loadFilters(testDir)
+		})
+
+		afterEach(() => {
+			fs.rmSync(testDir, { recursive: true, force: true })
+		})
+
+		it('filters messages starting with # WAGU', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: '# WAGU - WAG with UI\n\nSome content...' }] },
+				uuid: 'wagu-uuid',
+				timestamp: '2026-01-23T10:44:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('filters messages containing ARGUMENTS:', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: 'Some command content\n\nARGUMENTS: dev' }] },
+				uuid: 'args-uuid',
+				timestamp: '2026-01-23T10:45:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
 		})
 	})
 
