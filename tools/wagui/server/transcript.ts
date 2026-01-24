@@ -57,6 +57,26 @@ export function parseTranscriptEntry(entry: TranscriptEntry, app: string): WagMe
 	if (!text)
 		return null
 
+	// Layer 1: Skip command/IDE tags
+	if (text.startsWith('<command-message>') || text.startsWith('<command-name>'))
+		return null
+	if (text.startsWith('<ide_opened_file>'))
+		return null
+
+	// Transform context compaction to summary
+	if (text.includes('This session is being continued from a previous conversation'))
+		text = '[Session resumed]'
+
+	// Strip system-reminder tags
+	text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim()
+
+	// Layer 2: Fallback - user messages starting with < are system-injected
+	if (entry.type == 'user' && text.trimStart().startsWith('<'))
+		return null
+
+	if (!text)
+		return null
+
 	return {
 		id: entry.uuid,
 		timestamp: new Date(entry.timestamp).getTime(),

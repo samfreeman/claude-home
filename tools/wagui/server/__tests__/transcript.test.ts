@@ -128,6 +128,114 @@ describe('server/transcript', () => {
 
 			expect(result!.timestamp).toBe(new Date('2026-01-23T10:30:00.000Z').getTime())
 		})
+
+		// Filtering tests
+		it('filters command-message tags', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: '<command-message>wagu</command-message>' }] },
+				uuid: 'cmd-uuid',
+				timestamp: '2026-01-23T10:36:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('filters command-name tags', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: '<command-name>/wagu</command-name>' }] },
+				uuid: 'cmd-name-uuid',
+				timestamp: '2026-01-23T10:37:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('filters ide_opened_file tags', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: '<ide_opened_file>some/path.ts</ide_opened_file>' }] },
+				uuid: 'ide-uuid',
+				timestamp: '2026-01-23T10:38:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('transforms context compaction to summary', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: 'This session is being continued from a previous conversation that ran out of context.' }] },
+				uuid: 'compaction-uuid',
+				timestamp: '2026-01-23T10:39:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).not.toBeNull()
+			expect(result!.content).toBe('[Session resumed]')
+		})
+
+		it('strips system-reminder tags from content', () => {
+			const entry = {
+				type: 'assistant',
+				message: { content: [{ type: 'text', text: 'Hello<system-reminder>Some reminder</system-reminder> world' }] },
+				uuid: 'reminder-uuid',
+				timestamp: '2026-01-23T10:40:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).not.toBeNull()
+			expect(result!.content).toBe('Hello world')
+		})
+
+		it('returns null when only system-reminder content', () => {
+			const entry = {
+				type: 'assistant',
+				message: { content: [{ type: 'text', text: '<system-reminder>Only reminder here</system-reminder>' }] },
+				uuid: 'only-reminder-uuid',
+				timestamp: '2026-01-23T10:41:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('filters user messages starting with XML tags (fallback)', () => {
+			const entry = {
+				type: 'user',
+				message: { content: [{ type: 'text', text: '<some-unknown-tag>content</some-unknown-tag>' }] },
+				uuid: 'unknown-tag-uuid',
+				timestamp: '2026-01-23T10:42:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).toBeNull()
+		})
+
+		it('allows assistant messages starting with XML tags', () => {
+			const entry = {
+				type: 'assistant',
+				message: { content: [{ type: 'text', text: '<example>This is example code</example>' }] },
+				uuid: 'assistant-tag-uuid',
+				timestamp: '2026-01-23T10:43:00.000Z'
+			}
+
+			const result = parseTranscriptEntry(entry, 'test-app')
+
+			expect(result).not.toBeNull()
+			expect(result!.content).toBe('<example>This is example code</example>')
+		})
 	})
 
 	describe('findLatestTranscript', () => {

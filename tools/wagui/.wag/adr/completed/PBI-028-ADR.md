@@ -1,157 +1,101 @@
-# ADR: PBI-028 - App Registry & Selection
+# ADR: PBI-028 - Transcript Message Filtering
 
 ## Status
 
-Implemented
+Completed
 
 ## Context
 
-wagui needs to track which app/tool is being worked on to:
-1. Filter messages by app
-2. Derive transcript path for polling (PBI-029)
-3. Support switching between apps
+Transcript polling shows infrastructure noise that clutters the chat display:
 
-Currently `wag_set_state` only takes an app name. We need the full path to derive the transcript location.
+1. **Command invocation tags** - `<command-message>wagu</command-message>`
+2. **Context compaction summaries** - "This session is being continued from a previous conversation..."
+3. **System reminder tags** - `<system-reminder>` blocks embedded in messages
+4. **IDE events** - `<ide_opened_file>` injected into user messages
 
-## Decisions
+Worse: system-injected content is being attributed to the user. If the user didn't type it, it's not theirs.
 
-### 1. Apps Table
+## Decision
 
-Store app details in SQLite:
+### Layer 1: Filter known patterns
 
-```sql
-CREATE TABLE apps (
-    name TEXT PRIMARY KEY,
-    app_root TEXT NOT NULL,
-    repo_root TEXT,
-    last_used INTEGER NOT NULL
-)
-```
+Skip or transform known system patterns:
 
-### 2. Expand wag_set_state
+| Pattern | Action |
+|---------|--------|
+| `<command-message>`, `<command-name>` | Skip message |
+| `<ide_opened_file>` | Skip message |
+| "This session is being continued..." | Transform to `[Session resumed]` |
+| `<system-reminder>...</system-reminder>` | Strip from content |
 
-Add `appRoot` (required) and `repo` (optional) parameters:
+### Layer 2: Fallback attribution
+
+If a "user" type message starts with `<` (XML-style tag), it's system-injected, not user-typed:
+- Either skip it
+- Or attribute to "system" role, not "user"
 
 ```typescript
-wag_set_state({
-  app: "samx",                                    // required
-  appRoot: "/home/samf/source/claude/tools/samx", // NEW - required
-  repo: "/home/samf/source/claude",               // NEW - optional
-  mode: "DEV",
-  branch: "dev",
-  context: "...",
-  pbi: "PBI-028",
-  task: 1,
-  totalTasks: 5
-})
+// If user message starts with < tag, it's system-injected
+if (entry.type == 'user' && text.trimStart().startsWith('<'))
+    return null  // or change role to 'system'
 ```
 
-When called, upsert into `apps` table.
+### Implementation
 
-### 3. Bidirectional App Selection
+```typescript
+export function parseTranscriptEntry(entry: TranscriptEntry, app: string): WagMessage | null {
+    // ... existing extraction logic ...
 
-Single source of truth: server's `selectedApp`
+    // Skip command/IDE tags
+    if (text.startsWith('<command-message>') || text.startsWith('<command-name>'))
+        return null
+    if (text.startsWith('<ide_opened_file>'))
+        return null
 
-Two ways to change it:
-- **CLI**: `wag_set_state(app: "samx", appRoot: "...")`
-- **UI**: `POST /api/v1/select { app: "samx" }`
+    // Transform context compaction to summary
+    if (text.includes('This session is being continued from a previous conversation'))
+        text = '[Session resumed]'
 
-Either triggers:
-1. Update `selectedApp` in server memory
-2. Broadcast `app-changed` event via SSE
-3. (Future) Switch transcript watching to new app
+    // Strip system-reminder tags
+    text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '').trim()
 
-### 4. New API Endpoints
+    // Fallback: user messages starting with < are system-injected
+    if (entry.type == 'user' && text.trimStart().startsWith('<'))
+        return null
 
-**GET /api/v1/apps**
+    if (!text)
+        return null
 
-Returns known apps from database:
-
-```json
-{
-  "success": true,
-  "apps": [
-    {
-      "name": "samx",
-      "appRoot": "/home/samf/source/claude/tools/samx",
-      "repoRoot": "/home/samf/source/claude",
-      "lastUsed": 1737556800000
-    }
-  ]
+    // ... return message ...
 }
 ```
 
-**POST /api/v1/select**
-
-Switch active app from UI:
-
-```json
-{ "app": "samx" }
-```
-
-Server looks up `appRoot` from `apps` table, updates state, broadcasts.
-
-## Implementation Plan
-
-### Task 1: Database schema
-
-File: `server/db.ts`
-- Add `apps` table creation in `initDb()`
-- Add `upsertApp(name, appRoot, repoRoot)` function
-- Add `getApps()` function
-- Add `getApp(name)` function
-
-### Task 2: Update wag_set_state handler
-
-File: `server/index.ts`
-- Accept `appRoot` and `repo` in POST /api/v1/state
-- Call `upsertApp()` when state is set
-- Store `selectedApp` with full details in memory
-
-### Task 3: Add /api/v1/apps endpoint
-
-File: `server/index.ts`
-- GET handler returns `getApps()`
-
-### Task 4: Add /api/v1/select endpoint
-
-File: `server/index.ts`
-- POST handler looks up app, updates state, broadcasts
-
-### Task 5: Update wag-mcp tool definition
-
-File: `mcp-servers/wag-mcp/src/index.ts`
-- Add `appRoot` (required) and `repo` (optional) to wag_set_state schema
-
-### Task 6: Update wagu command
-
-File: `.claude/commands/wagu.md`
-- Document that appRoot must be passed
-- Show how to derive from cwd
-
-### Task 7: Tests
-
-File: `server/__tests__/apps.test.ts`
-- Test upsertApp, getApps, getApp
-- Test /api/v1/apps endpoint
-- Test /api/v1/select endpoint
-- Test state broadcast on app change
-
 ## Testing
 
-- Unit tests for database functions
-- Unit tests for new endpoints
-- Integration: wag_set_state upserts app
-- Integration: UI select switches app and broadcasts
+- `it('filters command-message tags')`
+- `it('filters command-name tags')`
+- `it('filters ide_opened_file tags')`
+- `it('transforms context compaction to summary')`
+- `it('strips system-reminder tags from content')`
+- `it('filters user messages starting with XML tags')`
+- `it('returns null when only system-reminder content')`
 
 ## Acceptance Criteria
 
-- [x] `apps` table in SQLite
-- [x] `wag_set_state` expanded with `appRoot` and `repo` parameters
-- [x] Calling `wag_set_state` upserts into apps table
-- [x] `GET /api/v1/apps` returns list of known apps
-- [x] `POST /api/v1/select` switches active app by name
-- [x] Selecting app broadcasts state change to UI via SSE
-- [x] wag-mcp tool definition updated for new parameters
-- [x] wagu command updated to pass appRoot/repo
-- [x] Tests written for new functionality
+- [x] Command invocation messages filtered out
+- [x] IDE event messages filtered out
+- [x] Context compaction transformed to brief summary
+- [x] System reminder tags stripped from content
+- [x] User messages with system-injected tags not attributed to user
+- [x] Tests written for filtering logic
+
+## Consequences
+
+### Positive
+- Clean chat display
+- Correct attribution - user only sees what they typed
+- Defense in depth with fallback filter
+
+### Negative
+- May filter legitimate messages starting with `<` (unlikely in chat)
+- Need to maintain filter patterns as Claude Code evolves
