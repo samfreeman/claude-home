@@ -138,42 +138,84 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 4. Read ADR, create plan
 5. `wag_send_message("dev", "system", "Starting DEV mode with [N] tasks")`
 
-**Per task:**
-1. `wag_set_state(..., task: N, totalTasks: T)`
-2. Propose code change → `wag_send_message("dev", "diff", code, file, task)`
-3. Spawn Architect agent to review
-4. `wag_send_message("architect", "review", reasoning, approved: bool)`
-5. If APPROVE → Write tool (user sees diff)
-6. If REJECT → Discuss, do NOT write
+### Development Phase
 
-**On "approve" (all work done):**
-1. Run quality gates: `cd [appRoot] && pnpm lint && pnpm test`
-2. Mark criteria `[x]` on ADR and PBI
-3. `mv adr/active/*.md adr/completed/`
-4. `mv backlog/PBI-XXX.md backlog/_completed/`
-5. Clear state.json: `mode=null, active_pbi=null`
-6. Update Status.md
-7. Commit and push
-8. `wag_clear()`
-9. `wag_send_message("dev", "system", "PBI completed")`
+Dev completes all work uninterrupted:
+- Each file change → Write tool → user approves diff
+- Follow ADR requirements
+- Write tests as specified in ADR
+- Update task progress: `wag_set_state(..., task: N, totalTasks: T)`
 
----
+### Gate Check
 
-## Architect Agent
+When dev work is complete, run the gate before commit:
+
+**1. wag_cop**
+```
+wag_send_message("dev", "system", "Running gate check...")
+```
+- Run `wag_cop(pbi)` via MCP
+- If fails → `wag_send_message("dev", "system", "Cop failed: [failures]")`
+- Dev fixes issues, restart gate
+
+**2. Architect Review** (only if cop passes)
+```
+wag_send_message("dev", "system", "Cop passed. Running architect review...")
+```
+- Spawn architect agent with full `git diff`
+- Architect reviews against ADR requirements
+- `wag_send_message("architect", "review", feedback, approved: bool)`
+- If rejects → dev fixes, restart gate
+
+**3. Report to User**
+- Show cop results
+- Show architect feedback
+- Wait for user approval
+
+**4. Evaluate**
+- If cop failed → dev fixes, restart gate
+- If architect rejects → dev fixes, restart gate
+- If user disapproves → dev fixes, restart gate
+- All pass → proceed to commit
+
+### Architect Agent (Gate Check)
 
 ```
 subagent_type: "architect"
 prompt: |
-  Review this code change.
-  File: [path]
-  ```
-  [CODE]
-  ```
-  ADR: [requirements]
-  Rules: single quotes, no semicolons, tabs, no trailing commas, == not ===
+  Review this complete changeset before commit.
 
-  Return: APPROVE or REJECT + 2-3 sentences why.
+  ## Changes
+  ```diff
+  [git diff output]
+  ```
+
+  ## ADR Requirements
+  [ADR content]
+
+  ## Code Style Rules
+  - Single quotes, no semicolons, tabs, no trailing commas
+  - == not ===, else/catch on new lines
+
+  ## Review
+  1. Does the changeset fulfill ADR requirements?
+  2. Are there design concerns or missing pieces?
+  3. Code style violations?
+
+  Return: APPROVE or REJECT
+  Then: Summary of findings (what's good, what needs work)
 ```
+
+### On Commit (all gates pass)
+
+1. Mark criteria `[x]` on ADR and PBI
+2. `mv adr/active/*.md adr/completed/`
+3. `mv backlog/PBI-XXX.md backlog/_completed/`
+4. Clear state.json: `mode=null, active_pbi=null`
+5. Update Status.md
+6. Commit and push
+7. `wag_clear()`
+8. `wag_send_message("dev", "system", "PBI completed")`
 
 ---
 

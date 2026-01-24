@@ -1,21 +1,11 @@
 ---
-description: Product development workflow - DOCS → ADR → DEV (with architect review)
+description: Product development workflow - DOCS → ADR → DEV (with gate check)
 allowed-tools: Read, Write, Grep, Glob, TodoWrite, Bash, Task
 ---
 
 # WAG - Product Development Workflow
 
 **Journey:** `/wag docs` → `/wag adr` → `/wag dev`
-
-WAG uses architect review in DEV mode to ensure code quality before you see any diffs.
-
-## Why Architect Review?
-
-In long Claude sessions, rules get buried in context and compliance drops. WAG solves this by:
-
-1. **Architect gate** - Every code change reviewed by fresh-context Architect agent
-2. **No diff without approval** - You only see diffs for Architect-approved changes
-3. **Reject = rethink** - If Architect rejects, we discuss a new approach
 
 ## Critical Rules
 
@@ -86,7 +76,7 @@ Create Architecture Decision Record for a PBI.
 
 ---
 
-## `/wag dev` - DEV Mode (Architect-Gated)
+## `/wag dev` - DEV Mode
 
 **On entry:**
 1. Update state.json: `current_mode = "DEV"`
@@ -94,110 +84,75 @@ Create Architecture Decision Record for a PBI.
 3. Verify on dev branch
 4. Read ADR content
 5. Create implementation plan
-6. Begin implementation (one task at a time)
+6. Begin implementation
 
-### Architecture
+### Development Phase
 
-```
-Orchestrator (you talk to me)
-    │
-    ├── I propose code changes
-    │
-    ├── Spawn Architect agent to review
-    │       └── Returns: APPROVE or REJECT + reasoning
-    │
-    └── If APPROVE → Call Write (you see diff)
-        If REJECT → Show concerns, discuss new approach
-```
+Dev completes all work uninterrupted:
+- Each file change → Write tool → user approves diff
+- Follow ADR requirements
+- Write tests as specified in ADR
 
-**Orchestrator writes code proposals directly.**
-**Architect is the gate.** You only see diffs for approved changes.
+### Gate Check
 
-### The Flow (Per Task)
+When dev work is complete, run the gate before commit:
 
-```
-1. Orchestrator reads files, proposes code change
-       ↓
-2. Orchestrator spawns Architect agent with:
-   - The proposed change
-   - ADR requirements
-   - typescript-rules.md
-       ↓
-3. Architect returns APPROVE or REJECT
-       ↓
-4. If APPROVE:
-   - Show "🏗️ **Architect:** [reasoning]"
-   - Call Write tool (you see diff in VS Code)
-   - Wait for your approval
-       ↓
-5. If REJECT:
-   - Show "🏗️ **Architect:** [concerns]"
-   - Discuss: "How should we approach this differently?"
-   - Do NOT call Write
-       ↓
-6. Move to next task (or rework current task)
-```
+**1. wag_cop**
+- Checks: lint, test, ADR moved, PBI moved, criteria complete, git clean
+- If fails → show failures, dev fixes, restart gate
 
-### Spawning the Architect Agent
+**2. Architect Review** (only if cop passes)
+- Spawn architect agent with full `git diff`
+- Architect reviews against ADR requirements
+- Returns: APPROVE or REJECT + feedback
+
+**3. Report to User**
+- Show cop results
+- Show architect feedback
+
+**4. Evaluate**
+- If cop failed → dev fixes, restart gate
+- If architect rejects → dev fixes, restart gate
+- If user disapproves → dev fixes, restart gate
+- All pass → proceed to commit
+
+### Spawning the Architect Agent (Gate Check)
 
 Use Task tool with:
 ```
 subagent_type: "architect"
 prompt: |
-  Review this proposed code change.
+  Review this complete changeset before commit.
 
-  ## Proposed Change
-  File: [path]
-  ```typescript
-  [PROPOSED CODE]
+  ## Changes
+  ```diff
+  [git diff output]
   ```
 
   ## ADR Requirements
-  [RELEVANT SECTION]
+  [ADR content]
 
   ## Code Style Rules
   - Single quotes, no semicolons, tabs, no trailing commas
   - == not ===, else/catch on new lines
-  - Single-statement blocks without braces
 
-  ## Your Assessment
-  1. Does it meet ADR requirements?
-  2. Does it follow code style rules?
-  3. Any bugs, security issues, or design concerns?
+  ## Review
+  1. Does the changeset fulfill ADR requirements?
+  2. Are there design concerns or missing pieces?
+  3. Code style violations?
 
   Return: APPROVE or REJECT
-  Then: 2-3 sentences explaining why.
+  Then: Summary of findings (what's good, what needs work)
 ```
 
-### Presenting Results
+### On Commit (all gates pass)
 
-**If Architect approves:**
-```
-🏗️ **Architect:** APPROVE - [reasoning]
-
-[Call Write tool - user sees diff]
-```
-
-**If Architect rejects:**
-```
-🏗️ **Architect:** REJECT - [concerns]
-
-The Architect flagged issues with this approach. Let's discuss:
-- [summarize concerns]
-- What direction would you like to take?
-```
-
-Do NOT call Write if Architect rejects.
-
-### On "approve" (when all ADR work is done)
-
-1. Run quality gates: format → lint → type-check → test
-2. Mark criteria `[x]` on both ADR and PBI
-3. Move ADR to `adr/completed/`
-4. Move PBI to `backlog/_completed/`
-5. Clear state.json (mode=null, active_pbi=null)
-6. Update Status.md
-7. Commit to dev branch and push
+1. Mark criteria `[x]` on both ADR and PBI
+2. Move ADR to `adr/completed/`
+3. Move PBI to `backlog/_completed/`
+4. Clear state.json (mode=null, active_pbi=null)
+5. Update Status.md
+6. Commit to dev branch and push
 
 ---
 
@@ -249,20 +204,6 @@ Every response starts with:
 
 ---
 
-## Quality Gates
-
-Run from app directory before final approve:
-```bash
-pnpm format          # Auto-format code
-pnpm lint            # Check code quality
-pnpm type-check      # Verify types
-pnpm test            # Run tests
-```
-
-All must pass before committing.
-
----
-
 ## Git Workflow
 
 - **All modes:** Work on `dev` branch
@@ -283,7 +224,8 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ## Success Criteria
 
 WAG is working if:
-- You only see diffs for Architect-approved changes
-- Architect rejections lead to discussion, not forced writes
-- typescript-rules.md violations caught before you see the diff
-- No file changes without your approval
+- Dev completes work without interruption
+- Gate check validates before commit (cop → architect → user)
+- All three must approve before code is committed
+- typescript-rules.md violations caught by cop (lint)
+- No commits without your final approval
