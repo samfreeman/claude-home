@@ -117,7 +117,7 @@ function handleState(req: IncomingMessage, res: ServerResponse): void {
 					repoRoot: repo || null,
 					lastUsed: Date.now()
 				}
-				startTranscriptPolling(app, appRoot)
+				startTranscriptPolling(app, repo || appRoot)
 			}
 
 			state = {
@@ -295,7 +295,7 @@ function handleSelect(req: IncomingMessage, res: ServerResponse): void {
 
 			state.selectedApp = app
 			state.header.app = app.name
-			startTranscriptPolling(app.name, app.appRoot)
+			startTranscriptPolling(app.name, app.repoRoot || app.appRoot)
 
 			broadcast('state', state)
 			broadcast('app-changed', { app })
