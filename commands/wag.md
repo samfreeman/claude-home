@@ -25,7 +25,7 @@ feature/PBI-XXX (sandbox)     dev (protected)
 
 1. **Source code (src/**)** → Use Write tool (user sees diff)
 2. **Infrastructure (.wag/*)** → Edit tool is fine
-3. **All code** → Follow `/home/samf/source/claude/documents/typescript-rules.md`
+3. **All code** → Follow `/home/samf/.claude/documents/typescript-rules.md`
 4. **All new code must have tests** → Every PBI/ADR includes test coverage requirement
 5. **Feature branch workflow** → AI works on feature/PBI-XXX, not dev
 
