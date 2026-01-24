@@ -36,6 +36,16 @@ export interface App {
 	lastUsed: number
 }
 
+export interface CopSession {
+	id: string
+	app: string
+	pbi: string
+	passed: boolean
+	failures: string[]
+	createdAt: number
+	updatedAt: number
+}
+
 interface StoredMessage {
 	id: string
 	timestamp: number
@@ -60,6 +70,16 @@ interface StoredTranscriptOffset {
 	app: string
 	file_path: string
 	byte_offset: number
+	updated_at: number
+}
+
+interface StoredCopSession {
+	id: string
+	app: string
+	pbi: string
+	passed: number
+	failures: string | null
+	created_at: number
 	updated_at: number
 }
 
@@ -111,6 +131,19 @@ export function initDb(dbPath?: string): Database.Database {
 			updated_at INTEGER NOT NULL
 		)
 	`)
+
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS cop_sessions (
+			id TEXT PRIMARY KEY,
+			app TEXT NOT NULL,
+			pbi TEXT NOT NULL,
+			passed INTEGER NOT NULL DEFAULT 0,
+			failures TEXT,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL
+		)
+	`)
+	db.exec(`CREATE INDEX IF NOT EXISTS idx_cop_sessions_app_pbi ON cop_sessions(app, pbi)`)
 
 	return db
 }
@@ -271,4 +304,49 @@ export function setTranscriptOffset(app: string, filePath: string, byteOffset: n
 			updated_at = excluded.updated_at
 	`)
 	stmt.run(app, filePath, byteOffset, Date.now())
+}
+
+export function saveCopSession(session: CopSession): void {
+	const database = getDb()
+	const stmt = database.prepare(`
+		INSERT INTO cop_sessions (id, app, pbi, passed, failures, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			passed = excluded.passed,
+			failures = excluded.failures,
+			updated_at = excluded.updated_at
+	`)
+	stmt.run(
+		session.id,
+		session.app,
+		session.pbi,
+		session.passed ? 1 : 0,
+		session.failures.length > 0 ? JSON.stringify(session.failures) : null,
+		session.createdAt,
+		session.updatedAt)
+}
+
+export function getLatestCopSession(app: string, pbi: string): CopSession | null {
+	const database = getDb()
+	const row = database.prepare(
+		'SELECT * FROM cop_sessions WHERE app = ? AND pbi = ? ORDER BY updated_at DESC LIMIT 1'
+	).get(app, pbi) as StoredCopSession | undefined
+
+	if (!row)
+		return null
+
+	return {
+		id: row.id,
+		app: row.app,
+		pbi: row.pbi,
+		passed: row.passed == 1,
+		failures: row.failures ? JSON.parse(row.failures) : [],
+		createdAt: row.created_at,
+		updatedAt: row.updated_at
+	}
+}
+
+export function clearCopSession(app: string, pbi: string): void {
+	const database = getDb()
+	database.prepare('DELETE FROM cop_sessions WHERE app = ? AND pbi = ?').run(app, pbi)
 }

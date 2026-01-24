@@ -11,7 +11,6 @@ interface TranscriptEntry {
 }
 
 let pollInterval: NodeJS.Timeout | null = null
-let currentApp: string | null = null
 
 export function getTranscriptDir(appRoot: string): string {
 	const encoded = appRoot.replace(/[\/\.]/g, '-')
@@ -115,7 +114,6 @@ export function startPolling(
 	onMessage: (msg: WagMessage) => void
 ): void {
 	stopPolling()
-	currentApp = app
 
 	const transcriptDir = getTranscriptDir(appRoot)
 
@@ -149,5 +147,4 @@ export function stopPolling(): void {
 		clearInterval(pollInterval)
 		pollInterval = null
 	}
-	currentApp = null
 }

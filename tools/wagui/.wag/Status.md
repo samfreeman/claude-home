@@ -1,8 +1,8 @@
 # WAGUI Status
 
 ## Current State
-- **Mode:** ADR
-- **Active PBI:** PBI-029 (Transcript Polling & Display)
+- **Mode:** None
+- **Active PBI:** None
 - **Branch:** dev
 
 ## Backlog
@@ -22,12 +22,13 @@
 | PBI-019 | Smart Content Rendering | Ready |
 | PBI-020 | HTML Content Rendering | Ready |
 | PBI-021 | Message Search | Ready |
-| PBI-026 | WAG Cop Integration | Ready |
+| PBI-028 | Transcript Message Filtering | Ready |
 | PBI-029 | Transcript Polling & Display | ADR Approved |
 
 ## Completed
 | PBI | Title | Completed |
 |-----|-------|-----------|
+| PBI-026 | wag_cop Postcondition Enforcement | 2026-01-23 |
 | PBI-028 | App Registry & Selection | 2026-01-22 |
 | PBI-023 | Overflow Protection | 2026-01-21 |
 | PBI-007 | Persistent State Header | 2026-01-20 |
@@ -40,10 +41,11 @@
 | PBI-001 | SQLite Persistence | 2026-01-12 |
 
 ## Recent Activity
+- 2026-01-23: PBI-026 completed - wag_cop postcondition enforcement
 - 2026-01-22: ADR approved for PBI-029 (Transcript Polling & Display)
 - 2026-01-22: PBI-028 completed - App Registry & Selection
 - 2026-01-21: PBI-023 completed - Overflow protection + vitest config
 - 2026-01-20: PBI-007 completed - Persistent state header
 
 ## Next Steps
-- Run `/wagu dev` to implement PBI-029
+- Run `/wagu adr` or `/wagu dev` to start next PBI

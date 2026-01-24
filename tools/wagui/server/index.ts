@@ -6,6 +6,7 @@ import {
 	getMessages,
 	getMessageById,
 	clearMessages,
+	clearCopSession,
 	upsertApp,
 	getApps,
 	getApp,
@@ -16,6 +17,7 @@ import {
 	type App
 } from './db'
 import { startPolling, stopPolling } from './transcript'
+import { runCop, canClear } from './cop'
 
 const PORT = parseInt(process.env.PORT || '3099')
 const HOST = process.env.HOST || '0.0.0.0'
@@ -219,6 +221,18 @@ function handleMessages(req: IncomingMessage, res: ServerResponse): void {
 	}
 
 	if (req.method == 'DELETE') {
+		const app = state.header.app
+		const pbi = state.activePbi || null
+
+		const check = canClear(app, pbi)
+		if (!check.allowed) {
+			sendJson(res, { success: false, error: check.reason }, 403)
+			return
+		}
+
+		if (pbi)
+			clearCopSession(app, pbi)
+
 		clearMessages()
 		state = {
 			header: {
@@ -310,6 +324,35 @@ function handleSelect(req: IncomingMessage, res: ServerResponse): void {
 	sendJson(res, { error: 'Method not allowed' }, 405)
 }
 
+function handleCop(req: IncomingMessage, res: ServerResponse): void {
+	if (req.method == 'POST') {
+		parseBody(req).then(body => {
+			const { pbi } = body as { pbi: string }
+
+			if (!pbi) {
+				sendJson(res, { success: false, error: 'pbi is required' }, 400)
+				return
+			}
+
+			if (!state.selectedApp) {
+				sendJson(res, { success: false, error: 'No app selected' }, 400)
+				return
+			}
+
+			runCop(state.selectedApp.name, state.selectedApp.appRoot, pbi).then(result => {
+				sendJson(res, { success: true, ...result })
+			}).catch(err => {
+				sendJson(res, { success: false, error: err.message }, 500)
+			})
+		}).catch(err => {
+			sendJson(res, { success: false, error: err.message }, 400)
+		})
+		return
+	}
+
+	sendJson(res, { error: 'Method not allowed' }, 405)
+}
+
 const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 	res.setHeader('Access-Control-Allow-Origin', '*')
 	res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
@@ -334,6 +377,9 @@ const server = createServer((req: IncomingMessage, res: ServerResponse) => {
 
 	if (url == '/api/v1/select')
 		return handleSelect(req, res)
+
+	if (url == '/api/v1/cop')
+		return handleCop(req, res)
 
 	if (url == '/events')
 		return handleEvents(req, res)

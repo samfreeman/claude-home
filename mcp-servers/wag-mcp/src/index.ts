@@ -165,6 +165,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 					type: 'object',
 					properties: {}
 				}
+			},
+			{
+				name: 'wag_cop',
+				description: 'Validate postconditions before allowing wag_clear. Must pass before clear is allowed.',
+				inputSchema: {
+					type: 'object',
+					properties: {
+						pbi: {
+							type: 'string',
+							description: 'PBI being completed (e.g., PBI-026)'
+						}
+					},
+					required: ['pbi']
+				}
 			}
 		]
 	}
@@ -219,6 +233,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 			case 'wag_clear': {
 				const result = await apiCall('DELETE', '/messages')
+				return {
+					content: [{
+						type: 'text',
+						text: JSON.stringify(result, null, 2)
+					}]
+				}
+			}
+
+			case 'wag_cop': {
+				const { pbi } = args as { pbi: string }
+				const result = await apiCall('POST', '/cop', { pbi })
 				return {
 					content: [{
 						type: 'text',

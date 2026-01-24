@@ -106,11 +106,12 @@ describe('server/transcript', () => {
 		it('returns null when message is missing', () => {
 			const entry = {
 				type: 'user',
+				message: undefined,
 				uuid: 'no-message-uuid',
 				timestamp: '2026-01-23T10:35:00.000Z'
 			}
 
-			const result = parseTranscriptEntry(entry as any, 'test-app')
+			const result = parseTranscriptEntry(entry, 'test-app')
 
 			expect(result).toBeNull()
 		})
