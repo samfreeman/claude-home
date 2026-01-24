@@ -60,7 +60,6 @@
       "Bash(git reset*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
-      "Bash(git push*origin dev*)",
       "Bash(git push*origin main*)",
       "Bash(git push*origin master*)"
     ],
