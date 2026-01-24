@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, TodoWrite, Bash, Task
 
 ## Core Principle: Sandbox + Gate
 
-AI has **complete freedom** on feature branches. Gates (cop + architect + user) validate before merging to dev.
+AI has **complete freedom** on feature branches. Gates (lint/tests + architect + user) validate before merging to dev.
 
 ```
 feature/PBI-XXX (sandbox)     dev (protected)
@@ -18,7 +18,7 @@ feature/PBI-XXX (sandbox)     dev (protected)
        │  commits, experiments     │
        │                           │
        └──► gate ──► user ──►──────┘
-            (cop+architect)  approves
+            (lint+tests+architect)  approves
 ```
 
 ## Critical Rules
@@ -119,23 +119,23 @@ Dev has **complete freedom** on the feature branch:
 
 When dev work is complete, run the gate:
 
-**1. Cop Check**
+**1. Run Lint & Tests**
 - Run lint and tests
 - If fails → dev fixes, restart gate
 
-**2. Architect Review** (only if cop passes)
+**2. Architect Review** (only if lint/tests pass)
 - Spawn architect agent with full `git diff`
 - Architect reviews against ADR requirements
 - Returns: APPROVE or REJECT + feedback
 - If rejects → dev fixes, restart gate
 
 **3. Report to User**
-- Show cop results
+- Show lint/test results
 - Show architect feedback
 - Wait for user approval
 
 **4. Evaluate**
-- If cop failed → dev fixes, restart gate
+- If lint/tests failed → dev fixes, restart gate
 - If architect rejects → dev fixes, restart gate
 - If user disapproves → dev fixes, restart gate
 - All pass → proceed to merge
@@ -183,7 +183,7 @@ prompt: |
    ```
 6. Clear state.json (mode=null, active_pbi=null)
 7. Update Status.md
-
+8. Commit and push
 ---
 
 ## `/wag create [type] [app]` - Create New App
@@ -266,7 +266,7 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 
 WAG is working if:
 - Dev works freely on feature branch
-- Gate check validates before merge (cop → architect → user)
+- Gate check validates before merge (lint/tests → architect → user)
 - All three must approve before code is merged to dev
-- typescript-rules.md violations caught by cop (lint)
+- typescript-rules.md violations caught by lint
 - No merges to dev without your final approval
