@@ -16,7 +16,7 @@ export interface GateResult {
 
 async function runLint(appRoot: string): Promise<{ passed: boolean; output: string }> {
 	try {
-		const { stdout, stderr } = await execAsync('pnpm lint', { cwd: appRoot })
+		const { stdout } = await execAsync('pnpm lint', { cwd: appRoot })
 		return { passed: true, output: stdout || 'Lint passed' }
 	}
 	catch (error) {
@@ -28,7 +28,7 @@ async function runLint(appRoot: string): Promise<{ passed: boolean; output: stri
 
 async function runTests(appRoot: string): Promise<{ passed: boolean; output: string }> {
 	try {
-		const { stdout, stderr } = await execAsync('pnpm test', { cwd: appRoot })
+		const { stdout } = await execAsync('pnpm test', { cwd: appRoot })
 		return { passed: true, output: stdout || 'Tests passed' }
 	}
 	catch (error) {
@@ -43,7 +43,7 @@ async function getGitDiff(appRoot: string): Promise<string> {
 		const { stdout } = await execAsync('git diff HEAD', { cwd: appRoot })
 		return stdout || '(no changes)'
 	}
-	catch (error) {
+	catch {
 		return '(failed to get diff)'
 	}
 }
@@ -72,7 +72,6 @@ async function readAdr(appRoot: string, pbi: string): Promise<string | null> {
 }
 
 export async function runGate(
-	app: string,
 	appRoot: string,
 	pbi: string,
 	broadcast: (event: string, data: unknown) => void

@@ -52,17 +52,17 @@ Create `.wag/filters.json` config file with filter patterns.
 
 ## Testing
 
-- [ ] Filter loading from JSON
-- [ ] skipIfStartsWith filtering
-- [ ] skipIfContains filtering
-- [ ] stripPatterns regex removal
-- [ ] transformations text replacement
-- [ ] Fallback when no config file
+- [x] Filter loading from JSON
+- [x] skipIfStartsWith filtering
+- [x] skipIfContains filtering
+- [x] stripPatterns regex removal
+- [x] transformations text replacement
+- [x] Fallback when no config file
 
 ## Acceptance Criteria
 
-- [ ] Create `.wag/filters.json` with default patterns
-- [ ] Load filter config on app selection
-- [ ] Apply all filter types in parseTranscriptEntry
-- [ ] Existing hardcoded filters moved to config
-- [ ] Tests for filter logic
+- [x] Create `.wag/filters.json` with default patterns
+- [x] Load filter config on app selection
+- [x] Apply all filter types in parseTranscriptEntry
+- [x] Existing hardcoded filters moved to config
+- [x] Tests for filter logic

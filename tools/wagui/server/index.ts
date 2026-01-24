@@ -370,7 +370,7 @@ function handleGate(req: IncomingMessage, res: ServerResponse): void {
 				return
 			}
 
-			runGate(state.selectedApp.name, state.selectedApp.appRoot, pbi, broadcast).then(result => {
+			runGate(state.selectedApp.appRoot, pbi, broadcast).then(result => {
 				sendJson(res, { success: true, ...result })
 			}).catch(err => {
 				sendJson(res, { success: false, error: err.message }, 500)

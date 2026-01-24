@@ -50,7 +50,8 @@
       "mcp__wag__wag_set_state",
       "Bash(ss:*)",
       "mcp__wag__wag_clear",
-      "Bash(pnpm wag:start:*)"
+      "Bash(pnpm wag:start:*)",
+      "mcp__wag__wag_gate"
     ],
     "deny": [
       "Bash(git commit*)",
