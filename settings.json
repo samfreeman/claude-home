@@ -50,7 +50,9 @@
       "mcp__wag__wag_set_state",
       "Bash(ss:*)",
       "mcp__wag__wag_clear",
-      "Bash(pnpm wag:start:*)"
+      "Bash(pnpm wag:start:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [
       "Bash(git commit*)",
@@ -58,7 +60,6 @@
       "Bash(git reset*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
-      "Bash(git push*origin dev*)",
       "Bash(git push*origin main*)",
       "Bash(git push*origin master*)"
     ],
