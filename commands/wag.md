@@ -27,6 +27,7 @@ dev branch
 2. **Infrastructure (.wag/*)** → Edit tool is fine
 3. **All code** → Follow `/home/samf/.claude/documents/typescript-rules.md`
 4. **All new code must have tests** → Every PBI/ADR includes test coverage requirement
+5. **Only the user can switch modes** → Never auto-transition between DOCS/ADR/DEV
 
 ## Directory Structure
 
@@ -66,6 +67,7 @@ Update PRD, Architecture, and backlog PBIs.
 
 **On exit:**
 - If any docs were modified → commit and push
+- Stay in DOCS mode until user runs another command
 
 ---
 
@@ -88,6 +90,8 @@ Create Architecture Decision Record for a PBI.
 1. Finalize `adr/active/PBI-XXX-ADR.md`
 2. Update state.json and Status.md
 3. Commit and push
+4. **Stay in ADR mode** — Do NOT auto-transition to DEV
+5. Inform user: "ADR approved. Run `/wag dev` when ready to implement."
 
 ---
 

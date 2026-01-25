@@ -109,7 +109,7 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 **Workflow:** PM defines requirements, Architect makes technical decisions. Document in PRD/Architecture, then add to backlog.
 
-**On exit:** Commit and push if docs modified.
+**On exit:** Commit and push if docs modified. Stay in DOCS mode until user runs another command.
 
 ---
 
@@ -131,7 +131,8 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 2. Update state.json, Status.md
 3. Commit and push
 4. `wag_send_message("architect", "decision", "ADR approved for [PBI]")`
-5. **STOP** - Tell user: "Run `/wagu dev` when ready."
+5. **Stay in ADR mode** — Do NOT auto-transition to DEV
+6. Inform user: "ADR approved. Run `/wagu dev` when ready to implement."
 
 ---
 
@@ -190,14 +191,20 @@ prompt: |
   ## ADR Requirements
   [adr from gate result]
 
-  ## Code Style Rules
+  ## Code Style Rules (apply to project src/ code only)
+  For files in src/** (project source code):
   - Single quotes, no semicolons, tabs, no trailing commas
   - == not ===, else/catch on new lines
+
+  Do NOT apply these style rules to:
+  - Third-party code, vendor files, or node_modules
+  - Generated files (e.g., package-lock.json, pnpm-lock.yaml)
+  - Framework boilerplate or config files
 
   ## Review
   1. Does the changeset fulfill ADR requirements?
   2. Are there design concerns or missing pieces?
-  3. Code style violations?
+  3. Code style violations in project source code?
 
   Return: APPROVE or REJECT
   Then: Summary of findings (what's good, what needs work)
