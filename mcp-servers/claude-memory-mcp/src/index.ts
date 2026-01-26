@@ -177,7 +177,7 @@ const stmts = {
 }
 
 const server = new Server(
-	{ name: 'claude-memory-mcp', version: '2.0.0' },
+	{ name: 'claude-memory-mcp', version: '2.1.0' },
 	{ capabilities: { tools: {} } }
 )
 
@@ -522,21 +522,56 @@ function handleMemoryWrite(args: { type: string; category?: string; key: string;
 }
 
 function handleMemorySearch(args: { query: string }) {
-	const search = `%${args.query}%`
+	// Split query into words, filter out short/common words
+	const stopWords = new Set(['a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'and', 'but', 'if', 'or', 'because', 'until', 'while', 'about', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'it', 'its', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'they', 'them', 'their', 'theirs', 'themselves'])
+
+	const words = args.query
+		.toLowerCase()
+		.split(/\s+/)
+		.filter(w => w.length >= 2 && !stopWords.has(w))
+
+	// If no valid words after filtering, try the whole query
+	if (words.length == 0) {
+		words.push(args.query.toLowerCase())
+	}
+
+	// Use Maps to deduplicate by unique key
+	const factResults = new Map<string, { category: string; key: string; value: string }>()
+	const hwResults = new Map<string, { name: string; specs: string; purpose: string; location: string }>()
+	const projResults = new Map<string, { name: string; status: string; notes: string }>()
+
+	// Search for each word
+	for (const word of words) {
+		const search = `%${word}%`
+
+		const facts = stmts.searchFacts.all(search, search) as { category: string; key: string; value: string }[]
+		for (const r of facts) {
+			factResults.set(`${r.category}/${r.key}`, r)
+		}
+
+		const hw = stmts.searchHardware.all(search, search, search) as { name: string; specs: string; purpose: string; location: string }[]
+		for (const r of hw) {
+			hwResults.set(r.name, r)
+		}
+
+		const proj = stmts.searchProjects.all(search, search) as { name: string; status: string; notes: string }[]
+		for (const r of proj) {
+			projResults.set(r.name, r)
+		}
+	}
+
+	// Build results
 	const results: string[] = []
 
-	const facts = stmts.searchFacts.all(search, search) as { category: string; key: string; value: string }[]
-	for (const r of facts) {
+	for (const r of factResults.values()) {
 		results.push(`[fact] ${r.category}/${r.key}: ${r.value}`)
 	}
 
-	const hw = stmts.searchHardware.all(search, search, search) as { name: string; purpose: string; location: string }[]
-	for (const r of hw) {
+	for (const r of hwResults.values()) {
 		results.push(`[hardware] ${r.name}: ${r.purpose} (${r.location})`)
 	}
 
-	const proj = stmts.searchProjects.all(search, search) as { name: string; status: string; notes: string }[]
-	for (const r of proj) {
+	for (const r of projResults.values()) {
 		results.push(`[project] ${r.name} [${r.status}]`)
 	}
 
@@ -707,4 +742,4 @@ function handleTaskUpdate(args: { id: number; status?: string; description?: str
 // Start server
 const transport = new StdioServerTransport()
 server.connect(transport)
-console.error('claude-memory-mcp running (v2.0.0)')
+console.error('claude-memory-mcp running (v2.1.0)')

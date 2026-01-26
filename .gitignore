@@ -16,6 +16,14 @@ plugins/
 .credentials.json
 stats-cache.json
 
+# SQLite database files (personal data)
+memory.db
+memory.db-shm
+memory.db-wal
+*.db
+*.db-shm
+*.db-wal
+
 # Backup files
 *.backup
 *.backup.*
