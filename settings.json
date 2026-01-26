@@ -49,6 +49,8 @@
       "mcp__wag__wag_get_state",
       "mcp__wag__wag_set_state",
       "mcp__wag__wag_clear",
+      "mcp__wag__wag_gate",
+      "mcp__wag__wag_cop",
       "mcp__claude-memory__memory_read",
       "mcp__claude-memory__memory_write",
       "mcp__claude-memory__memory_search",
