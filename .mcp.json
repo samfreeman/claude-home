@@ -17,6 +17,10 @@
 		"wag": {
 			"command": "node",
 			"args": ["/home/samf/.claude/mcp-servers/wag-mcp/dist/index.js"]
+		},
+		"claude-memory": {
+			"command": "node",
+			"args": ["/home/samfr/.claude/mcp-servers/claude-memory-mcp/dist/index.js"]
 		}
 	}
 }
