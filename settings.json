@@ -48,11 +48,30 @@
       "mcp__wag__wag_get_history",
       "mcp__wag__wag_get_state",
       "mcp__wag__wag_set_state",
-      "Bash(ss:*)",
       "mcp__wag__wag_clear",
-      "Bash(pnpm wag:start:*)",
       "mcp__wag__wag_gate",
-      "mcp__wag__wag_cop"
+      "mcp__wag__wag_cop",
+      "mcp__claude-memory__memory_read",
+      "mcp__claude-memory__memory_write",
+      "mcp__claude-memory__memory_search",
+      "mcp__claude-memory__memory_delete",
+      "mcp__claude-memory__inbox_send",
+      "mcp__claude-memory__inbox_list",
+      "mcp__claude-memory__inbox_read",
+      "mcp__claude-memory__inbox_update",
+      "mcp__claude-memory__inbox_delete",
+      "mcp__claude-memory__relay_create",
+      "mcp__claude-memory__relay_read",
+      "mcp__claude-memory__relay_list",
+      "mcp__claude-memory__relay_update",
+      "mcp__claude-memory__relay_delete",
+      "mcp__claude-memory__context_add",
+      "mcp__claude-memory__task_add",
+      "mcp__claude-memory__task_update",
+      "Bash(ss:*)",
+      "Bash(pnpm wag:start:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [
       "Bash(git commit*)",
@@ -68,6 +87,7 @@
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",
-    "wag"
+    "wag",
+    "claude-memory"
   ]
 }

@@ -33,5 +33,5 @@ All commits must include:
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
-Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
+Co-Authored-By: Sam Freeman <sam.freeman.55@gmail.com>
 ```

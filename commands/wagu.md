@@ -11,18 +11,18 @@ WAGU = WAG + real-time UI broadcasting via MCP.
 
 ---
 
-## Core Principle: Sandbox + Gate
+## Core Principle: Gate Before Push
 
-AI has **complete freedom** on feature branches. Gates (cop + architect + user) validate before merging to dev.
+AI works on dev branch. Gates (lint/tests + architect + user) validate before pushing.
 
 ```
-feature/PBI-XXX (sandbox)     dev (protected)
-       │                           │
-       │  AI works freely          │
-       │  commits, experiments     │
-       │                           │
-       └──► wag_gate ──► user ──►──┘
-            (cop+architect)  approves
+dev branch
+    │
+    │  AI works, commits locally
+    │  user reviews each change
+    │
+    └──► wag_gate ──► user ──► push
+         (lint+tests+architect)  approves
 ```
 
 ---
@@ -66,7 +66,7 @@ wag_set_state(app, appRoot, repo?, mode, branch, context, pbi?)
 ```
 - `appRoot`: Absolute path to app root directory
 - `repo`: Optional repo root if different from appRoot
-- `branch`: Current git branch (feature/PBI-XXX or dev)
+- `branch`: Current git branch (dev)
 
 ### 2. When speaking as a role
 ```
@@ -109,7 +109,7 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 **Workflow:** PM defines requirements, Architect makes technical decisions. Document in PRD/Architecture, then add to backlog.
 
-**On exit:** Commit and push if docs modified.
+**On exit:** Commit and push if docs modified. Stay in DOCS mode until user runs another command.
 
 ---
 
@@ -124,12 +124,15 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 **Workflow:** User selects PBI → Architect explores and writes ADR → Discuss → PM for business alignment if needed.
 
+**ADR naming:** `adr/active/PBI-XXX-ADR.md` (matches PBI number)
+
 **On "approve":**
-1. Ensure ADR in `adr/active/`
+1. Finalize `adr/active/PBI-XXX-ADR.md`
 2. Update state.json, Status.md
 3. Commit and push
 4. `wag_send_message("architect", "decision", "ADR approved for [PBI]")`
-5. **STOP** - Tell user: "Run `/wagu dev` when ready."
+5. **Stay in ADR mode** — Do NOT auto-transition to DEV
+6. Inform user: "ADR approved. Run `/wagu dev` when ready to implement."
 
 ---
 
@@ -137,27 +140,25 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 ### On Entry
 
-1. Create and switch to feature branch:
+1. Switch to dev branch and pull:
    ```bash
    git checkout dev && git pull
-   git checkout -b feature/[PBI] # e.g., feature/PBI-028
    ```
-2. `wag_set_state(app, "DEV", "feature/[PBI]", "Starting development", pbi)`
+2. `wag_set_state(app, "DEV", "dev", "Starting development", pbi)`
 3. Update state.json: `current_mode = "DEV"`
-4. Verify ADR in `adr/active/`
+4. Verify ADR exists in `adr/active/PBI-XXX-ADR.md`
 5. Read ADR, create plan
-6. `wag_send_message("dev", "system", "Starting DEV mode on feature/[PBI]")`
+6. `wag_send_message("dev", "system", "Starting DEV mode")`
 
-### Development Phase (Sandbox)
+### Development Phase
 
-Dev has **complete freedom** on the feature branch:
-- Edit, write, experiment
-- Commit as needed (user approves each commit)
-- Run tests iteratively
-- Push to feature branch freely
+- Each file change → Write tool → user approves diff
+- Follow ADR requirements
+- Write tests as specified in ADR
+- Commit locally as needed (user approves each commit)
 - Update task progress: `wag_set_state(..., task: N, totalTasks: T)`
 
-### Gate Check (Before Merge to Dev)
+### Gate Check (Before Push)
 
 When dev work is complete, run the gate:
 
@@ -172,15 +173,15 @@ The gate automatically:
 - Runs tests
 - Broadcasts results to wagui
 
-If cop fails → dev fixes issues, run gate again.
+If lint/tests fail → dev fixes issues, run gate again.
 
-**2. Architect Review** (only if cop passes)
+**2. Architect Review** (only if lint/tests pass)
 
 Gate returns diff and ADR. Spawn architect agent:
 ```
 subagent_type: "architect"
 prompt: |
-  Review this complete changeset before merge to dev.
+  Review this complete changeset before push to dev.
 
   ## Changes
   ```diff
@@ -190,14 +191,20 @@ prompt: |
   ## ADR Requirements
   [adr from gate result]
 
-  ## Code Style Rules
+  ## Code Style Rules (apply to project src/ code only)
+  For files in src/** (project source code):
   - Single quotes, no semicolons, tabs, no trailing commas
   - == not ===, else/catch on new lines
+
+  Do NOT apply these style rules to:
+  - Third-party code, vendor files, or node_modules
+  - Generated files (e.g., package-lock.json, pnpm-lock.yaml)
+  - Framework boilerplate or config files
 
   ## Review
   1. Does the changeset fulfill ADR requirements?
   2. Are there design concerns or missing pieces?
-  3. Code style violations?
+  3. Code style violations in project source code?
 
   Return: APPROVE or REJECT
   Then: Summary of findings (what's good, what needs work)
@@ -213,29 +220,27 @@ If architect rejects → dev fixes, run gate again.
 **3. User Review**
 
 User sees in wagui or Claude Code:
-- Cop results (lint + tests)
+- Lint/test results
 - Architect review
 - Full diff
 
 Wait for user approval before proceeding.
 
-**4. Merge to Dev (all gates pass)**
+**4. On Complete (all gates pass)**
 
 After user approves:
 1. Mark criteria `[x]` on ADR and PBI
-2. `mv adr/active/*.md adr/completed/`
-3. `mv backlog/PBI-XXX.md backlog/_completed/`
-4. Commit final state on feature branch
-5. Merge to dev:
+2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
+3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
+4. Commit final state
+5. Push to dev:
    ```bash
-   git checkout dev
-   git merge feature/[PBI] --no-ff -m "Merge feature/[PBI]: [description]"
    git push origin dev
    ```
 6. Clear state.json: `mode=null, active_pbi=null`
 7. `wag_cop(pbi)` - Final postcondition check
 8. `wag_clear()`
-9. `wag_send_message("dev", "system", "PBI completed and merged to dev")`
+9. `wag_send_message("dev", "system", "PBI completed and pushed to dev")`
 
 ---
 
@@ -245,16 +250,15 @@ After user approves:
 2. **Infrastructure (.wag/)** → Edit tool OK
 3. **All code** → Follow typescript-rules.md
 4. **Only user switches modes** - never auto-transition
-5. **Feature branch workflow** - AI works on feature/PBI-XXX, not dev
-6. **Gate before merge** - wag_gate + architect + user must pass before merge
+5. **Gate before push** - wag_gate + architect + user must pass before push
 
 ---
 
 ## Git Workflow
 
 **Branches:**
-- `dev` - Protected integration branch
-- `feature/PBI-XXX` - AI sandbox (one per PBI)
+- `main` - Production
+- `dev` - Integration branch (gate-checked before push)
 
 **Commit format:**
 ```
@@ -267,10 +271,9 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ```
 
 **AI can freely:**
-- Commit to feature branch
-- Push to feature branch
+- Commit locally to dev
 
-**AI cannot (enforced by deny list):**
-- Push directly to dev
+**AI cannot (enforced by gate):**
+- Push to dev without passing gate
 - Push directly to main
 - Force push
