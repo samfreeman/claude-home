@@ -27,6 +27,13 @@ node_modules/
 .env
 .env.local
 .env.*.local
+.envrc
+
+# SQLite/libSQL database files
+*.db
+*.db-info
+*.db-shm
+*.db-wal
 
 # IDE
 .vscode/
