@@ -20,7 +20,7 @@ export function now(): string {
 
 // Initialize database connection
 export async function initDb(config: DbConfig = {}): Promise<void> {
-	const localPath = config.localPath || process.env.MCP_MEMORY_DB || join(homedir(), '.claude', 'memory.db')
+	const localPath = config.localPath || process.env.MCP_MEMORY_DB || join(homedir(), '.claude', 'mcp-servers', 'claude-memory-mcp', 'data', 'memory.db')
 	const syncUrl = config.syncUrl || process.env.TURSO_DATABASE_URL
 	const authToken = config.authToken || process.env.TURSO_AUTH_TOKEN
 	const syncInterval = config.syncInterval ?? 60
