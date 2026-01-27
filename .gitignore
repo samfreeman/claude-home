@@ -20,9 +20,11 @@ stats-cache.json
 memory.db
 memory.db-shm
 memory.db-wal
+memory.db-info
 *.db
 *.db-shm
 *.db-wal
+*.db-info
 
 # Backup files
 *.backup
