@@ -2,11 +2,25 @@
 
 ## Overview
 
-Workstreams extend the existing claude-memory MCP server. Same database (Turso/libSQL), same patterns as memory_* tools.
+Workstreams extend the existing claude-memory MCP server. Same database (Turso/libSQL), same patterns as existing tools.
+
+## Current Source Structure
+
+```
+src/
+├── index.ts              # MCP server + tool registrations
+├── schema.ts             # SQL schema definitions
+├── db.ts                 # Database connection (libSQL/Turso)
+├── types.ts              # TypeScript interfaces
+└── handlers/
+    ├── memory.ts         # memory_* tool handlers
+    ├── inbox.ts          # inbox_* tool handlers
+    └── relay.ts          # relay_* + context_* + task_* handlers
+```
 
 ## Database Schema
 
-### New Tables
+### New Tables (to add to schema.ts)
 
 ```sql
 CREATE TABLE workstreams (
@@ -68,7 +82,7 @@ CREATE TABLE open_questions (
 |------|------------|-------------|
 | `decision_add` | workstream, decision, rationale? | Add decision |
 | `decision_supersede` | decision_id, new_decision, new_rationale? | Replace decision |
-| `decision_list` | workstream, include_superseded? | List decisions |
+| `decision_list` | workstream, include_superseded? | List decisions (default: active only) |
 
 ### Chat Index Tools
 
@@ -85,20 +99,15 @@ CREATE TABLE open_questions (
 | `question_resolve` | question_id, resolution | Resolve question |
 | `question_list` | workstream, status? | List questions (open/resolved/all) |
 
-## File Structure
+## Implementation Changes
 
-```
-src/
-├── index.ts              # Add new tool registrations
-├── schema.ts             # Add new table definitions
-├── db.ts                 # No changes needed
-├── types.ts              # Add Workstream, Decision, etc. types
-└── handlers/
-    ├── memory.ts         # Existing
-    ├── inbox.ts          # Existing
-    ├── relay.ts          # Existing
-    └── workstream.ts     # NEW: all workstream handlers
-```
+### Files to Modify
+- `src/schema.ts` - Add 4 new tables
+- `src/types.ts` - Add Workstream, Decision, ChatIndex, OpenQuestion interfaces
+- `src/index.ts` - Register 13 new tools
+
+### Files to Create
+- `src/handlers/workstream.ts` - All workstream tool handlers
 
 ## Integration Notes
 
