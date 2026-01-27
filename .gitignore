@@ -58,3 +58,4 @@ out/
 # Test outputs
 playwright-report/
 test-results/
+.envrc
