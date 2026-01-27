@@ -1,5 +1,5 @@
 {
 	"app_name": "claude-memory",
-	"current_mode": null,
-	"active_pbi": null
+	"current_mode": "ADR",
+	"active_pbi": "PBI-001"
 }
