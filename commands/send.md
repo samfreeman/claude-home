@@ -40,6 +40,6 @@ Call `mcp__claude-memory__inbox_send` with:
 - `target`: "desktop"
 - `title`: A short summary (under 60 chars) derived from the message
 - `content`: The full message
-- `project`: The workspace root directory from the environment context provided at the start of the conversation (the "Working directory" value). Do NOT use pwd or any bash command — use the value from the initial environment info.
+- `project`: The workspace root directory from the environment context provided at the start of the conversation (the "Working directory" value). Replace the user's home directory (e.g. `/home/username`) with `~` so paths are user-agnostic. Do NOT use pwd or any bash command — use the value from the initial environment info.
 
 Confirm to the user that the message was sent.
