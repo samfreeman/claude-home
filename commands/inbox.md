@@ -10,26 +10,26 @@ allowed-tools: Read, Write, Grep, Glob, Bash, TodoWrite, Task, AskUserQuestion,
 
 ## Your Task
 
-Process pending messages from the claude-memory inbox.
+Process pending messages from desktop in the claude-memory inbox.
 
 ### Step 1: Fetch Pending Messages
 
-Call `mcp__claude-memory__inbox_list` with `status: "pending"` to get all pending inbox items.
+Call `mcp__claude-memory__inbox_list` with `status: "pending"` and `target: "code"` to get all pending inbox items sent from desktop to code. Ignore any items whose source is not "desktop".
 
 ---
 
 ### Branch A: No Pending Messages (0 items)
 
-If there are no pending messages:
+If there are no pending messages from desktop:
 
 1. Tell the user: "No pending inbox messages."
-2. Call `mcp__claude-memory__inbox_list` with `status: "done"` to get completed items.
+2. Call `mcp__claude-memory__inbox_list` with `status: "done"` and `target: "code"` to get completed items.
 3. Show the **last 3** completed messages in a summary format:
    ```
    Recent completed messages:
-   - [title] (from [source], [date])
-   - [title] (from [source], [date])
-   - [title] (from [source], [date])
+   - [title] (from desktop, [date])
+   - [title] (from desktop, [date])
+   - [title] (from desktop, [date])
    ```
 4. If there are no completed messages either, just say the inbox is empty.
 
@@ -37,13 +37,13 @@ If there are no pending messages:
 
 ### Branch B: Exactly 1 Pending Message
 
-If there is exactly one pending message:
+If there is exactly one pending message from desktop:
 
 1. Call `mcp__claude-memory__inbox_read` with the item's ID to get full details.
 2. Display the message to the user:
    ```
    Pending: [title]
-   From: [source] | Created: [date]
+   From: desktop | Created: [date]
    Content: [content]
    ```
 3. **Take action** to fulfill the request described in the message content. Use whatever tools are necessary (Read, Write, Bash, Task, etc.) to complete the work.
@@ -54,13 +54,13 @@ If there is exactly one pending message:
 
 ### Branch C: Multiple Pending Messages (2+ items)
 
-If there are two or more pending messages:
+If there are two or more pending messages from desktop:
 
 1. List all pending messages for the user:
    ```
    Pending inbox messages:
-   1. [title] (from [source], [date])
-   2. [title] (from [source], [date])
+   1. [title] (from desktop, [date])
+   2. [title] (from desktop, [date])
    ...
    ```
 2. Use `AskUserQuestion` to ask which message to action. Present each message title as an option.
