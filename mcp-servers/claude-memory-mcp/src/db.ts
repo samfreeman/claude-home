@@ -18,6 +18,11 @@ export function now(): string {
 	return new Date().toISOString()
 }
 
+// Migrations for existing databases (safe to re-run)
+const MIGRATIONS = [
+	'ALTER TABLE inbox ADD COLUMN project TEXT'
+]
+
 // Initialize database connection
 export async function initDb(config: DbConfig = {}): Promise<void> {
 	const localPath = config.localPath || process.env.MCP_MEMORY_DB || join(homedir(), '.claude', 'mcp-servers', 'claude-memory-mcp', 'data', 'memory.db')
@@ -58,6 +63,16 @@ export async function initDb(config: DbConfig = {}): Promise<void> {
 		.map(sql => ({ sql }))
 
 	await client.batch(statements, 'write')
+
+	// Run migrations (each one is safe to fail if already applied)
+	for (const migration of MIGRATIONS) {
+		try {
+			await client.execute(migration)
+		}
+		catch {
+			// Column already exists — ignore
+		}
+	}
 }
 
 // Query that returns rows

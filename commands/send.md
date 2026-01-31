@@ -23,6 +23,7 @@ Before sending, show the user a preview of the message:
 
 ```
 To: desktop
+Project: [project root]
 Title: [short summary]
 Content: [full message]
 ```
@@ -39,5 +40,6 @@ Call `mcp__claude-memory__inbox_send` with:
 - `target`: "desktop"
 - `title`: A short summary (under 60 chars) derived from the message
 - `content`: The full message
+- `project`: The workspace root directory from the environment context provided at the start of the conversation (the "Working directory" value). Do NOT use pwd or any bash command — use the value from the initial environment info.
 
 Confirm to the user that the message was sent.

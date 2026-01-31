@@ -17,7 +17,7 @@ import {
 	handleTaskUpdate
 } from './handlers/relay.js'
 
-const VERSION = '2.2.0'
+const VERSION = '2.3.0'
 
 const server = new McpServer({ name: 'claude-memory-mcp', version: VERSION })
 
@@ -74,7 +74,8 @@ server.registerTool('inbox_send', {
 		source: z.enum(['desktop', 'code']).describe('Who is sending this'),
 		target: z.enum(['desktop', 'code', 'any']).describe('Who should pick this up'),
 		title: z.string().describe('Short title'),
-		content: z.string().optional().describe('Full content (idea, plan, request, update)')
+		content: z.string().optional().describe('Full content (idea, plan, request, update)'),
+		project: z.string().optional().describe('Project/directory this message is sent from (e.g. ~/.claude)')
 	}
 }, async (args) => {
 	return await handleInboxSend(args)

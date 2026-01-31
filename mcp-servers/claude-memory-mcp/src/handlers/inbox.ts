@@ -6,23 +6,23 @@ function text(t: string): ToolResult {
 }
 
 export async function handleInboxSend(args: InboxSendArgs): Promise<ToolResult> {
-	const { source, target, title, content } = args
+	const { source, target, title, content, project } = args
 	const timestamp = now()
 
 	const result = await execute(
-		`INSERT INTO inbox (source, target, title, content, status, created, updated)
-		 VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
-		[source, target, title, content || null, timestamp, timestamp]
+		`INSERT INTO inbox (source, target, title, content, project, status, created, updated)
+		 VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+		[source, target, title, content || null, project || null, timestamp, timestamp]
 	)
 
-	return text(JSON.stringify({ id: result.lastInsertRowid, title, from: source, to: target }, null, 2))
+	return text(JSON.stringify({ id: result.lastInsertRowid, title, from: source, to: target, project: project || null }, null, 2))
 }
 
 export async function handleInboxList(args: InboxListArgs): Promise<ToolResult> {
 	const { target, status } = args
 
-	const rows = await query<{ id: number; source: string; target: string; title: string; status: string; created: string }>(
-		`SELECT id, source, target, title, status, created FROM inbox
+	const rows = await query<{ id: number; source: string; target: string; title: string; project: string | null; status: string; created: string }>(
+		`SELECT id, source, target, title, project, status, created FROM inbox
 		 WHERE (target = ? OR target = 'any' OR ? IS NULL)
 		 AND (status = ? OR ? IS NULL)
 		 ORDER BY created DESC`,
@@ -33,9 +33,10 @@ export async function handleInboxList(args: InboxListArgs): Promise<ToolResult> 
 		return text('Inbox is empty.')
 	}
 
-	const t = rows.map((r) =>
-		`[${r.id}] ${r.title} (${r.source}→${r.target}) [${r.status}] ${r.created}`
-	).join('\n')
+	const t = rows.map((r) => {
+		const proj = r.project ? ` @${r.project}` : ''
+		return `[${r.id}] ${r.title} (${r.source}→${r.target}${proj}) [${r.status}] ${r.created}`
+	}).join('\n')
 
 	return text(t)
 }

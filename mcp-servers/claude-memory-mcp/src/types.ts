@@ -38,6 +38,7 @@ export interface InboxItem {
 	target: string
 	title: string
 	content: string | null
+	project: string | null
 	status: string
 	created: string
 	updated: string
@@ -101,6 +102,7 @@ export interface InboxSendArgs {
 	target: string
 	title: string
 	content?: string
+	project?: string
 }
 
 export interface InboxListArgs {

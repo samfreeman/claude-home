@@ -36,6 +36,7 @@ export const SCHEMA = `
 		target TEXT NOT NULL,
 		title TEXT NOT NULL,
 		content TEXT,
+		project TEXT,
 		status TEXT DEFAULT 'pending',
 		created TEXT NOT NULL,
 		updated TEXT NOT NULL
