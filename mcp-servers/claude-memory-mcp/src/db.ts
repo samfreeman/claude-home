@@ -2,7 +2,13 @@ import { createClient, Client, InValue } from '@libsql/client'
 import { homedir } from 'os'
 import { join, dirname } from 'path'
 import { mkdirSync, existsSync } from 'fs'
+import { fileURLToPath } from 'url'
 import { SCHEMA } from './schema.js'
+
+// Load .env from package root (populates process.env, no-op if missing)
+const __dirname = dirname(fileURLToPath(import.meta.url))
+try { process.loadEnvFile(join(__dirname, '..', '.env')) }
+catch { /* .env not present — rely on process.env */ }
 
 let client: Client
 
@@ -84,6 +90,7 @@ export async function query<T = Record<string, unknown>>(sql: string, args: InVa
 // Execute that returns lastInsertRowid
 export async function execute(sql: string, args: InValue[] = []): Promise<{ lastInsertRowid: number; rowsAffected: number }> {
 	const result = await client.execute({ sql, args })
+	await sync()
 	return {
 		lastInsertRowid: result.lastInsertRowid ? Number(result.lastInsertRowid) : 0,
 		rowsAffected: result.rowsAffected
@@ -93,6 +100,7 @@ export async function execute(sql: string, args: InValue[] = []): Promise<{ last
 // Batch execute multiple statements
 export async function batch(statements: Array<{ sql: string; args?: InValue[] }>): Promise<void> {
 	await client.batch(statements, 'write')
+	await sync()
 }
 
 // Force sync with remote (for embedded replicas)
