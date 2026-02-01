@@ -2,7 +2,11 @@
 
 ## Mandatory Rules
 
-### 1. All File Changes Require Diff Review
+### 1. Questions Get Answers, Not Actions
+
+If the user's prompt contains a question mark, they are asking a question. Answer it. Do not write code, create files, or make changes — only research and respond. A `?` means the user wants understanding, not a solution.
+
+### 2. All File Changes Require Diff Review
 
 All file modifications must use the **Write** tool so the user can review diffs before approval.
 
@@ -10,7 +14,7 @@ All file modifications must use the **Write** tool so the user can review diffs 
 - ❌ Never use `Edit` tool (no diff shown to user)
 - ❌ Never use bash commands to modify files (echo, sed, awk, etc.)
 
-### 2. TypeScript/JavaScript Code Style
+### 3. TypeScript/JavaScript Code Style
 
 All `.ts`, `.tsx`, `.js`, `.jsx` files must follow the rules in `/home/samf/source/claude/documents/typescript-rules.md`
 
