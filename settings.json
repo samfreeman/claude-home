@@ -71,7 +71,8 @@
       "Bash(ss:*)",
       "Bash(pnpm wag:start:*)",
       "Bash(npm run lint:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(echo:*)"
     ],
     "deny": [
       "Bash(git commit*)",
