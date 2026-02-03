@@ -12,6 +12,9 @@ catch { /* .env not present — rely on process.env */ }
 
 let client: Client
 
+const SYNC_TIMEOUT_MS = 5000
+const SLOW_THRESHOLD_MS = 500
+
 export interface DbConfig {
 	localPath?: string
 	syncUrl?: string
@@ -89,8 +92,17 @@ export async function query<T = Record<string, unknown>>(sql: string, args: InVa
 
 // Execute that returns lastInsertRowid
 export async function execute(sql: string, args: InValue[] = []): Promise<{ lastInsertRowid: number; rowsAffected: number }> {
+	const t0 = performance.now()
 	const result = await client.execute({ sql, args })
-	await sync()
+	const writeMs = performance.now() - t0
+
+	const t1 = performance.now()
+	const syncTimedOut = await sync()
+	const syncMs = performance.now() - t1
+
+	if (writeMs > SLOW_THRESHOLD_MS || syncMs > SLOW_THRESHOLD_MS || syncTimedOut)
+		console.error(`claude-memory-mcp: execute — write ${writeMs.toFixed(0)}ms, sync ${syncMs.toFixed(0)}ms${syncTimedOut ? ' [TIMED OUT]' : ''} — ${sql.slice(0, 80)}`)
+
 	return {
 		lastInsertRowid: result.lastInsertRowid ? Number(result.lastInsertRowid) : 0,
 		rowsAffected: result.rowsAffected
@@ -99,15 +111,36 @@ export async function execute(sql: string, args: InValue[] = []): Promise<{ last
 
 // Batch execute multiple statements
 export async function batch(statements: Array<{ sql: string; args?: InValue[] }>): Promise<void> {
+	const t0 = performance.now()
 	await client.batch(statements, 'write')
-	await sync()
+	const writeMs = performance.now() - t0
+
+	const t1 = performance.now()
+	const syncTimedOut = await sync()
+	const syncMs = performance.now() - t1
+
+	if (writeMs > SLOW_THRESHOLD_MS || syncMs > SLOW_THRESHOLD_MS || syncTimedOut)
+		console.error(`claude-memory-mcp: batch(${statements.length}) — write ${writeMs.toFixed(0)}ms, sync ${syncMs.toFixed(0)}ms${syncTimedOut ? ' [TIMED OUT]' : ''}`)
 }
 
 // Force sync with remote (for embedded replicas)
-export async function sync(): Promise<void> {
+// Times out after SYNC_TIMEOUT_MS to prevent hanging
+// Returns true if sync timed out, false otherwise
+export async function sync(): Promise<boolean> {
 	if ('sync' in client) {
-		await client.sync()
+		const timeout = new Promise<never>((_, reject) =>
+			setTimeout(() => reject(new Error(`Turso sync timed out after ${SYNC_TIMEOUT_MS}ms`)), SYNC_TIMEOUT_MS)
+		)
+		try {
+			await Promise.race([client.sync(), timeout])
+			return false
+		}
+		catch (err) {
+			console.error(`claude-memory-mcp: sync failed — ${err instanceof Error ? err.message : err}`)
+			return true
+		}
 	}
+	return false
 }
 
 // Close database connection
