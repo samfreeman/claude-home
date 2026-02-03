@@ -232,15 +232,14 @@ After user approves:
 1. Mark criteria `[x]` on ADR and PBI
 2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
 3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
-4. Commit final state
-5. Push to dev:
+4. Clear state.json: `mode=null, active_pbi=null`
+5. `wag_cop(pbi)` - Final postcondition check
+6. Commit and push:
    ```bash
    git push origin dev
    ```
-6. Clear state.json: `mode=null, active_pbi=null`
-7. `wag_cop(pbi)` - Final postcondition check
-8. `wag_clear()`
-9. `wag_send_message("dev", "system", "PBI completed and pushed to dev")`
+7. `wag_clear()`
+8. `wag_send_message("dev", "system", "PBI completed and pushed to dev")`
 
 ---
 

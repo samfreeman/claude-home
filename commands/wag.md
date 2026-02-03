@@ -181,14 +181,12 @@ prompt: |
 1. Mark criteria `[x]` on both ADR and PBI
 2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
 3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
-4. Commit final state
-5. Push to dev:
+4. Clear state.json (mode=null, active_pbi=null)
+5. Update Status.md
+6. Commit and push:
    ```bash
    git push origin dev
    ```
-6. Clear state.json (mode=null, active_pbi=null)
-7. Update Status.md
-8. Commit and push
 
 ---
 
