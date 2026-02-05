@@ -4,10 +4,10 @@
 			"command": "node",
 			"args": [
 				"/home/samfr/.claude/mcp-servers/playwright-mcp/cli.js",
-				"--config",
-				"/home/samfr/.claude/mcp-servers/playwright-mcp/playwright-mcp.config.json",
+				"--browser",
+				"chromium",
 				"--no-sandbox",
-				"--isolated"
+				"--headless"
 			],
 			"env": {
 				"NODE_ENV": "production",

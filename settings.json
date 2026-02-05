@@ -72,18 +72,24 @@
       "Bash(pnpm wag:start:*)",
       "Bash(npm run lint:*)",
       "Bash(npm run type-check:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Read(//home/samfr/.claude/**)",
+      "Bash(pnpm test:coverage:*)",
+      "Bash(git -C /home/samfr/source/cs-bounce push)"
     ],
     "deny": [
       "Bash(git commit*)",
       "Bash(git revert*)",
-      "Bash(git reset*)",
+      "Bash(git reset --hard*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(git push*origin main*)",
       "Bash(git push*origin master*)"
     ],
-    "defaultMode": "default"
+    "defaultMode": "default",
+    "additionalDirectories": [
+      "/home/samfr/source/cs-bounce/.wag/adr/active"
+    ]
   },
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
