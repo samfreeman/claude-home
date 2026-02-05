@@ -13,7 +13,7 @@ WAGU = WAG + real-time UI broadcasting via MCP.
 
 ## Core Principle: Gate Before Push
 
-AI works on dev branch. Gates (lint/tests + architect + user) validate before pushing.
+AI works on dev branch. Gates (lint/tests/build + architect + user) validate before pushing.
 
 ```
 dev branch
@@ -22,7 +22,7 @@ dev branch
     │  user reviews each change
     │
     └──► wag_gate ──► user ──► push
-         (lint+tests+architect)  approves
+         (lint+tests+build+architect)  approves
 ```
 
 ---
@@ -160,7 +160,7 @@ For `/wagu adr` and `/wagu dev`: check if ports are listening first, start if ne
 
 ### Gate Check (Before Push)
 
-When dev work is complete, run the gate:
+When dev work is complete, run the gate in this order:
 
 **1. Run wag_gate**
 ```
@@ -168,14 +168,15 @@ wag_send_message("dev", "system", "Running gate check...")
 wag_gate(pbi)
 ```
 
-The gate automatically:
-- Runs lint
-- Runs tests
-- Broadcasts results to wagui
+The gate runs in order:
+1. **Lint** — may auto-fix files; if files changed, re-stage them
+2. **Tests** — run unit tests
+3. **Build** — verify the app compiles (catches missing references, type errors, etc.)
+4. Broadcasts results to wagui
 
-If lint/tests fail → dev fixes issues, run gate again.
+If any step fails → dev fixes issues, run gate again.
 
-**2. Architect Review** (only if lint/tests pass)
+**2. Architect Review** (only if lint/tests/build all pass)
 
 Gate returns diff and ADR. Spawn architect agent:
 ```
@@ -220,7 +221,7 @@ If architect rejects → dev fixes, run gate again.
 **3. User Review**
 
 User sees in wagui or Claude Code:
-- Lint/test results
+- Lint/test/build results
 - Architect review
 - Full diff
 

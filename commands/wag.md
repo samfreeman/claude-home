@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Grep, Glob, TodoWrite, Bash, Task
 
 ## Core Principle: Gate Before Push
 
-AI works on dev branch. Gates (lint/tests + architect + user) validate before pushing.
+AI works on dev branch. Gates (lint/tests/build + architect + user) validate before pushing.
 
 ```
 dev branch
@@ -18,7 +18,7 @@ dev branch
     │  user reviews each change
     │
     └──► gate ──► user ──► push
-         (lint+tests+architect)  approves
+         (lint+tests+build+architect)  approves
 ```
 
 ## Critical Rules
@@ -118,26 +118,34 @@ Create Architecture Decision Record for a PBI.
 
 ### Gate Check (Before Push)
 
-When dev work is complete, run the gate:
+When dev work is complete, run the gate in this order:
 
-**1. Run Lint & Tests**
-- Run lint and tests
+**1. Lint**
+- Run lint (may auto-fix files)
+- If lint changed files, re-stage them
+- If lint errors remain → dev fixes, restart gate
+
+**2. Tests**
+- Run unit tests
 - If fails → dev fixes, restart gate
 
-**2. Architect Review** (only if lint/tests pass)
+**3. Build**
+- Run build to verify the app compiles (catches missing references, type errors, etc.)
+- If fails → dev fixes, restart gate
+
+**4. Architect Review** (only if lint/tests/build all pass)
 - Spawn architect agent with full `git diff`
 - Architect reviews against ADR requirements
 - Returns: APPROVE or REJECT + feedback
 - If rejects → dev fixes, restart gate
 
-**3. Report to User**
-- Show lint/test results
+**5. Report to User**
+- Show lint/test/build results
 - Show architect feedback
 - Wait for user approval
 
-**4. Evaluate**
-- If lint/tests failed → dev fixes, restart gate
-- If architect rejects → dev fixes, restart gate
+**6. Evaluate**
+- If any step failed → dev fixes, restart gate
 - If user disapproves → dev fixes, restart gate
 - All pass → proceed to push
 
@@ -268,7 +276,7 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 
 WAG is working if:
 - Dev works on dev branch, commits locally
-- Gate check validates before push (lint/tests → architect → user)
-- All three must approve before code is pushed
+- Gate check validates before push (lint → tests → build → architect → user)
+- All must approve before code is pushed
 - typescript-rules.md violations caught by lint
 - No pushes to dev without your final approval
