@@ -58,6 +58,9 @@ function showScan() {
 	console.log(`${c.dim}  Home: ${HOME}${c.reset}`)
 	console.log('')
 
+	let totalPass = 0
+	let totalIssues = 0
+
 	for (const step of applicable) {
 		if (!step.detect) continue
 
@@ -66,12 +69,39 @@ function showScan() {
 		try {
 			const result = step.detect(state)
 			renderDetect(result)
+			const counts = countResults(result)
+			totalPass += counts.pass
+			totalIssues += counts.issues
 		}
 		catch (err) {
 			fail(`detect failed: ${err.message}`)
+			totalIssues++
 		}
 		console.log('')
 	}
+
+	const color = totalIssues == 0 ? c.green : c.yellow
+	console.log(`${c.bold}  ${color}${totalPass} passed, ${totalIssues} issues${c.reset}`)
+	console.log('')
+}
+
+function countResults(obj) {
+	let pass = 0
+	let issues = 0
+	for (const val of Object.values(obj)) {
+		if (val == null)
+			issues++
+		else if (typeof val == 'object' && !Array.isArray(val)) {
+			const sub = countResults(val)
+			pass += sub.pass
+			issues += sub.issues
+		}
+		else if (val === false)
+			issues++
+		else
+			pass++
+	}
+	return { pass, issues }
 }
 
 function renderDetect(obj, indent = 4) {

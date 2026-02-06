@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const {
 	IS_MAC, HOME, SOURCE,
-	ok, info, confirm, run, runSilent, exists, isDir, probe
+	ok, info, confirm, run, exists, isDir, probe
 } = require('./utils')
 
 module.exports = {
@@ -15,7 +15,6 @@ module.exports = {
 		const pnpmCheck = probe('which pnpm')
 		const claudeCheck = probe('which claude')
 
-		// Git identity
 		const gitName = probe('git config --global user.name')
 		const gitEmail = probe('git config --global user.email')
 
@@ -43,9 +42,13 @@ module.exports = {
 		if (!await confirm('Continue?'))
 			return { success: false, message: 'User skipped' }
 
+		info('')
+		info('Checking current environment...')
+		const detected = this.detect()
+
 		// 1. npm global prefix
 		const npmGlobalDir = path.join(HOME, '.npm-global')
-		if (!isDir(npmGlobalDir)) {
+		if (!detected.npmGlobalDir) {
 			run(`mkdir -p ${npmGlobalDir}`)
 			run('npm config set prefix ~/.npm-global')
 		}
@@ -64,8 +67,7 @@ module.exports = {
 			ok('npm-global already in PATH')
 
 		// 2. Install pnpm
-		const pnpmCheck = runSilent('which pnpm', { ignoreError: true })
-		if (!pnpmCheck.success) {
+		if (!detected.pnpm) {
 			run('npm install -g pnpm')
 			ok('pnpm installed')
 		}
@@ -73,8 +75,7 @@ module.exports = {
 			ok('pnpm already installed')
 
 		// 3. Install claude-code
-		const claudeCheck = runSilent('which claude', { ignoreError: true })
-		if (!claudeCheck.success) {
+		if (!detected.claudeCode) {
 			run('npm install -g @anthropic-ai/claude-code')
 			ok('claude-code installed')
 		}
@@ -82,7 +83,7 @@ module.exports = {
 			ok('claude-code already installed')
 
 		// 4. Create ~/source
-		if (!isDir(SOURCE))
+		if (!detected.sourceDir)
 			run(`mkdir -p ${SOURCE}`)
 		ok(`${SOURCE} ready`)
 
@@ -92,11 +93,6 @@ module.exports = {
 		ok('Git identity configured')
 
 		// Validate
-		const checks = [
-			isDir(npmGlobalDir),
-			runSilent('which pnpm', { ignoreError: true }).success,
-			isDir(SOURCE)
-		]
-		return { success: checks.every(Boolean) }
+		return { success: isDir(npmGlobalDir) && isDir(SOURCE) }
 	}
 }

@@ -10,13 +10,13 @@ module.exports = {
 	platforms: ['wsl', 'mac'],
 
 	detect() {
-		// SSH connectivity — 5s timeout to avoid hanging on network issues
+		// SSH connectivity — 5s timeout, read-only (no known_hosts mutation)
 		const personal = probe(
-			'ssh -T git@github.com-personal -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 2>&1',
+			'ssh -T git@github.com-personal -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 2>&1',
 			5000
 		)
 		const payonward = probe(
-			'ssh -T git@github.com-payonward -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 2>&1',
+			'ssh -T git@github.com-payonward -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 2>&1',
 			5000
 		)
 
@@ -59,6 +59,7 @@ module.exports = {
 			return { success: false, message: 'User skipped' }
 
 		// Validate SSH connectivity
+		// fn() uses accept-new (safe for github.com) so the host gets added for future use
 		info('')
 		info('Testing SSH connections...')
 

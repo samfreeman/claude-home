@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const {
 	IS_MAC, SSH_DIR,
-	ok, info, confirm, run, runSilent, exists, isDir, probe
+	ok, info, confirm, run, exists, isDir, probe
 } = require('./utils')
 
 // Managed SSH config blocks — keyed by Host value for replacement
@@ -70,9 +70,12 @@ module.exports = {
 		if (!await confirm('Continue?'))
 			return { success: false, message: 'User skipped' }
 
+		info('')
+		info('Checking current environment...')
+		const detected = this.detect()
+
 		// 1. Install gh CLI
-		const ghCheck = runSilent('which gh', { ignoreError: true })
-		if (!ghCheck.success) {
+		if (!detected.ghCli) {
 			if (IS_MAC)
 				run('brew install gh')
 			else
@@ -88,7 +91,7 @@ module.exports = {
 
 		// 3. Personal key — empty passphrase for automation (keys are per-machine, not shared)
 		const personalKey = path.join(SSH_DIR, 'id_ed25519')
-		if (!exists(personalKey)) {
+		if (!detected.personalKey) {
 			run(`ssh-keygen -t ed25519 -C "sam.freeman.55@gmail.com" -f ${personalKey} -N ""`)
 			ok('Personal SSH key generated')
 		}
@@ -97,7 +100,7 @@ module.exports = {
 
 		// 4. PayOnward key — empty passphrase for automation (keys are per-machine, not shared)
 		const payonwardKey = path.join(SSH_DIR, 'id_ed25519_payonward')
-		if (!exists(payonwardKey)) {
+		if (!detected.payonwardKey) {
 			run(`ssh-keygen -t ed25519 -C "sfreeman@pay-onward.com" -f ${payonwardKey} -N ""`)
 			ok('PayOnward SSH key generated')
 		}
@@ -124,11 +127,8 @@ module.exports = {
 		ok('SSH config updated (existing hosts preserved)')
 
 		// Validate
-		const checks = [
-			exists(personalKey),
-			exists(payonwardKey),
-			exists(configPath)
-		]
-		return { success: checks.every(Boolean) }
+		return {
+			success: exists(personalKey) && exists(payonwardKey) && exists(configPath)
+		}
 	}
 }

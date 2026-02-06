@@ -84,7 +84,6 @@ module.exports = {
 		ok('wag-mcp deployed to Windows')
 
 		// 3. Write claude_desktop_config.json
-		// Store the desktop dir in state for step 8 validation
 		state.claudeDesktopDir = claudeDesktopDir
 		saveState(state)
 
@@ -95,13 +94,12 @@ module.exports = {
 		ok(`claude_desktop_config.json written to ${claudeDesktopDir}`)
 
 		// Validate
-		const checks = [
-			exists(`${memDst}/dist/index.js`),
-			exists(`${wagDst}/dist/index.js`),
-			exists(configPath)
-		]
+		info('')
+		info('Verifying deployment...')
+		const post = this.detect(state)
+		const labels = ['memory-mcp dist', 'wag-mcp dist', 'desktop config']
+		const checks = [post.memoryDist, post.wagDist, post.desktopConfig]
 		checks.forEach((c, i) => {
-			const labels = ['memory-mcp dist', 'wag-mcp dist', 'desktop config']
 			if (c) ok(labels[i])
 			else fail(labels[i])
 		})

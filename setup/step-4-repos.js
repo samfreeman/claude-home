@@ -1,7 +1,7 @@
 const path = require('path')
 const {
 	IS_WSL, SOURCE, CLAUDE_HOME,
-	ok, info, confirm, run, runSilent, isDir, probe
+	ok, info, confirm, run, isDir, probe
 } = require('./utils')
 
 const REPOS = [
@@ -85,10 +85,14 @@ module.exports = {
 		if (!isDir(SOURCE))
 			run(`mkdir -p ${SOURCE}`)
 
+		info('')
+		info('Checking existing repos...')
+		const detected = this.detect()
+
 		// Clone each repo
 		for (const repo of repos) {
 			const dest = path.join(SOURCE, repo.dest)
-			if (isDir(dest))
+			if (detected[repo.dest]?.cloned)
 				ok(`${repo.dest} already exists`)
 			else {
 				run(`git clone ${repo.url} ${dest}`)
@@ -107,15 +111,9 @@ module.exports = {
 		ok('~/source/unity directory ready')
 
 		// Fix claude-home remote to use SSH host alias
-		// Catches both SSH (github.com:) and HTTPS (https://github.com/) formats
-		const currentRemote = runSilent(
-			`git -C ${CLAUDE_HOME} remote get-url origin`,
-			{ ignoreError: true }
-		)
-		const remote = currentRemote.output?.trim() || ''
-		if (remote.includes('github.com-personal:'))
+		if (detected['claude-home'].usesAlias)
 			ok('claude-home remote already uses SSH alias')
-		else if (remote.includes('github.com') && !remote.includes('github.com-personal')) {
+		else if (detected['claude-home'].remote?.includes('github.com')) {
 			run(`git -C ${CLAUDE_HOME} remote set-url origin git@github.com-personal:samfreeman/claude-home.git`)
 			ok('Updated claude-home remote to use github.com-personal')
 		}

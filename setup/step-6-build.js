@@ -1,8 +1,10 @@
+const fs = require('fs')
 const path = require('path')
 const {
 	CLAUDE_HOME, SOURCE, MCP_SERVERS,
-	ok, info, confirm, run, exists, isDir
+	ok, warn, info, confirm, run, exists, isDir, defaultDropboxCreds
 } = require('./utils')
+const { generateMcpJson } = require('./configs')
 
 module.exports = {
 	id: '6-build',
@@ -43,9 +45,7 @@ module.exports = {
 	},
 
 	async fn(state) {
-		const dropboxPath = state.dropboxPath || require('./utils').defaultDropboxCreds(state)
-		const fs = require('fs')
-		const { generateMcpJson } = require('./configs')
+		const dropboxPath = state.dropboxPath || defaultDropboxCreds(state)
 
 		info('This step will:')
 		info('  - Build MCP servers (claude-memory-mcp, wag-mcp)')
@@ -90,7 +90,7 @@ module.exports = {
 				ok(`Copied ${cred.src}`)
 			}
 			else
-				require('./utils').warn(`${cred.src} not found in Dropbox — skipping`)
+				warn(`${cred.src} not found in Dropbox — skipping`)
 		}
 
 		// 5. Write .mcp.json
@@ -117,11 +117,7 @@ module.exports = {
 		}
 
 		// Validate
-		const checks = [
-			exists(path.join(memoryMcp, 'dist/index.js')),
-			exists(path.join(wagMcp, 'dist/index.js')),
-			exists(path.join(CLAUDE_HOME, '.mcp.json'))
-		]
-		return { success: checks.every(Boolean) }
+		const post = this.detect()
+		return { success: post.memoryMcp.dist && post.wagMcp.dist && post.mcpJson }
 	}
 }

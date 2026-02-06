@@ -1,6 +1,6 @@
 const {
 	ok, fail, warn, info, confirm,
-	runSilent, isDir, detectWinAppData, saveState, probe
+	isDir, detectWinAppData, saveState, probe
 } = require('./utils')
 
 module.exports = {
@@ -44,45 +44,39 @@ module.exports = {
 		if (!await confirm('Have you installed all three?'))
 			return { success: false, message: 'User skipped' }
 
-		// Detect Windows %APPDATA% and store it
 		info('')
 		info('Detecting Windows environment...')
-		const winAppData = detectWinAppData()
-		if (winAppData) {
-			state.winAppData = winAppData
-			ok(`Windows AppData: ${winAppData}`)
+		const detected = this.detect()
+
+		if (detected.winAppData) {
+			state.winAppData = detected.winAppData
+			ok(`Windows AppData: ${detected.winAppData}`)
 		}
 		else
 			fail('Could not detect Windows %APPDATA%')
 
-		// Validate Node on Windows
-		const nodeCheck = runSilent('cmd.exe /c "node --version"', { ignoreError: true })
-		if (nodeCheck.success)
-			ok(`Windows Node.js: ${nodeCheck.output.trim()}`)
+		if (detected.windowsNode)
+			ok(`Windows Node.js: ${detected.windowsNode}`)
 		else
 			fail('Windows Node.js not found — install from https://nodejs.org/')
 
-		// Validate VS Code available from WSL
-		const codeCheck = runSilent('which code', { ignoreError: true })
-		if (codeCheck.success)
+		if (detected.vsCode)
 			ok('VS Code available from WSL')
 		else
 			warn('VS Code `code` command not found — install VS Code on Windows with WSL extension')
 
-		// Check Dropbox folder exists using detected Windows home
-		if (winAppData) {
-			const winHome = winAppData.replace(/\/AppData\/Roaming$/, '')
-			const dropboxBase = `${winHome}/Dropbox`
-			if (isDir(dropboxBase))
-				ok(`Dropbox folder found: ${dropboxBase}`)
+		if (detected.winAppData) {
+			const winHome = detected.winAppData.replace(/\/AppData\/Roaming$/, '')
+			if (detected.dropboxFolder)
+				ok(`Dropbox folder found: ${winHome}/Dropbox`)
 			else
-				warn(`Dropbox folder not found at ${dropboxBase} — may need to sync first`)
+				warn(`Dropbox folder not found at ${winHome}/Dropbox — may need to sync first`)
 		}
 
 		saveState(state)
 
 		return {
-			success: winAppData != null && nodeCheck.success
+			success: detected.winAppData != null && detected.windowsNode != null
 		}
 	}
 }
