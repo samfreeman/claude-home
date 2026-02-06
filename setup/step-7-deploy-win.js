@@ -1,10 +1,10 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	HOME, MCP_SERVERS,
-	ok, fail, info, confirm, run, exists, isDir, saveState
+	MCP_SERVERS,
+	ok, fail, info, confirm, run, exists, saveState
 } = require('./utils')
-const { generateDesktopConfig } = require('./configs')
+const { generateDesktopConfig, wslToWinPath } = require('./configs')
 
 module.exports = {
 	id: '7-deploy-win',
@@ -45,7 +45,7 @@ module.exports = {
 		if (exists(envFile))
 			run(`cp ${envFile} ${memDst}/`)
 		// npm install on Windows side for platform-specific native bindings
-		run(`cmd.exe /c "cd /d ${toWinCmd(memDst)} && npm install --omit=dev"`)
+		run(`cmd.exe /c "cd /d ${wslToWinPath(memDst)} && npm install --omit=dev"`)
 		ok('claude-memory-mcp deployed to Windows')
 
 		// 2. Deploy wag-mcp
@@ -53,7 +53,7 @@ module.exports = {
 		const wagDst = `${winMcpBase}/wag-mcp`
 
 		run(`cp -r ${wagSrc}/dist ${wagSrc}/package.json ${wagDst}/`)
-		run(`cmd.exe /c "cd /d ${toWinCmd(wagDst)} && npm install --omit=dev"`)
+		run(`cmd.exe /c "cd /d ${wslToWinPath(wagDst)} && npm install --omit=dev"`)
 		ok('wag-mcp deployed to Windows')
 
 		// 3. Write claude_desktop_config.json
@@ -81,12 +81,4 @@ module.exports = {
 
 		return { success: checks.every(Boolean) }
 	}
-}
-
-// Convert WSL path to Windows cmd-compatible path
-// /mnt/c/Users/foo → C:\Users\foo
-function toWinCmd(wslPath) {
-	const match = wslPath.match(/^\/mnt\/([a-z])\/(.*)$/)
-	if (!match) return wslPath
-	return `${match[1].toUpperCase()}:\\${match[2].replace(/\//g, '\\')}`
 }

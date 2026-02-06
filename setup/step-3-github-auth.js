@@ -55,6 +55,8 @@ module.exports = {
 	}
 }
 
+// accept-new is safe here because we're connecting to github.com only —
+// do not reuse this pattern for arbitrary hosts
 function testSsh(host, expectedUser) {
 	const result = runSilent(
 		`ssh -T git@${host} -o StrictHostKeyChecking=accept-new 2>&1`,

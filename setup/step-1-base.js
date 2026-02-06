@@ -52,8 +52,13 @@ module.exports = {
 			ok('pnpm already installed')
 
 		// 3. Install claude-code
-		run('npm install -g @anthropic-ai/claude-code')
-		ok('claude-code installed/updated')
+		const claudeCheck = runSilent('which claude', { ignoreError: true })
+		if (!claudeCheck.success) {
+			run('npm install -g @anthropic-ai/claude-code')
+			ok('claude-code installed')
+		}
+		else
+			ok('claude-code already installed')
 
 		// 4. Install playwright browsers
 		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')

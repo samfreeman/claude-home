@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	IS_MAC, IS_WSL, USER, HOME, MCP_SERVERS, isDir
+	IS_MAC, IS_WSL, HOME, MCP_SERVERS, isDir, warn
 } = require('./utils')
 
 // ── .mcp.json (Claude Code) ──
@@ -65,9 +65,8 @@ function generateDesktopConfigWSL(state) {
 		HOME,
 		'/mnt/c/Code/Unity'
 	]
-	// Add Claude AppData path (lowercase 'users' preserved from original config)
 	if (winAppData)
-		filesystemPaths.push(winAppData.toLowerCase().replace('appdata/roaming', 'appdata/roaming/claude'))
+		filesystemPaths.push(`${winAppData}/Claude`)
 	if (dropboxBase)
 		filesystemPaths.push(dropboxBase)
 
@@ -158,7 +157,8 @@ function detectChromiumDir() {
 			.filter(d => d.startsWith('chromium-') && !d.includes('headless'))
 		if (dirs.length > 0) return dirs[0]
 	}
-	return 'chromium-1182' // fallback
+	warn('Could not detect Playwright chromium version — run: npx playwright install chromium')
+	return null
 }
 
 module.exports = {

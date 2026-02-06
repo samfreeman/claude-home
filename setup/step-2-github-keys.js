@@ -5,6 +5,26 @@ const {
 	ok, info, confirm, run, runSilent, exists, isDir
 } = require('./utils')
 
+// Managed SSH config blocks — keyed by Host value for replacement
+const SSH_BLOCKS = [
+	{
+		host: 'github.com-personal',
+		content: `# Personal GitHub (samfreeman)
+Host github.com-personal
+\tHostName github.com
+\tUser git
+\tIdentityFile ~/.ssh/id_ed25519`
+	},
+	{
+		host: 'github.com-payonward',
+		content: `# PayOnward GitHub (SamAtPayOnward)
+Host github.com-payonward
+\tHostName github.com
+\tUser git
+\tIdentityFile ~/.ssh/id_ed25519_payonward`
+	}
+]
+
 module.exports = {
 	id: '2-github-keys',
 	name: 'GitHub CLI & SSH Keys',
@@ -13,7 +33,7 @@ module.exports = {
 		info('This step will:')
 		info('  - Install GitHub CLI (gh)')
 		info('  - Generate SSH keys for two GitHub accounts')
-		info('  - Write SSH config with host aliases')
+		info('  - Add/update GitHub host blocks in SSH config')
 		info('')
 		info('SSH keys:')
 		info('  ~/.ssh/id_ed25519           — personal (samfreeman)')
@@ -39,7 +59,7 @@ module.exports = {
 		if (!isDir(SSH_DIR))
 			run(`mkdir -p ${SSH_DIR} && chmod 700 ${SSH_DIR}`)
 
-		// 3. Personal key
+		// 3. Personal key — empty passphrase for automation (keys are per-machine, not shared)
 		const personalKey = path.join(SSH_DIR, 'id_ed25519')
 		if (!exists(personalKey)) {
 			run(`ssh-keygen -t ed25519 -C "sam.freeman.55@gmail.com" -f ${personalKey} -N ""`)
@@ -48,7 +68,7 @@ module.exports = {
 		else
 			ok('Personal SSH key already exists')
 
-		// 4. PayOnward key
+		// 4. PayOnward key — empty passphrase for automation (keys are per-machine, not shared)
 		const payonwardKey = path.join(SSH_DIR, 'id_ed25519_payonward')
 		if (!exists(payonwardKey)) {
 			run(`ssh-keygen -t ed25519 -C "sfreeman@pay-onward.com" -f ${payonwardKey} -N ""`)
@@ -57,22 +77,24 @@ module.exports = {
 		else
 			ok('PayOnward SSH key already exists')
 
-		// 5. SSH config
-		const sshConfig = `# Personal GitHub (samfreeman)
-Host github.com-personal
-\tHostName github.com
-\tUser git
-\tIdentityFile ~/.ssh/id_ed25519
-
-# PayOnward GitHub (SamAtPayOnward)
-Host github.com-payonward
-\tHostName github.com
-\tUser git
-\tIdentityFile ~/.ssh/id_ed25519_payonward
-`
+		// 5. SSH config — read existing, replace/append managed blocks only
 		const configPath = path.join(SSH_DIR, 'config')
-		fs.writeFileSync(configPath, sshConfig, { mode: 0o600 })
-		ok('SSH config written')
+		let existing = exists(configPath) ? fs.readFileSync(configPath, 'utf8') : ''
+
+		for (const block of SSH_BLOCKS) {
+			// Match from "Host <name>" to the next "Host " or end of file
+			const pattern = new RegExp(
+				`(#[^\\n]*\\n)?Host ${block.host}\\b[\\s\\S]*?(?=\\nHost |\\n#.*\\nHost |$)`,
+				'm'
+			)
+			if (pattern.test(existing))
+				existing = existing.replace(pattern, block.content)
+			else
+				existing = existing.trimEnd() + '\n\n' + block.content + '\n'
+		}
+
+		fs.writeFileSync(configPath, existing.trimStart(), { mode: 0o600 })
+		ok('SSH config updated (existing hosts preserved)')
 
 		// Validate
 		const checks = [

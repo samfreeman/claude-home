@@ -66,10 +66,11 @@ module.exports = {
 		)
 		ok('.mcp.json written')
 
-		// 6. Install project dependencies (detect package manager)
+		// 6. Install project dependencies (detect package manager per repo)
 		const projects = [
 			path.join(SOURCE, 'cs-bounce'),
-			path.join(SOURCE, 'samx')
+			path.join(SOURCE, 'samx'),
+			path.join(SOURCE, 'dragonpay-api')
 		]
 		for (const proj of projects) {
 			if (isDir(proj) && exists(path.join(proj, 'package.json'))) {
@@ -78,15 +79,6 @@ module.exports = {
 				run(cmd, { cwd: proj })
 				ok(`${usePnpm ? 'pnpm' : 'npm'} install: ${path.basename(proj)}`)
 			}
-		}
-
-		// dragonpay-api
-		const dpApi = path.join(SOURCE, 'dragonpay-api')
-		if (isDir(dpApi) && exists(path.join(dpApi, 'package.json'))) {
-			const usePnpm = exists(path.join(dpApi, 'pnpm-lock.yaml'))
-			const cmd = usePnpm ? 'pnpm install' : 'npm install'
-			run(cmd, { cwd: dpApi })
-			ok(`${usePnpm ? 'pnpm' : 'npm'} install: dragonpay-api`)
 		}
 
 		// Validate
