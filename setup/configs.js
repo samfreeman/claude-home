@@ -70,27 +70,36 @@ function generateDesktopConfigWSL(state) {
 	if (dropboxBase)
 		filesystemPaths.push(dropboxBase)
 
+	const servers = {
+		'claude-memory': {
+			command: 'node',
+			args: [`${winMcpBase}\\claude-memory-mcp\\dist\\index.js`]
+		}
+	}
+
+	// Only include playwright if chromium is installed
+	if (chromiumDir) {
+		servers.playwright = {
+			command: 'wsl',
+			args: [
+				'-e', 'bash', '-c',
+				`PLAYWRIGHT_BROWSERS_PATH=${HOME}/.cache/ms-playwright npx -y @playwright/mcp@latest --headless --browser chromium --executable-path ${HOME}/.cache/ms-playwright/${chromiumDir}/chrome-linux/chrome`
+			]
+		}
+	}
+	else
+		warn('Playwright omitted from Desktop config — chromium not installed')
+
+	servers.filesystem = {
+		command: 'wsl',
+		args: [
+			'npx', '-y', '@modelcontextprotocol/server-filesystem',
+			...filesystemPaths
+		]
+	}
+
 	return {
-		mcpServers: {
-			'claude-memory': {
-				command: 'node',
-				args: [`${winMcpBase}\\claude-memory-mcp\\dist\\index.js`]
-			},
-			playwright: {
-				command: 'wsl',
-				args: [
-					'-e', 'bash', '-c',
-					`PLAYWRIGHT_BROWSERS_PATH=${HOME}/.cache/ms-playwright npx -y @playwright/mcp@latest --headless --browser chromium --executable-path ${HOME}/.cache/ms-playwright/${chromiumDir}/chrome-linux/chrome`
-				]
-			},
-			filesystem: {
-				command: 'wsl',
-				args: [
-					'npx', '-y', '@modelcontextprotocol/server-filesystem',
-					...filesystemPaths
-				]
-			}
-		},
+		mcpServers: servers,
 		preferences: {
 			coworkScheduledTasksEnabled: false,
 			sidebarMode: 'chat'
