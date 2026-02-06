@@ -9,7 +9,8 @@
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:win": "npm run build && cp -r dist package.json /mnt/c/Users/samfr/.claude/mcp-servers/wag-mcp/ && cd /mnt/c/Users/samfr/.claude/mcp-servers/wag-mcp && cmd.exe /c 'npm install --omit=dev'"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"

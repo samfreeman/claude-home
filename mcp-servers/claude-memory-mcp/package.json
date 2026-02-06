@@ -8,7 +8,8 @@
 		"build": "tsc",
 		"start": "node dist/index.js",
 		"dev": "tsx src/index.ts",
-		"migrate": "tsx scripts/migrate.ts"
+		"migrate": "tsx scripts/migrate.ts",
+		"deploy:win": "npm run build && cp -r dist package.json .env /mnt/c/Users/samfr/.claude/mcp-servers/claude-memory-mcp/ && cd /mnt/c/Users/samfr/.claude/mcp-servers/claude-memory-mcp && cmd.exe /c 'npm install --omit=dev'"
 	},
 	"dependencies": {
 		"@libsql/client": "^0.17.0",

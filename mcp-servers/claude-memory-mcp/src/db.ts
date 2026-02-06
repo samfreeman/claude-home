@@ -53,8 +53,10 @@ export async function initDb(config: DbConfig = {}): Promise<void> {
 			authToken,
 			syncInterval
 		})
-		// Initial sync
-		await client.sync()
+		// Initial sync with timeout — don't hang if Turso is slow
+		const timedOut = await sync()
+		if (timedOut)
+			console.error(`claude-memory-mcp: initial sync timed out, continuing with local replica`)
 		console.error(`claude-memory-mcp: syncing with ${syncUrl}`)
 	}
 	else {
