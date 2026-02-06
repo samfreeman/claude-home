@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const {
 	MCP_SERVERS,
-	ok, fail, info, confirm, run, exists, saveState
+	ok, fail, info, confirm, run, exists, saveState, detectWinAppData
 } = require('./utils')
 const { generateDesktopConfig, wslToWinPath } = require('./configs')
 
@@ -10,6 +10,33 @@ module.exports = {
 	id: '7-deploy-win',
 	name: 'Deploy to Windows',
 	platforms: ['wsl'],
+
+	detect(state) {
+		const winAppData = state.winAppData || detectWinAppData()
+		if (!winAppData) return { winAppData: null }
+
+		const winMcpBase = `${winAppData}/Claude/mcp-servers`
+		const claudeDesktopDir = `${winAppData}/Claude`
+		const configPath = path.join(claudeDesktopDir, 'claude_desktop_config.json')
+
+		let configValid = false
+		if (exists(configPath)) {
+			try {
+				JSON.parse(fs.readFileSync(configPath, 'utf8'))
+				configValid = true
+			}
+			catch {}
+		}
+
+		return {
+			memoryDist: exists(`${winMcpBase}/claude-memory-mcp/dist/index.js`),
+			memoryModules: exists(`${winMcpBase}/claude-memory-mcp/node_modules`),
+			wagDist: exists(`${winMcpBase}/wag-mcp/dist/index.js`),
+			wagModules: exists(`${winMcpBase}/wag-mcp/node_modules`),
+			desktopConfig: configValid
+		}
+	},
+
 	async fn(state) {
 		if (!state.winAppData) {
 			fail('Windows AppData not detected — run step 0 first')

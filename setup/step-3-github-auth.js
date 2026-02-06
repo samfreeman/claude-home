@@ -1,13 +1,34 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	SSH_DIR, ok, fail, warn, info, confirm, runSilent, exists
+	SSH_DIR, ok, fail, warn, info, confirm, runSilent, exists, probe
 } = require('./utils')
 
 module.exports = {
 	id: '3-github-auth',
 	name: 'GitHub Auth',
 	platforms: ['wsl', 'mac'],
+
+	detect() {
+		// SSH connectivity — 5s timeout to avoid hanging on network issues
+		const personal = probe(
+			'ssh -T git@github.com-personal -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 2>&1',
+			5000
+		)
+		const payonward = probe(
+			'ssh -T git@github.com-payonward -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 2>&1',
+			5000
+		)
+
+		const ghAuth = probe('gh auth status 2>&1')
+
+		return {
+			sshPersonal: personal.output.includes('samfreeman'),
+			sshPayonward: payonward.output.includes('SamAtPayOnward'),
+			ghAuth: ghAuth.output.includes('Logged in')
+		}
+	},
+
 	async fn(state) {
 		info('This step requires manual browser interaction.')
 		info('')

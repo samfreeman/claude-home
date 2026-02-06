@@ -167,6 +167,21 @@ function runSilent(cmd, opts = {}) {
 	return run(cmd, { ...opts, silent: true })
 }
 
+// Silent probe with configurable timeout — for detect() functions
+function probe(cmd, timeout = 5000) {
+	try {
+		const output = execSync(cmd, {
+			encoding: 'utf8',
+			stdio: 'pipe',
+			timeout
+		}).trim()
+		return { ok: true, output }
+	}
+	catch {
+		return { ok: false, output: '' }
+	}
+}
+
 // ── Filesystem ──
 
 function exists(p) {
@@ -240,6 +255,7 @@ module.exports = {
 	closeRL,
 	run,
 	runSilent,
+	probe,
 	exists,
 	isDir,
 	banner,

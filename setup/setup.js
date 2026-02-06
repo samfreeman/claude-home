@@ -4,7 +4,7 @@
 const {
 	IS_MAC, IS_WSL, USER, HOME,
 	c, ok, fail, warn, info, confirm,
-	closeRL, exists, isDir,
+	closeRL, exists,
 	banner, loadState, saveState, markComplete, isComplete,
 	detectWinAppData
 } = require('./utils')
@@ -44,6 +44,55 @@ function showStatus() {
 	console.log(`${completed}/${applicable.length} steps complete`)
 }
 
+// ── Scan Display ──
+
+function showScan() {
+	const state = loadState()
+	const platform = IS_MAC ? 'mac' : 'wsl'
+	const applicable = STEPS.filter(s => s.platforms.includes(platform))
+
+	console.log('')
+	console.log(`${c.bold}${c.cyan}  Machine Scan${c.reset}`)
+	console.log(`${c.dim}  Platform: ${IS_MAC ? 'macOS' : 'WSL (Windows)'}${c.reset}`)
+	console.log(`${c.dim}  User: ${USER}${c.reset}`)
+	console.log(`${c.dim}  Home: ${HOME}${c.reset}`)
+	console.log('')
+
+	for (const step of applicable) {
+		if (!step.detect) continue
+
+		console.log(`${c.bold}  ${step.name}${c.reset}`)
+
+		try {
+			const result = step.detect(state)
+			renderDetect(result)
+		}
+		catch (err) {
+			fail(`detect failed: ${err.message}`)
+		}
+		console.log('')
+	}
+}
+
+function renderDetect(obj, indent = 4) {
+	const pad = ' '.repeat(indent)
+	for (const [key, val] of Object.entries(obj)) {
+		if (val == null) {
+			console.log(`${pad}${c.red}x${c.reset} ${key}: ${c.dim}not found${c.reset}`)
+		}
+		else if (typeof val == 'object' && !Array.isArray(val)) {
+			console.log(`${pad}${c.dim}${key}:${c.reset}`)
+			renderDetect(val, indent + 2)
+		}
+		else if (val === true)
+			console.log(`${pad}${c.green}+${c.reset} ${key}`)
+		else if (val === false)
+			console.log(`${pad}${c.red}x${c.reset} ${key}`)
+		else
+			console.log(`${pad}${c.green}+${c.reset} ${key}: ${val}`)
+	}
+}
+
 // ── Main ──
 
 async function main() {
@@ -52,6 +101,12 @@ async function main() {
 	// --status: show progress and exit
 	if (args.includes('--status')) {
 		showStatus()
+		process.exit(0)
+	}
+
+	// --scan: read-only machine report and exit
+	if (args.includes('--scan')) {
+		showScan()
 		process.exit(0)
 	}
 

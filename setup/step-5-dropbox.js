@@ -13,6 +13,19 @@ module.exports = {
 	id: '5-dropbox',
 	name: 'Verify Dropbox',
 	platforms: ['wsl', 'mac'],
+
+	detect(state) {
+		const dropboxPath = state.dropboxPath || defaultDropboxCreds(state)
+		const files = {}
+		for (const f of EXPECTED_FILES)
+			files[f] = exists(path.join(dropboxPath, f))
+
+		return {
+			dropboxPath,
+			files
+		}
+	},
+
 	async fn(state) {
 		const detected = defaultDropboxCreds(state)
 

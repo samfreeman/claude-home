@@ -2,7 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const {
 	IS_MAC, SSH_DIR,
-	ok, info, confirm, run, runSilent, exists, isDir
+	ok, info, confirm, run, runSilent, exists, isDir, probe
 } = require('./utils')
 
 // Managed SSH config blocks — keyed by Host value for replacement
@@ -29,6 +29,33 @@ module.exports = {
 	id: '2-github-keys',
 	name: 'GitHub CLI & SSH Keys',
 	platforms: ['wsl', 'mac'],
+
+	detect() {
+		const ghCheck = probe('which gh')
+		const personalKey = exists(path.join(SSH_DIR, 'id_ed25519'))
+		const payonwardKey = exists(path.join(SSH_DIR, 'id_ed25519_payonward'))
+
+		// Check SSH config for host blocks
+		const configPath = path.join(SSH_DIR, 'config')
+		let hasPersonalHost = false
+		let hasPayonwardHost = false
+		if (exists(configPath)) {
+			const config = fs.readFileSync(configPath, 'utf8')
+			hasPersonalHost = config.includes('Host github.com-personal')
+			hasPayonwardHost = config.includes('Host github.com-payonward')
+		}
+
+		return {
+			ghCli: ghCheck.ok,
+			personalKey,
+			payonwardKey,
+			sshConfig: {
+				personal: hasPersonalHost,
+				payonward: hasPayonwardHost
+			}
+		}
+	},
+
 	async fn(state) {
 		info('This step will:')
 		info('  - Install GitHub CLI (gh)')

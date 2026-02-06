@@ -1,12 +1,32 @@
 const {
-	IS_WSL, USER, ok, fail, warn, info, confirm, askDefault,
-	runSilent, isDir, detectWinAppData, saveState
+	ok, fail, warn, info, confirm,
+	runSilent, isDir, detectWinAppData, saveState, probe
 } = require('./utils')
 
 module.exports = {
 	id: '0-prereqs',
 	name: 'Windows Prerequisites',
 	platforms: ['wsl'],
+
+	detect() {
+		const winAppData = detectWinAppData()
+		const nodeCheck = probe('cmd.exe /c "node --version"')
+		const codeCheck = probe('which code')
+
+		let dropboxFolder = false
+		if (winAppData) {
+			const winHome = winAppData.replace(/\/AppData\/Roaming$/, '')
+			dropboxFolder = isDir(`${winHome}/Dropbox`)
+		}
+
+		return {
+			winAppData,
+			windowsNode: nodeCheck.ok ? nodeCheck.output : null,
+			vsCode: codeCheck.ok,
+			dropboxFolder
+		}
+	},
+
 	async fn(state) {
 		info('This step ensures Windows-side prerequisites are installed.')
 		info('')
@@ -50,14 +70,11 @@ module.exports = {
 			warn('VS Code `code` command not found — install VS Code on Windows with WSL extension')
 
 		// Check Dropbox folder exists using detected Windows home
-		let dropboxFound = false
 		if (winAppData) {
 			const winHome = winAppData.replace(/\/AppData\/Roaming$/, '')
 			const dropboxBase = `${winHome}/Dropbox`
-			if (isDir(dropboxBase)) {
+			if (isDir(dropboxBase))
 				ok(`Dropbox folder found: ${dropboxBase}`)
-				dropboxFound = true
-			}
 			else
 				warn(`Dropbox folder not found at ${dropboxBase} — may need to sync first`)
 		}

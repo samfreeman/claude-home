@@ -1,7 +1,7 @@
 const path = require('path')
 const {
 	IS_WSL, SOURCE, CLAUDE_HOME,
-	ok, info, confirm, run, runSilent, isDir
+	ok, info, confirm, run, runSilent, isDir, probe
 } = require('./utils')
 
 const REPOS = [
@@ -34,6 +34,40 @@ module.exports = {
 	id: '4-repos',
 	name: 'Clone Repos',
 	platforms: ['wsl', 'mac'],
+
+	detect() {
+		const repos = IS_WSL ? [...REPOS, ...WSL_ONLY_REPOS] : REPOS
+		const results = {}
+
+		for (const repo of repos) {
+			const dest = path.join(SOURCE, repo.dest)
+			if (!isDir(dest)) {
+				results[repo.dest] = { cloned: false }
+				continue
+			}
+
+			const branch = probe(`git -C ${dest} rev-parse --abbrev-ref HEAD`)
+			const status = probe(`git -C ${dest} status --porcelain`)
+			const remote = probe(`git -C ${dest} remote get-url origin`)
+
+			results[repo.dest] = {
+				cloned: true,
+				branch: branch.ok ? branch.output : null,
+				clean: status.ok ? status.output.length == 0 : null,
+				remote: remote.ok ? remote.output : null
+			}
+		}
+
+		// claude-home remote
+		const chRemote = probe(`git -C ${CLAUDE_HOME} remote get-url origin`)
+		results['claude-home'] = {
+			remote: chRemote.ok ? chRemote.output : null,
+			usesAlias: chRemote.ok && chRemote.output.includes('github.com-personal')
+		}
+
+		return results
+	},
+
 	async fn(state) {
 		const repos = IS_WSL ? [...REPOS, ...WSL_ONLY_REPOS] : REPOS
 
@@ -54,9 +88,8 @@ module.exports = {
 		// Clone each repo
 		for (const repo of repos) {
 			const dest = path.join(SOURCE, repo.dest)
-			if (isDir(dest)) {
+			if (isDir(dest))
 				ok(`${repo.dest} already exists`)
-			}
 			else {
 				run(`git clone ${repo.url} ${dest}`)
 				ok(`Cloned ${repo.dest}`)
@@ -80,9 +113,8 @@ module.exports = {
 			{ ignoreError: true }
 		)
 		const remote = currentRemote.output?.trim() || ''
-		if (remote.includes('github.com-personal:')) {
+		if (remote.includes('github.com-personal:'))
 			ok('claude-home remote already uses SSH alias')
-		}
 		else if (remote.includes('github.com') && !remote.includes('github.com-personal')) {
 			run(`git -C ${CLAUDE_HOME} remote set-url origin git@github.com-personal:samfreeman/claude-home.git`)
 			ok('Updated claude-home remote to use github.com-personal')

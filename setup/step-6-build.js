@@ -1,17 +1,51 @@
-const fs = require('fs')
 const path = require('path')
 const {
 	CLAUDE_HOME, SOURCE, MCP_SERVERS,
-	ok, warn, info, confirm, run, exists, isDir, defaultDropboxCreds
+	ok, info, confirm, run, exists, isDir
 } = require('./utils')
-const { generateMcpJson } = require('./configs')
 
 module.exports = {
 	id: '6-build',
 	name: 'Build & Configure',
 	platforms: ['wsl', 'mac'],
+
+	detect() {
+		const memoryMcp = path.join(MCP_SERVERS, 'claude-memory-mcp')
+		const wagMcp = path.join(MCP_SERVERS, 'wag-mcp')
+		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')
+
+		const projects = [
+			path.join(SOURCE, 'cs-bounce'),
+			path.join(SOURCE, 'samx'),
+			path.join(SOURCE, 'dragonpay-api')
+		]
+		const projectDeps = {}
+		for (const proj of projects) {
+			const name = path.basename(proj)
+			projectDeps[name] = isDir(proj) && isDir(path.join(proj, 'node_modules'))
+		}
+
+		return {
+			memoryMcp: {
+				dist: exists(path.join(memoryMcp, 'dist/index.js')),
+				nodeModules: isDir(path.join(memoryMcp, 'node_modules'))
+			},
+			wagMcp: {
+				dist: exists(path.join(wagMcp, 'dist/index.js')),
+				nodeModules: isDir(path.join(wagMcp, 'node_modules'))
+			},
+			playwrightMcp: {
+				nodeModules: isDir(path.join(pwMcp, 'node_modules'))
+			},
+			mcpJson: exists(path.join(CLAUDE_HOME, '.mcp.json')),
+			projectDeps
+		}
+	},
+
 	async fn(state) {
-		const dropboxPath = state.dropboxPath || defaultDropboxCreds(state)
+		const dropboxPath = state.dropboxPath || require('./utils').defaultDropboxCreds(state)
+		const fs = require('fs')
+		const { generateMcpJson } = require('./configs')
 
 		info('This step will:')
 		info('  - Build MCP servers (claude-memory-mcp, wag-mcp)')
@@ -56,7 +90,7 @@ module.exports = {
 				ok(`Copied ${cred.src}`)
 			}
 			else
-				warn(`${cred.src} not found in Dropbox — skipping`)
+				require('./utils').warn(`${cred.src} not found in Dropbox — skipping`)
 		}
 
 		// 5. Write .mcp.json

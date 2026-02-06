@@ -7,6 +7,14 @@ module.exports = {
 	id: '9-unity',
 	name: 'Unity (Optional)',
 	platforms: ['wsl'],
+
+	detect() {
+		return {
+			unityProjectsDir: isDir('/mnt/c/Code/Unity'),
+			sourceUnityDir: isDir(path.join(SOURCE, 'unity'))
+		}
+	},
+
 	async fn(state) {
 		info('This step is optional. Unity Hub is only needed for game development.')
 		info('')

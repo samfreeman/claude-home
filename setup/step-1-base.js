@@ -2,13 +2,35 @@ const fs = require('fs')
 const path = require('path')
 const {
 	IS_MAC, HOME, SOURCE,
-	ok, info, confirm, run, runSilent, exists, isDir
+	ok, info, confirm, run, runSilent, exists, isDir, probe
 } = require('./utils')
 
 module.exports = {
 	id: '1-base',
 	name: 'Base Setup',
 	platforms: ['wsl', 'mac'],
+
+	detect() {
+		const npmGlobalDir = path.join(HOME, '.npm-global')
+		const pnpmCheck = probe('which pnpm')
+		const claudeCheck = probe('which claude')
+
+		// Git identity
+		const gitName = probe('git config --global user.name')
+		const gitEmail = probe('git config --global user.email')
+
+		return {
+			npmGlobalDir: isDir(npmGlobalDir),
+			pnpm: pnpmCheck.ok,
+			claudeCode: claudeCheck.ok,
+			sourceDir: isDir(SOURCE),
+			gitIdentity: {
+				name: gitName.ok ? gitName.output : null,
+				email: gitEmail.ok ? gitEmail.output : null
+			}
+		}
+	},
+
 	async fn(state) {
 		info('This step will:')
 		info('  - Configure npm global prefix (avoid sudo)')

@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	IS_MAC, IS_WSL, HOME,
+	IS_MAC, IS_WSL,
 	ok, fail, info, confirm, run, exists, isDir,
 	detectClaudeDesktopDir, saveState
 } = require('./utils')
@@ -11,6 +11,28 @@ module.exports = {
 	id: '8-desktop',
 	name: 'Claude Desktop',
 	platforms: ['wsl', 'mac'],
+
+	detect(state) {
+		const desktopDir = state.claudeDesktopDir || detectClaudeDesktopDir(state)
+		if (!desktopDir) return { configDir: null, configExists: false }
+
+		const configPath = path.join(desktopDir, 'claude_desktop_config.json')
+		let configValid = false
+		if (exists(configPath)) {
+			try {
+				JSON.parse(fs.readFileSync(configPath, 'utf8'))
+				configValid = true
+			}
+			catch {}
+		}
+
+		return {
+			configDir: desktopDir,
+			configExists: exists(configPath),
+			configValid
+		}
+	},
+
 	async fn(state) {
 		info('Install Claude Desktop if not already installed.')
 		info('')
