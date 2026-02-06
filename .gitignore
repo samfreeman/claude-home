@@ -16,6 +16,9 @@ plugins/
 .credentials.json
 stats-cache.json
 
+# Setup state (machine-specific)
+setup/state.json
+
 # Backup files
 *.backup
 *.backup.*
