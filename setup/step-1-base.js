@@ -1,8 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	IS_MAC, HOME, SOURCE, MCP_SERVERS,
-	ok, warn, info, confirm, run, runSilent, exists, isDir
+	IS_MAC, HOME, SOURCE,
+	ok, info, confirm, run, runSilent, exists, isDir
 } = require('./utils')
 
 module.exports = {
@@ -14,7 +14,6 @@ module.exports = {
 		info('  - Configure npm global prefix (avoid sudo)')
 		info('  - Install pnpm')
 		info('  - Install claude-code CLI')
-		info('  - Install Playwright browsers')
 		info('  - Create ~/source directory')
 		info('  - Set git identity')
 		info('')
@@ -60,21 +59,12 @@ module.exports = {
 		else
 			ok('claude-code already installed')
 
-		// 4. Install playwright browsers
-		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')
-		if (isDir(pwMcp)) {
-			run('npx playwright install chromium', { cwd: pwMcp })
-			ok('Playwright Chromium installed')
-		}
-		else
-			warn('playwright-mcp not found — will install after clone')
-
-		// 5. Create ~/source
+		// 4. Create ~/source
 		if (!isDir(SOURCE))
 			run(`mkdir -p ${SOURCE}`)
 		ok(`${SOURCE} ready`)
 
-		// 6. Git identity
+		// 5. Git identity
 		run('git config --global user.name "Sam Freeman"')
 		run('git config --global user.email "sam.freeman.55@gmail.com"')
 		ok('Git identity configured')

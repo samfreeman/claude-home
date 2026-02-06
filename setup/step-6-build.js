@@ -15,7 +15,7 @@ module.exports = {
 
 		info('This step will:')
 		info('  - Build MCP servers (claude-memory-mcp, wag-mcp)')
-		info('  - Install playwright-mcp dependencies')
+		info('  - Install playwright-mcp dependencies + browsers')
 		info('  - Copy credential files from Dropbox')
 		info('  - Write .mcp.json for Claude Code')
 		info('  - Install dependencies for project repos')
@@ -36,10 +36,11 @@ module.exports = {
 		run('npm run build', { cwd: wagMcp })
 		ok('wag-mcp built')
 
-		// 3. Install playwright-mcp deps
+		// 3. Install playwright-mcp deps + browsers
 		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')
 		run('npm install', { cwd: pwMcp })
-		ok('playwright-mcp dependencies installed')
+		run('npx playwright install chromium', { cwd: pwMcp })
+		ok('playwright-mcp dependencies + Chromium installed')
 
 		// 4. Copy creds from Dropbox
 		const credMappings = [

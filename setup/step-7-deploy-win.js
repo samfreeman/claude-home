@@ -44,8 +44,8 @@ module.exports = {
 		const envFile = path.join(memSrc, '.env')
 		if (exists(envFile))
 			run(`cp ${envFile} ${memDst}/`)
-		// npm install on Windows side for platform-specific native bindings
-		run(`cmd.exe /c "cd /d ${wslToWinPath(memDst)} && npm install --omit=dev"`)
+		// npm install on Windows side — inner quotes handle paths with spaces
+		run(`cmd.exe /c "cd /d ""${wslToWinPath(memDst)}"" && npm install --omit=dev"`)
 		ok('claude-memory-mcp deployed to Windows')
 
 		// 2. Deploy wag-mcp
@@ -53,7 +53,7 @@ module.exports = {
 		const wagDst = `${winMcpBase}/wag-mcp`
 
 		run(`cp -r ${wagSrc}/dist ${wagSrc}/package.json ${wagDst}/`)
-		run(`cmd.exe /c "cd /d ${wslToWinPath(wagDst)} && npm install --omit=dev"`)
+		run(`cmd.exe /c "cd /d ""${wslToWinPath(wagDst)}"" && npm install --omit=dev"`)
 		ok('wag-mcp deployed to Windows')
 
 		// 3. Write claude_desktop_config.json

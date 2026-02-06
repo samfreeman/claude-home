@@ -74,17 +74,19 @@ module.exports = {
 		ok('~/source/unity directory ready')
 
 		// Fix claude-home remote to use SSH host alias
+		// Catches both SSH (github.com:) and HTTPS (https://github.com/) formats
 		const currentRemote = runSilent(
 			`git -C ${CLAUDE_HOME} remote get-url origin`,
 			{ ignoreError: true }
 		)
-		if (currentRemote.output?.includes('github.com:')
-			&& !currentRemote.output?.includes('github.com-personal:')) {
+		const remote = currentRemote.output?.trim() || ''
+		if (remote.includes('github.com-personal:')) {
+			ok('claude-home remote already uses SSH alias')
+		}
+		else if (remote.includes('github.com') && !remote.includes('github.com-personal')) {
 			run(`git -C ${CLAUDE_HOME} remote set-url origin git@github.com-personal:samfreeman/claude-home.git`)
 			ok('Updated claude-home remote to use github.com-personal')
 		}
-		else
-			ok('claude-home remote already uses SSH alias')
 
 		// Validate
 		const allExist = repos.every(r => isDir(path.join(SOURCE, r.dest)))
