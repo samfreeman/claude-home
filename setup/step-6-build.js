@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const {
-	CLAUDE_HOME, SOURCE, MCP_SERVERS,
+	CLAUDE_HOME, SOURCE, MCP_SERVERS, HOME,
 	ok, warn, info, confirm, run, exists, isDir, defaultDropboxCreds
 } = require('./utils')
 const { generateMcpJson } = require('./configs')
@@ -41,6 +41,7 @@ module.exports = {
 				dist: exists(path.join(pwMcp, 'dist/index.js'))
 			},
 			mcpJson: exists(path.join(CLAUDE_HOME, '.mcp.json')),
+			mcpSymlink: exists(path.join(HOME, '.mcp.json')),
 			projectDeps
 		}
 	},
@@ -118,6 +119,12 @@ module.exports = {
 		)
 		ok('.mcp.json written')
 
+		// Create symlink at ~/.mcp.json so Claude Code can find MCP servers from any project
+		const symlinkPath = path.join(HOME, '.mcp.json')
+		const targetPath = path.join(CLAUDE_HOME, '.mcp.json')
+		run(`ln -sf "${targetPath}" "${symlinkPath}"`)
+		ok('~/.mcp.json symlink created')
+
 		// 6. Install project dependencies (detect package manager per repo)
 		const projects = [
 			path.join(SOURCE, 'cs-bounce'),
@@ -135,6 +142,6 @@ module.exports = {
 
 		// Validate
 		const post = this.detect()
-		return { success: post.memoryMcp.dist && post.wagMcp.dist && post.playwrightMcp.dist && post.mcpJson }
+		return { success: post.memoryMcp.dist && post.wagMcp.dist && post.playwrightMcp.dist && post.mcpJson && post.mcpSymlink }
 	}
 }
