@@ -37,7 +37,8 @@ module.exports = {
 				nodeModules: isDir(path.join(wagMcp, 'node_modules'))
 			},
 			playwrightMcp: {
-				nodeModules: isDir(path.join(pwMcp, 'node_modules'))
+				nodeModules: isDir(path.join(pwMcp, 'node_modules')),
+				dist: exists(path.join(pwMcp, 'dist/index.js'))
 			},
 			mcpJson: exists(path.join(CLAUDE_HOME, '.mcp.json')),
 			projectDeps
@@ -48,8 +49,8 @@ module.exports = {
 		const dropboxPath = state.dropboxPath || defaultDropboxCreds(state)
 
 		info('This step will:')
-		info('  - Build MCP servers (claude-memory-mcp, wag-mcp)')
-		info('  - Install playwright-mcp dependencies + browsers')
+		info('  - Build MCP servers (claude-memory-mcp, wag-mcp, playwright-mcp)')
+		info('  - Install Playwright browser + system dependencies')
 		info('  - Copy credential files from Dropbox')
 		info('  - Write .mcp.json for Claude Code')
 		info('  - Install dependencies for project repos')
@@ -73,8 +74,24 @@ module.exports = {
 		// 3. Install playwright-mcp deps + browsers
 		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')
 		run('npm install', { cwd: pwMcp })
-		run('npx playwright install --with-deps chromium', { cwd: pwMcp })
-		ok('playwright-mcp dependencies + Chromium installed')
+
+		// Install Chromium browser binary (no system deps yet)
+		run('npx playwright install chromium', { cwd: pwMcp })
+		ok('Chromium browser binary installed')
+
+		// Prompt user to install OS dependencies manually (requires sudo)
+		info('')
+		info('Playwright requires system libraries to run Chromium.')
+		info('Run this command manually:')
+		console.log(`  cd ${pwMcp} && sudo npx playwright install-deps`)
+		info('')
+
+		if (!await confirm('Have you installed the system dependencies?'))
+			return { success: false, message: 'User skipped Playwright deps' }
+
+		// Build playwright-mcp after deps are installed
+		run('npm run build', { cwd: pwMcp })
+		ok('playwright-mcp built')
 
 		// 4. Copy creds from Dropbox
 		const credMappings = [
@@ -118,6 +135,6 @@ module.exports = {
 
 		// Validate
 		const post = this.detect()
-		return { success: post.memoryMcp.dist && post.wagMcp.dist && post.mcpJson }
+		return { success: post.memoryMcp.dist && post.wagMcp.dist && post.playwrightMcp.dist && post.mcpJson }
 	}
 }

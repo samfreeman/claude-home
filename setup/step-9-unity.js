@@ -37,14 +37,17 @@ module.exports = {
 		if (!isDir(unityDir))
 			run(`mkdir -p ${unityDir}`)
 
+		// Create Windows Unity path if it doesn't exist
+		if (!isDir(unityPath)) {
+			run(`mkdir -p "${unityPath}"`)
+			ok(`Created Unity projects directory: ${unityPath}`)
+		}
+		else
+			ok('Unity projects path already exists')
+
 		info('')
 		info(`Unity projects should be stored at: ${unityPath}`)
 		info(`Access from WSL via: ${unityDir}`)
-
-		if (isDir(unityPath))
-			ok('Unity projects path exists')
-		else
-			warn(`${unityPath} does not exist yet — create it when needed`)
 
 		return { success: true }
 	}
