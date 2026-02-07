@@ -30,6 +30,30 @@ The user is present on both sides. Your job is to bring your own investigation t
 
 Determine the current project from the workspace root directory in the environment context provided at the start of the conversation (the "Working directory" value). Only show and action messages whose `project` field matches this value. Messages with a different project or no project set should be ignored.
 
+---
+
+## Handling Arguments
+
+### If ARGUMENTS is a number (e.g., "72"):
+
+The user is specifically targeting inbox item with that ID. This takes precedence over all other logic.
+
+**Retry logic for Turso sync delays:**
+
+1. Attempt 1: Try `mcp__claude-memory__inbox_read` with the provided ID
+2. If not found, tell the user "Inbox item #[ID] not found, waiting for Turso sync..." then use `Bash` to run `sleep 2`
+3. Attempt 2: Try `mcp__claude-memory__inbox_read` again
+4. If still not found, tell the user "Still not found, waiting 2 more seconds..." then use `Bash` to run `sleep 2`
+5. Attempt 3: Try `mcp__claude-memory__inbox_read` one final time
+6. If still not found after 3 attempts: Stop and inform the user: "Inbox item #[ID] not found after 3 attempts (waited 4 seconds total). The message may not exist or Turso sync is experiencing delays."
+7. **If found at any attempt:** Display the full message and follow the investigation process from Branch B below (investigate independently, present findings, discuss with user, only act after alignment)
+
+### If ARGUMENTS is empty or not a number:
+
+Follow the standard workflow below (Step 1: Fetch Pending Messages).
+
+---
+
 ### Step 1: Fetch Pending Messages
 
 Call `mcp__claude-memory__inbox_list` with `status: "pending"` and `target: "code"` to get all pending inbox items sent from desktop to code. Then call `mcp__claude-memory__inbox_read` on each to check its `project` field. Filter out any items whose source is not "desktop" or whose project does not match the current workspace root.
