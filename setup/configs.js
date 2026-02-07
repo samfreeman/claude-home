@@ -61,10 +61,12 @@ function generateDesktopConfigWSL(state) {
 		? state.dropboxPath.replace(/\/creds$/, '')
 		: null
 
-	const filesystemPaths = [
-		HOME,
-		'/mnt/c/Code/Unity'
-	]
+	const filesystemPaths = [HOME]
+
+	// Only include Unity path if it exists
+	if (isDir('/mnt/c/Code/Unity'))
+		filesystemPaths.push('/mnt/c/Code/Unity')
+
 	if (winAppData)
 		filesystemPaths.push(`${winAppData}/Claude`)
 	if (dropboxBase)

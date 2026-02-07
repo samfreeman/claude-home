@@ -66,6 +66,11 @@ module.exports = {
 		else
 			ok('npm-global already in PATH')
 
+		// Update PATH for current process so subsequent steps can find pnpm/claude
+		const npmGlobalBin = path.join(npmGlobalDir, 'bin')
+		if (!process.env.PATH.includes(npmGlobalBin))
+			process.env.PATH = `${npmGlobalBin}:${process.env.PATH}`
+
 		// 2. Install pnpm
 		if (!detected.pnpm) {
 			run('npm install -g pnpm')

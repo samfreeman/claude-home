@@ -73,7 +73,7 @@ module.exports = {
 		// 3. Install playwright-mcp deps + browsers
 		const pwMcp = path.join(MCP_SERVERS, 'playwright-mcp')
 		run('npm install', { cwd: pwMcp })
-		run('npx playwright install chromium', { cwd: pwMcp })
+		run('npx playwright install --with-deps chromium', { cwd: pwMcp })
 		ok('playwright-mcp dependencies + Chromium installed')
 
 		// 4. Copy creds from Dropbox
