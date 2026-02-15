@@ -1,16 +1,16 @@
 ---
 description: Read and action pending inbox messages
 allowed-tools: Read, Write, Grep, Glob, Bash, TodoWrite, Task, AskUserQuestion,
-  mcp__claude-memory__inbox_list,
-  mcp__claude-memory__inbox_read,
-  mcp__claude-memory__inbox_update
+  mcp__claude-inbox__inbox_list,
+  mcp__claude-inbox__inbox_read,
+  mcp__claude-inbox__inbox_update
 ---
 
 # Inbox - Pending Message Handler
 
 ## Your Task
 
-Process pending messages from desktop in the claude-memory inbox for the current project.
+Process pending messages from desktop in the claude-inbox inbox for the current project.
 
 ## Critical Mindset
 
@@ -38,15 +38,9 @@ Determine the current project from the workspace root directory in the environme
 
 The user is specifically targeting inbox item with that ID. This takes precedence over all other logic.
 
-**Retry logic for Turso sync delays:**
-
-1. Attempt 1: Try `mcp__claude-memory__inbox_read` with the provided ID
-2. If not found, tell the user "Inbox item #[ID] not found, waiting for Turso sync..." then use `Bash` to run `sleep 2`
-3. Attempt 2: Try `mcp__claude-memory__inbox_read` again
-4. If still not found, tell the user "Still not found, waiting 2 more seconds..." then use `Bash` to run `sleep 2`
-5. Attempt 3: Try `mcp__claude-memory__inbox_read` one final time
-6. If still not found after 3 attempts: Stop and inform the user: "Inbox item #[ID] not found after 3 attempts (waited 4 seconds total). The message may not exist or Turso sync is experiencing delays."
-7. **If found at any attempt:** Display the full message and follow the investigation process from Branch B below (investigate independently, present findings, discuss with user, only act after alignment)
+1. Call `mcp__claude-inbox__inbox_read` with the provided ID
+2. If not found, stop and inform the user: "Inbox item #[ID] not found."
+3. If found, display the full message and follow the investigation process from Branch B below (investigate independently, present findings, discuss with user, only act after alignment)
 
 ### If ARGUMENTS is empty or not a number:
 
@@ -56,7 +50,7 @@ Follow the standard workflow below (Step 1: Fetch Pending Messages).
 
 ### Step 1: Fetch Pending Messages
 
-Call `mcp__claude-memory__inbox_list` with `status: "pending"` and `target: "code"` to get all pending inbox items sent from desktop to code. Then call `mcp__claude-memory__inbox_read` on each to check its `project` field. Filter out any items whose source is not "desktop" or whose project does not match the current workspace root.
+Call `mcp__claude-inbox__inbox_list` with `status: "pending"` and `target: "code"` to get all pending inbox items sent from desktop to code. Then call `mcp__claude-inbox__inbox_read` on each to check its `project` field. Filter out any items whose source is not "desktop" or whose project does not match the current workspace root.
 
 ---
 
@@ -65,7 +59,7 @@ Call `mcp__claude-memory__inbox_list` with `status: "pending"` and `target: "cod
 If there are no matching pending messages:
 
 1. Tell the user: "No pending inbox messages for [project]."
-2. Call `mcp__claude-memory__inbox_list` with `status: "done"` and `target: "code"` to get completed items. Filter to only those matching the current project.
+2. Call `mcp__claude-inbox__inbox_list` with `status: "done"` and `target: "code"` to get completed items. Filter to only those matching the current project.
 3. Show the **last 3** matching completed messages in a summary format:
    ```
    Recent completed messages:
@@ -93,7 +87,7 @@ If there is exactly one matching pending message:
    - Look at configs, environment, runtime state — anything that could confirm or contradict.
    - Consider alternative root causes the message may not have explored.
 3. **Present your findings to the user.** Share what you found, where it agrees or disagrees with Desktop's analysis, and what you think is actually going on. Discuss options. Do not start making changes without the user's input.
-4. Once work is agreed upon and completed, call `mcp__claude-memory__inbox_update` with the item's ID and `status: "done"`.
+4. Once work is agreed upon and completed, call `mcp__claude-inbox__inbox_update` with the item's ID and `status: "done"`.
 
 ---
 
@@ -112,4 +106,4 @@ If there are two or more matching pending messages:
 3. Once the user picks one:
    - Display the full message
    - Follow the same process as Branch B: investigate independently, present findings, discuss with the user, and only act once aligned
-   - Once work is agreed upon and completed, mark it as `done` with `mcp__claude-memory__inbox_update`
+   - Once work is agreed upon and completed, mark it as `done` with `mcp__claude-inbox__inbox_update`

@@ -20,10 +20,10 @@
 				"/home/samfr/.claude/mcp-servers/wag-mcp/dist/index.js"
 			]
 		},
-		"claude-memory": {
+		"claude-inbox": {
 			"command": "node",
 			"args": [
-				"/home/samfr/.claude/mcp-servers/claude-memory-mcp/dist/index.js"
+				"/home/samfr/.claude/mcp-servers/claude-inbox-mcp/dist/index.js"
 			]
 		}
 	}

@@ -1,0 +1,73 @@
+import { query, execute, now } from '../db.js'
+import type { ToolResult, InboxSendArgs, InboxListArgs, InboxReadArgs, InboxUpdateArgs, InboxDeleteArgs, InboxItem } from '../types.js'
+
+function text(t: string): ToolResult {
+	return { content: [{ type: 'text', text: t }] }
+}
+
+export function handleInboxSend(args: InboxSendArgs): ToolResult {
+	const { source, target, title, content, project } = args
+	const timestamp = now()
+
+	const result = execute(
+		`INSERT INTO inbox (source, target, title, content, project, status, created, updated)
+		 VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+		[source, target, title, content || null, project || null, timestamp, timestamp]
+	)
+
+	return text(JSON.stringify({ id: result.lastInsertRowid, title, from: source, to: target, project: project || null }, null, 2))
+}
+
+export function handleInboxList(args: InboxListArgs): ToolResult {
+	const { target, status } = args
+
+	const rows = query<{ id: number; source: string; target: string; title: string; project: string | null; status: string; created: string }>(
+		`SELECT id, source, target, title, project, status, created FROM inbox
+		 WHERE (target = ? OR ? IS NULL)
+		 AND (status = ? OR ? IS NULL)
+		 ORDER BY created DESC`,
+		[target || null, target || null, status || null, status || null]
+	)
+
+	if (rows.length == 0)
+		return text('Inbox is empty.')
+
+	const t = rows.map((r) => {
+		const proj = r.project ? ` @${r.project}` : ''
+		return `[${r.id}] ${r.title} (${r.source}→${r.target}${proj}) [${r.status}] ${r.created}`
+	}).join('\n')
+
+	return text(t)
+}
+
+export function handleInboxRead(args: InboxReadArgs): ToolResult {
+	const [row] = query<InboxItem>('SELECT * FROM inbox WHERE id = ?', [args.id])
+
+	if (!row)
+		return text(`Inbox item ${args.id} not found.`)
+
+	return text(JSON.stringify(row, null, 2))
+}
+
+export function handleInboxUpdate(args: InboxUpdateArgs): ToolResult {
+	const { id, status } = args
+	const timestamp = now()
+
+	const [existing] = query('SELECT id FROM inbox WHERE id = ?', [id])
+	if (!existing)
+		return text(`Inbox item ${id} not found.`)
+
+	execute('UPDATE inbox SET status = ?, updated = ? WHERE id = ?', [status, timestamp, id])
+
+	return text(`Inbox item ${id} marked as '${status}'.`)
+}
+
+export function handleInboxDelete(args: InboxDeleteArgs): ToolResult {
+	const [existing] = query('SELECT id FROM inbox WHERE id = ?', [args.id])
+	if (!existing)
+		return text(`Inbox item ${args.id} not found.`)
+
+	execute('DELETE FROM inbox WHERE id = ?', [args.id])
+
+	return text(`Inbox item ${args.id} deleted.`)
+}

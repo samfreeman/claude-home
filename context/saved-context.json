@@ -1,0 +1,45 @@
+{
+	"timestamp": "2026-02-15T15:45:00.000Z",
+	"git_branch": "dev",
+	"working_directory": "/home/samfr/.claude",
+	"git_status": " M .mcp.json\n M commands/inbox.md\n D documents/wsl2-setup.md\n?? mcp-servers/claude-inbox-mcp/",
+	"todos": [
+		{"content": "Scaffold claude-inbox-mcp project", "status": "completed"},
+		{"content": "Create src/schema.ts", "status": "completed"},
+		{"content": "Create src/types.ts", "status": "completed"},
+		{"content": "Create src/db.ts", "status": "completed"},
+		{"content": "Create src/handlers/inbox.ts", "status": "completed"},
+		{"content": "Create src/index.ts", "status": "completed"},
+		{"content": "Install dependencies and confirm build", "status": "completed"},
+		{"content": "Test inbox end-to-end with CD", "status": "pending"},
+		{"content": "Build claude-memory-2-mcp", "status": "pending"}
+	],
+	"notes": "Splitting claude-memory-mcp into two standalone MCP servers",
+	"conversation_context": "Splitting claude-memory-mcp into two standalone MCP servers: claude-inbox-mcp (comms) and claude-memory-2-mcp (memory). Working with CD (Claude Desktop) and the user as a three-way collaboration.",
+	"continuation_prompt": "ACTIVE WORKFLOW: Splitting claude-memory-mcp into two standalone MCP servers\n\n## What's Done\n\n**claude-inbox-mcp** is BUILT, compiling clean, and registered in CC's .mcp.json at ~/.claude/mcp-servers/claude-inbox-mcp/. Local SQLite with better-sqlite3, no Turso. Five tools: inbox_send, inbox_list, inbox_read, inbox_update, inbox_delete. Source/target are enums: ['desktop', 'code']. Statuses: ['pending', 'picked_up', 'done']. Hard delete. No 'any' target — every message has a specific recipient.\n\nKey architectural difference from old codebase: everything is synchronous. better-sqlite3 calls are blocking. MCP tool callbacks are async for SDK compatibility but actual work is sync. main() is async to await server.connect().\n\nPARTICIPANTS and STATUSES are defined as constants at the top of index.ts — adding a new participant is a one-line change.\n\ncommands/inbox.md updated to use mcp__claude-inbox__ tool prefix. Turso retry logic removed (local SQLite = instant reads).\n\n.mcp.json updated with claude-inbox server entry.\n\nBackup of old memory.db at /mnt/c/Users/samfr/Dropbox/Claude/ (memory.db, memory.db-shm, memory.db-wal).\n\n## What's Next\n\n1. **TEST THE INBOX.** CD has been told to add claude-inbox to its MCP config and send a test message. After restarting both CC and CD, use /inbox to confirm the channel works end-to-end.\n\n2. **Build claude-memory-2-mcp** — scaffold at ~/.claude/mcp-servers/claude-memory-2-mcp/ to avoid colliding with old project. Memory only (facts, hardware, projects). Will include migrate.ts with _migrations tracking table. First migration: 001_add_hardware_updated (ALTER TABLE hardware ADD COLUMN updated TEXT; backfill from added). Base schema declares updated TEXT NOT NULL on hardware for fresh DBs. Schema is source of truth for what DB should look like; migrations are the path from old to current.\n\n3. Rename claude-memory-2-mcp to claude-memory-mcp after old project is retired.\n\n## Key Decisions\n- Inbox first, memory second (inbox is simpler, reopens comms channel)\n- No 'any' target — directed messages only\n- Source/target as enums ['desktop', 'code'], not free text\n- Hard delete for inbox messages\n- Export/import is memory-only, inbox doesn't need it\n- New memory server at claude-memory-2-mcp to avoid colliding with old project\n- Both servers: better-sqlite3, no Turso, no libsql, no sync\n- Old claude-memory-mcp stays untouched until both new servers confirmed working",
+	"active_pbi": null,
+	"pbi_status": null,
+	"key_decisions": [
+		"Inbox first, memory second — inbox is simpler and reopens comms channel",
+		"No 'any' target — every message has a specific recipient (desktop or code)",
+		"Source/target as enums ['desktop', 'code'] with PARTICIPANTS constant",
+		"Hard delete for inbox messages — not soft delete",
+		"Export/import is memory-only, inbox doesn't need it",
+		"New memory server scaffolds at claude-memory-2-mcp to avoid colliding with old project",
+		"Both servers: better-sqlite3, no Turso, no libsql, no sync",
+		"Old claude-memory-mcp stays untouched until both new servers confirmed working",
+		"Schema is source of truth for fresh DBs; migrations are path from old to current",
+		"main() must be async with await server.connect() per CD's review"
+	],
+	"recent_changes": [
+		"~/.claude/mcp-servers/claude-inbox-mcp/ — entire new project (package.json, tsconfig.json, src/, dist/)",
+		"~/.claude/.mcp.json — added claude-inbox server entry",
+		"~/.claude/commands/inbox.md — swapped to mcp__claude-inbox__ tools, removed Turso retry logic",
+		"/mnt/c/Users/samfr/Dropbox/Claude/memory.db* — backup of old memory database"
+	],
+	"next_actions": [
+		"Restart CC and CD, then test inbox end-to-end with /inbox",
+		"CD should send a test message through new claude-inbox-mcp",
+		"If test passes, begin building claude-memory-2-mcp with migrate.ts"
+	]
+}
