@@ -1,6 +1,5 @@
 ---
 description: Commit and push changes to dev
-allowed-tools: Bash
 ---
 
 # Push — Commit & Push to Dev
