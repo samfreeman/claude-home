@@ -75,7 +75,11 @@
       "Bash(echo:*)",
       "Read(//home/samfr/.claude/**)",
       "Bash(pnpm test:coverage:*)",
-      "Bash(git -C /home/samfr/source/cs-bounce push)"
+      "Bash(git -C /home/samfr/source/cs-bounce push)",
+      "mcp__claude-inbox__inbox_list",
+      "mcp__claude-inbox__inbox_read",
+      "Skill(send)",
+      "Skill(send:*)"
     ],
     "deny": [
       "Bash(git commit*)",
