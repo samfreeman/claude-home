@@ -1,14 +1,14 @@
 ---
 description: Send an informational message to Claude Desktop
 argument-hint: <message>
-allowed-tools: AskUserQuestion, mcp__claude-memory__inbox_send
+allowed-tools: AskUserQuestion, mcp__claude-inbox__inbox_send
 ---
 
 # Send Message to Desktop
 
 ## Your Task
 
-Send a message to Claude Desktop via the claude-memory inbox.
+Send a message to Claude Desktop via the claude-inbox inbox.
 
 **Important context:** Claude Desktop does NOT have access to files, bash commands, or any code tools. It can only read/write memory, manage the inbox, and have conversations. Messages should **inform** desktop of a situation — not tell it to take action on files or code.
 
@@ -35,7 +35,7 @@ Use `AskUserQuestion` to ask the user to approve or revise the message. Provide 
 
 ### Step 3: Send
 
-Call `mcp__claude-memory__inbox_send` with:
+Call `mcp__claude-inbox__inbox_send` with:
 - `source`: "code"
 - `target`: "desktop"
 - `title`: A short summary (under 60 chars) derived from the message
