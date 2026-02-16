@@ -5,15 +5,7 @@ interface Migration {
 	up: (db: Database.Database) => void
 }
 
-const migrations: Migration[] = [
-	{
-		name: '001_add_hardware_updated',
-		up: (db) => {
-			db.exec('ALTER TABLE hardware ADD COLUMN updated TEXT')
-			db.exec('UPDATE hardware SET updated = added WHERE updated IS NULL')
-		}
-	}
-]
+const migrations: Migration[] = []
 
 export function runMigrations(db: Database.Database): void {
 	db.exec(`
