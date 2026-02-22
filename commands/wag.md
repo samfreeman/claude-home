@@ -7,17 +7,17 @@ allowed-tools: Read, Write, Grep, Glob, TodoWrite, Bash, Task
 
 **Journey:** `/wag docs` → `/wag adr` → `/wag dev`
 
-## Core Principle: Gate Before Push
+## Core Principle: Gate Before Commit
 
-AI works on dev branch. Gates (lint/tests/build + architect + user) validate before pushing.
+AI works on dev branch. All changes stay uncommitted until gates (lint/tests/build + architect + user) validate.
 
 ```
 dev branch
     │
-    │  AI works, commits locally
-    │  user reviews each change
+    │  AI writes code, user reviews each diff
+    │  nothing is committed
     │
-    └──► gate ──► user ──► push
+    └──► gate ──► user ──► commit + push
          (lint+tests+build+architect)  approves
 ```
 
@@ -28,6 +28,7 @@ dev branch
 3. **All code** → Follow `/home/samf/.claude/documents/typescript-rules.md`
 4. **All new code must have tests** → Every PBI/ADR includes test coverage requirement
 5. **Only the user can switch modes** → Never auto-transition between DOCS/ADR/DEV
+6. **No commits during dev** → All changes stay uncommitted until gate passes and user approves
 
 ## Directory Structure
 
@@ -114,9 +115,9 @@ Create Architecture Decision Record for a PBI.
 - Each file change → Write tool → user approves diff
 - Follow ADR requirements
 - Write tests as specified in ADR
-- Commit locally as needed (user approves each commit)
+- **All changes stay uncommitted** — no local commits during dev
 
-### Gate Check (Before Push)
+### Gate Check (Before Commit)
 
 When dev work is complete, run the gate in this order:
 
@@ -147,7 +148,7 @@ When dev work is complete, run the gate in this order:
 **6. Evaluate**
 - If any step failed → dev fixes, restart gate
 - If user disapproves → dev fixes, restart gate
-- All pass → proceed to push
+- All pass → proceed to commit and push
 
 ### Spawning the Architect Agent (Gate Check)
 
@@ -184,14 +185,15 @@ prompt: |
   Then: Summary of findings (what's good, what needs work)
 ```
 
-### On Complete (all gates pass)
+### On Complete (all gates pass + user approves)
 
-1. Mark criteria `[x]` on both ADR and PBI
-2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
-3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
-4. Clear state.json (mode=null, active_pbi=null)
-5. Update Status.md
-6. Commit and push:
+1. Commit all changes (single commit)
+2. Mark criteria `[x]` on both ADR and PBI
+3. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
+4. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
+5. Clear state.json (mode=null, active_pbi=null)
+6. Update Status.md
+7. Push:
    ```bash
    git push origin dev
    ```
@@ -250,7 +252,7 @@ Every response starts with:
 
 **Branches:**
 - `main` - Production
-- `dev` - Integration branch (gate-checked before push)
+- `dev` - Integration branch (gate-checked before commit+push)
 
 **Commit format:**
 ```
@@ -262,10 +264,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ```
 
-**AI can freely:**
-- Commit locally to dev
-
-**AI cannot (enforced by gate):**
+**AI cannot:**
+- Commit during dev phase (all changes stay uncommitted until gate passes)
 - Push to dev without passing gate
 - Push directly to main
 - Force push
@@ -275,8 +275,9 @@ Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ## Success Criteria
 
 WAG is working if:
-- Dev works on dev branch, commits locally
-- Gate check validates before push (lint → tests → build → architect → user)
-- All must approve before code is pushed
+- Dev works on dev branch, changes stay uncommitted during development
+- User reviews each file change via Write tool diffs
+- Gate check validates before commit (lint → tests → build → architect → user)
+- All must approve before code is committed and pushed
 - typescript-rules.md violations caught by lint
-- No pushes to dev without your final approval
+- No commits or pushes without your final approval
