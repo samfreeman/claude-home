@@ -187,12 +187,14 @@ prompt: |
 
 ### On Complete (all gates pass + user approves)
 
-1. Commit all changes (single commit)
-2. Mark criteria `[x]` on both ADR and PBI
-3. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
-4. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
-5. Clear state.json (mode=null, active_pbi=null)
-6. Update Status.md
+Do all file changes first, then one commit, then push:
+
+1. Mark criteria `[x]` on both ADR and PBI
+2. Move `adr/active/PBI-XXX-ADR.md` to `adr/completed/`
+3. Move `backlog/PBI-XXX.md` to `backlog/_completed/`
+4. Clear state.json (mode=null, active_pbi=null)
+5. Update Status.md
+6. Stage everything and commit (single commit — code + state changes together)
 7. Push:
    ```bash
    git push origin dev
