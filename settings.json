@@ -69,7 +69,10 @@
       "Bash(pnpm test:coverage:*)",
       "Bash(git -C /home/samfr/source/cs-bounce push)",
       "Skill(send)",
-      "Skill(send:*)"
+      "Skill(send:*)",
+      "Bash(git -C /home/samfr/source/cs-bounce push origin dev)",
+      "Bash(pnpm dlx vercel:*)",
+      "Bash(printf:*)"
     ],
     "deny": [
       "Bash(git commit*)",
