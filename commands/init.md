@@ -493,9 +493,45 @@ Install:
 pnpm add @libsql/client kysely kysely-libsql
 ```
 
-Create files:
+#### Turso Setup
 
-**`src/lib/db.ts`** — Turso/Kysely connection:
+Check if Turso CLI is installed and authenticated:
+
+```bash
+which turso && turso auth status
+```
+
+If not installed or not authenticated, help the user set up. Then create the group and initial app DB:
+
+```bash
+turso group create [app-name]
+turso db create [app-name]-app --group [app-name]
+turso group tokens create [app-name]
+```
+
+Get the app DB URL:
+
+```bash
+turso db show [app-name]-app --url
+```
+
+Write connection info to `.env.local` (gitignored):
+
+```
+TURSO_APP_DATABASE_URL=[url from above]
+TURSO_GROUP_AUTH_TOKEN=[token from above]
+```
+
+If Turso CLI is not available or user wants to skip cloud setup, create `.env.local` with local SQLite fallback:
+
+```
+TURSO_APP_DATABASE_URL=file:./local.db
+TURSO_GROUP_AUTH_TOKEN=
+```
+
+#### Create files:
+
+**`src/lib/db.ts`** — Turso/Kysely connections (multi-database pattern):
 
 ```typescript
 import { createClient } from '@libsql/client'
@@ -503,6 +539,7 @@ import { Kysely } from 'kysely'
 import { LibsqlDialect } from 'kysely-libsql'
 import type { AppDatabase } from '@/types/database'
 
+// App DB — auth tables, system config. Singleton.
 let appDb: Kysely<AppDatabase> | null = null
 
 export function getDb(): Kysely<AppDatabase> {
@@ -517,6 +554,26 @@ export function getDb(): Kysely<AppDatabase> {
 		})
 	}
 	return appDb
+}
+
+// Per-user DB — data isolation. Creates connection on demand.
+// All databases in the same Turso group share TURSO_GROUP_AUTH_TOKEN.
+const userDbs = new Map<string, Kysely<AppDatabase>>()
+
+export function getUserDb(userId: string): Kysely<AppDatabase> {
+	let db = userDbs.get(userId)
+	if (!db) {
+		db = new Kysely<AppDatabase>({
+			dialect: new LibsqlDialect({
+				client: createClient({
+					url: `libsql://${userId}-[app-name]-[org].turso.io`,
+					authToken: process.env.TURSO_GROUP_AUTH_TOKEN
+				})
+			})
+		})
+		userDbs.set(userId, db)
+	}
+	return db
 }
 ```
 
@@ -793,7 +850,9 @@ Co-Authored-By: [user name] <[user email]>
 
 ### PRD Template
 
-Create `.wag/docs/PRD.md`:
+Create `.wag/docs/PRD.md`. Use the correct variant based on whether Auth was selected. The output must be a clean finished document — no conditionals or instructions.
+
+**Without Auth:**
 
 ```markdown
 # [App Name] - Product Requirements Document
@@ -812,15 +871,43 @@ Create `.wag/docs/PRD.md`:
 
 ## UI Pages
 
-Generate the UI Pages table based on which optional layers were selected. The output must be a clean finished document — no conditionals or instructions in the generated PRD.
-
-**Without Auth:**
-
 | Route | Page | Description |
 |-------|------|-------------|
 | `/` | Landing | Public landing page |
 
+## Phased Development
+[Phases with goals, deliverables, and success metrics. Each phase is independently demo-able.]
+
+## Non-Goals
+[What we're explicitly NOT building (yet).]
+
+## Security Considerations
+- Server actions validate auth + input on every call
+- No secrets in client code
+- Environment variables for all credentials
+
+## Success Metrics
+[How we know it's working.]
+```
+
 **With Auth:**
+
+```markdown
+# [App Name] - Product Requirements Document
+
+## Overview
+[What the app does in 2-3 sentences.]
+
+## Problem Statement
+[Why this app exists. What pain does it solve.]
+
+## Target Users
+[Who uses this and how.]
+
+## User Flow
+[Step-by-step: what happens when the user interacts with the app.]
+
+## UI Pages
 
 | Route | Page | Description | Auth Required |
 |-------|------|-------------|---------------|
@@ -839,16 +926,11 @@ Generate the UI Pages table based on which optional layers were selected. The ou
 
 ## Security Considerations
 - Server actions validate auth + input on every call
+- Middleware is a UX convenience redirect, not a security boundary
 - No secrets in client code
 - Environment variables for all credentials
 
-**With Auth, also include:**
-
-- Middleware is a UX convenience redirect, not a security boundary
-
 ## Authentication
-*(Only include this section if Auth was selected)*
-
 Invite-only via BetterAuth. Admin creates users and shares temporary credentials. Users must reset password on first login. Self-registration is disabled.
 
 ## Success Metrics
@@ -956,14 +1038,44 @@ Tests can swap implementations, and the concrete Turso dependency stays in one p
 - RootStore is a singleton. getRootStore() ensures one instance.
 - Add new stores as properties on RootStore. They compose, they don't inherit.
 
-### Database Strategy
+### Database Strategy — Multiple Databases, One Auth Token
 
-- Multiple databases in one Turso group sharing TURSO_GROUP_AUTH_TOKEN
-- Auth tables isolated from business schema
-- Unit tests: in-memory SQLite (`:memory:`)
-- Local dev: local SQLite file (`file:./local.db`)
-- QA: Turso cloud (via Vercel preview env vars)
-- Production: Turso cloud (via Vercel production env vars)
+Turso supports database groups — multiple databases sharing a single auth token. Each app gets its own group (named after the app). All databases for that app belong to the group and share `TURSO_GROUP_AUTH_TOKEN`.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  Turso Group ([app-name])                │
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   App DB      │  │  Business DB │  │  User DBs    │ │
+│  │              │  │              │  │  (per-user)   │ │
+│  │  • user      │  │  • domain    │  │              │ │
+│  │  • session   │  │    tables    │  │  • settings  │ │
+│  │  • account   │  │  • shared    │  │  • prefs     │ │
+│  │  • verify    │  │    config    │  │  • user data │ │
+│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                                                         │
+│  All share: TURSO_GROUP_AUTH_TOKEN                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Why separate?**
+- Auth tables (managed by BetterAuth) stay isolated from business schema
+- Business data can be wiped/rebuilt without touching auth
+- Per-user databases enable true data isolation when needed
+
+**Connection patterns:**
+- `getDb()` — App DB (auth, system tables). Singleton, lazy-initialized.
+- `getUserDb(userId)` — Per-user DB. Created on demand when the app needs data isolation.
+
+**Environments:**
+
+| Environment | Database | How |
+|------------|---------|-----|
+| **Unit tests** | In-memory SQLite | `createClient({ url: ':memory:' })` — fast, disposable, no network |
+| **Local dev** | Local SQLite file | `createClient({ url: 'file:./local.db' })` — persists between restarts |
+| **QA (Vercel preview)** | Turso cloud (QA group) | `TURSO_APP_DATABASE_URL` set in Vercel env vars for `qa` branch |
+| **Production** | Turso cloud (prod group) | `TURSO_APP_DATABASE_URL` set in Vercel env vars for `main` branch |
 
 ### Authentication Pattern
 
