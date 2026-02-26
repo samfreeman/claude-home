@@ -25,7 +25,7 @@ dev branch
 
 1. **Source code (src/**)** → Use Write tool (user sees diff)
 2. **Infrastructure (.wag/*)** → Edit tool is fine
-3. **All code** → Follow `/home/samf/.claude/documents/typescript-rules.md`
+3. **All code** → Follow `~/.claude/documents/typescript-rules.md`
 4. **All new code must have tests** → Every PBI/ADR includes test coverage requirement
 5. **Only the user can switch modes** → Never auto-transition between DOCS/ADR/DEV
 6. **No commits during dev** → All changes stay uncommitted until gate passes and user approves

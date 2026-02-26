@@ -248,7 +248,7 @@ After user approves:
 
 1. **Source code** → Write tool (user sees diff)
 2. **Infrastructure (.wag/)** → Edit tool OK
-3. **All code** → Follow typescript-rules.md
+3. **All code** → Follow `~/.claude/documents/typescript-rules.md`
 4. **Only user switches modes** - never auto-transition
 5. **Gate before push** - wag_gate + architect + user must pass before push
 
