@@ -15,6 +15,7 @@ shell-snapshots/
 plugins/
 .credentials.json
 stats-cache.json
+mcp-needs-auth-cache.json
 
 # Setup state (machine-specific)
 setup/state.json
