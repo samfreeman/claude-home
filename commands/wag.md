@@ -439,12 +439,9 @@ Every response starts with:
 **Commit format:**
 ```
 [type]: [description]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-Co-Authored-By: Sam Freeman <sfreeman@pay-onward.com>
 ```
+
+Co-author tags come from the project's `CLAUDE.md`.
 
 **AI cannot:**
 - Commit during dev phase (all changes stay uncommitted until gate passes)
