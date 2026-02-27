@@ -72,7 +72,8 @@
       "Skill(send:*)",
       "Bash(git -C /home/samfr/source/cs-bounce push origin dev)",
       "Bash(pnpm dlx vercel:*)",
-      "Bash(printf:*)"
+      "Bash(printf:*)",
+      "mcp__playwright__browser_evaluate"
     ],
     "deny": [
       "Bash(git commit*)",

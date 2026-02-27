@@ -27,6 +27,10 @@ Key rules (see file for full details):
 - Single-statement blocks without braces
 - else/catch on new lines
 
+### 4. Never Use AskUserQuestion
+
+Never use the AskUserQuestion tool. Just ask questions as plain text and let the user type their answer.
+
 ---
 
 ## Git Commit Authorship
