@@ -31,6 +31,12 @@
 			"args": [
 				"/home/samfr/.claude/mcp-servers/claude-memory-mcp/dist/index.js"
 			]
+		},
+		"yt-transcript": {
+			"command": "node",
+			"args": [
+				"/home/samfr/.claude/mcp-servers/yt-transcript-mcp/dist/index.js"
+			]
 		}
 	}
 }

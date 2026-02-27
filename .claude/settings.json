@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "Bash(node /home/samfr/.claude/mcp-servers/yt-transcript-mcp/dist/index.js)"
     ]
   }
 }

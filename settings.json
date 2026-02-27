@@ -73,7 +73,10 @@
       "Bash(git -C /home/samfr/source/cs-bounce push origin dev)",
       "Bash(pnpm dlx vercel:*)",
       "Bash(printf:*)",
-      "mcp__playwright__browser_evaluate"
+      "mcp__playwright__browser_evaluate",
+      "Read(//home/samfr/.ssh/**)",
+      "Bash(npm run build)",
+      "Read(//mnt/c/Users/samfr/AppData/Roaming/Claude/**)"
     ],
     "deny": [
       "Bash(git commit*)",
@@ -86,7 +89,8 @@
     ],
     "defaultMode": "default",
     "additionalDirectories": [
-      "/home/samfr/source/cs-bounce/.wag/adr/active"
+      "/home/samfr/source/cs-bounce/.wag/adr/active",
+      "/home/samfr/source/coin-bounce/.wag"
     ]
   },
   "enableAllProjectMcpServers": true,

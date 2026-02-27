@@ -1,0 +1,20 @@
+{
+	"name": "yt-transcript-mcp",
+	"version": "1.0.0",
+	"type": "module",
+	"bin": {
+		"yt-transcript-mcp": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsc && shx chmod +x dist/*.js"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.9.0",
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.3.2",
+		"shx": "^0.3.4",
+		"typescript": "^5.7.0"
+	}
+}
