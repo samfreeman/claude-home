@@ -77,7 +77,12 @@
       "Read(//home/samfr/.ssh/**)",
       "Bash(npm run build)",
       "Read(//mnt/c/Users/samfr/AppData/Roaming/Claude/**)",
-      "mcp__yt-transcript__get_transcript"
+      "mcp__yt-transcript__get_transcript",
+      "Bash(gh auth status)",
+      "Read(//home/samfr/.config/**)",
+      "Read(//home/samfr/source/coin-bounce/**)",
+      "Read(//home/samfr/source/cs-bounce/**)",
+      "Read(//home/samfr/**)"
     ],
     "deny": [
       "Bash(git commit*)",
