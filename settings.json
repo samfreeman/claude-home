@@ -76,7 +76,8 @@
       "mcp__playwright__browser_evaluate",
       "Read(//home/samfr/.ssh/**)",
       "Bash(npm run build)",
-      "Read(//mnt/c/Users/samfr/AppData/Roaming/Claude/**)"
+      "Read(//mnt/c/Users/samfr/AppData/Roaming/Claude/**)",
+      "mcp__yt-transcript__get_transcript"
     ],
     "deny": [
       "Bash(git commit*)",
