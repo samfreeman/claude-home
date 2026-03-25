@@ -82,10 +82,16 @@
       "Read(//home/samfr/.config/**)",
       "Read(//home/samfr/source/coin-bounce/**)",
       "Read(//home/samfr/source/cs-bounce/**)",
-      "Read(//home/samfr/**)"
+      "Read(//home/samfr/**)",
+      "Bash(git -C /home/samfr/source/coin-bounce diff .wag/backlog/PBI-007.md)",
+      "Bash(git -C /home/samfr/source/coin-bounce diff src/components/landing/hero.tsx)",
+      "Bash(git -C /home/samfr/source/coin-bounce branch --show-current)",
+      "Bash(git -C /home/samfr/source/coin-bounce status)",
+      "Bash(git -C /home/samfr/source/coin-bounce diff src/components/landing/hero-chart.tsx)",
+      "Bash(git -C /home/samfr/source/coin-bounce push)",
+      "mcp__nano-banana__generate_image"
     ],
     "deny": [
-      "Bash(git commit*)",
       "Bash(git revert*)",
       "Bash(git reset --hard*)",
       "Bash(git push --force*)",

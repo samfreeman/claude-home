@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(unzip:*)",
-      "Bash(node /home/samfr/.claude/mcp-servers/yt-transcript-mcp/dist/index.js)"
+      "Bash(node /home/samfr/.claude/mcp-servers/yt-transcript-mcp/dist/index.js)",
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(npm show:*)",
+      "Bash(grep -n \"generateContentConfigToMldev$1\\\\|generateContentToMldev$1\" /home/samfr/.claude/mcp-servers/nano-banana-mcp/node_modules/@google/genai/dist/index.mjs)",
+      "Bash(grep -v \"Response\\\\|From\\\\|Async\\\\|Stream\\\\|Chat\\\\|Config\\\\|//\\\\|_$1\\\\b\")",
+      "Bash(awk 'NR>=12961 && NR<=13320 && /imageConfig/' /home/samfr/.claude/mcp-servers/nano-banana-mcp/node_modules/@google/genai/dist/index.mjs)",
+      "Bash(cp /tmp/nb-debug.mjs /home/samfr/.claude/mcp-servers/nano-banana-mcp/nb-debug.mjs)",
+      "Bash(node nb-debug.mjs)",
+      "Bash(rm nb-debug.mjs)"
     ]
   }
 }
