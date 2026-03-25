@@ -40,7 +40,7 @@ function resolveOutputDir(cwd?: string): string {
 }
 
 function openFile(filepath: string): void {
-	if (process.platform === 'darwin')
+	if (process.platform == 'darwin')
 		spawn('open', [filepath], { detached: true, stdio: 'ignore' }).unref()
 	else if (process.env.WSL_DISTRO_NAME) {
 		const winPath = execSync(`wslpath -w "${filepath}"`).toString().trim()
@@ -68,12 +68,13 @@ function formatTimestamp(d: Date): string {
 
 function getImageDimensions(buf: Buffer): { width: number, height: number } {
 	// JPEG: scan for SOF marker (0xFF 0xC0 or 0xFF 0xC2)
-	if (buf[0] === 0xFF && buf[1] === 0xD8) {
+	if (buf[0] == 0xFF && buf[1] == 0xD8) {
 		let i = 2
 		while (i < buf.length - 8) {
-			if (buf[i] !== 0xFF) break
+			if (buf[i] != 0xFF)
+				break
 			const marker = buf[i + 1]
-			if (marker === 0xC0 || marker === 0xC2) {
+			if (marker == 0xC0 || marker == 0xC2) {
 				return {
 					height: buf.readUInt16BE(i + 5),
 					width: buf.readUInt16BE(i + 7)
@@ -83,7 +84,7 @@ function getImageDimensions(buf: Buffer): { width: number, height: number } {
 		}
 	}
 	// PNG: fixed offsets
-	if (buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) {
+	if (buf[1] == 0x50 && buf[2] == 0x4E && buf[3] == 0x47) {
 		return {
 			width: buf.readUInt32BE(16),
 			height: buf.readUInt32BE(20)
@@ -104,12 +105,19 @@ server.registerTool(
 		inputSchema: {
 			prompt: z.string().describe('Text description of the image to generate'),
 			// nb2 also supports '512' (no K suffix), but only for that model
-			resolution: z.enum(['1K', '2K', '4K']).optional().default('2K').describe('Output resolution (default: 2K)'),
+			resolution: z.enum(['1K', '2K', '4K']).optional().default('2K').describe(
+				'Output resolution (default: 2K)'),
 			// nb2 also supports extreme ratios: 4:5, 5:4, 1:4, 4:1, 1:8, 8:1 — not exposed here as they are nb2-only
-			aspectRatio: z.enum(['1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9']).optional().default('16:9').describe('Aspect ratio (default: 16:9)'),
-			count: z.number().int().min(1).max(4).optional().default(1).describe('Number of images to generate, 1-4 (default: 1)'),
-			model: z.enum(['nb2', 'pro']).optional().default(DEFAULT_MODEL).describe('Model alias: nb2 (gemini-3.1-flash-image-preview) or pro (gemini-3-pro-image-preview). Default: nb2'),
-			cwd: z.string().optional().describe('Caller\'s working directory — used to locate the project root. Pass this when calling from CC.')
+			aspectRatio: z.enum([
+				'1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'
+			]).optional().default('16:9').describe(
+				'Aspect ratio (default: 16:9)'),
+			count: z.number().int().min(1).max(4).optional().default(1).describe(
+				'Number of images to generate, 1-4 (default: 1)'),
+			model: z.enum(['nb2', 'pro']).optional().default(DEFAULT_MODEL).describe(
+				'Model alias: nb2 (gemini-3.1-flash-image-preview) or pro (gemini-3-pro-image-preview). Default: nb2'),
+			cwd: z.string().optional().describe(
+				'Caller\'s working directory — used to locate the project root. Pass this when calling from CC.')
 		}
 	},
 	async ({ prompt, resolution, aspectRatio, count, model, cwd }) => {
