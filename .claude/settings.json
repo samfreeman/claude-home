@@ -10,7 +10,8 @@
       "Bash(awk 'NR>=12961 && NR<=13320 && /imageConfig/' /home/samfr/.claude/mcp-servers/nano-banana-mcp/node_modules/@google/genai/dist/index.mjs)",
       "Bash(cp /tmp/nb-debug.mjs /home/samfr/.claude/mcp-servers/nano-banana-mcp/nb-debug.mjs)",
       "Bash(node nb-debug.mjs)",
-      "Bash(rm nb-debug.mjs)"
+      "Bash(rm nb-debug.mjs)",
+      "Read(//mnt/c/Users/**)"
     ]
   }
 }
