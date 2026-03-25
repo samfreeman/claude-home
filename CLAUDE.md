@@ -31,6 +31,10 @@ Key rules (see file for full details):
 
 Never use the AskUserQuestion tool. Just ask questions as plain text and let the user type their answer.
 
+### 5. Never Commit to Main
+
+Always commit to `dev`. Never commit or push directly to `main`. If the working directory is on `main`, stop and ask the user how to proceed.
+
 ---
 
 ## Git Commit Authorship
