@@ -3,13 +3,16 @@
 	"version": "1.0.0",
 	"type": "module",
 	"bin": {
-		"yt-transcript-mcp": "./dist/index.js"
+		"yt-transcript-mcp": "./dist/index.js",
+		"yt-transcript-auth": "./dist/auth-setup.js"
 	},
 	"scripts": {
-		"build": "tsc && shx chmod +x dist/*.js"
+		"build": "tsc && shx chmod +x dist/*.js",
+		"auth": "node dist/auth-setup.js"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/sdk": "^1.9.0",
+		"google-auth-library": "^10.6.2",
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {

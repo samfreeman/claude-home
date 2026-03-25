@@ -30,36 +30,6 @@ function extractVideoId(input: string): string | null {
 	return null
 }
 
-// Protobuf encoding helpers
-function varint(value: number): number[] {
-	const bytes: number[] = []
-	while (value > 0x7f) { bytes.push((value & 0x7f) | 0x80); value >>>= 7 }
-	bytes.push(value & 0x7f)
-	return bytes
-}
-
-function pbString(field: number, value: string): number[] {
-	const enc = Buffer.from(value, 'utf-8')
-	return [...varint((field << 3) | 2), ...varint(enc.length), ...enc]
-}
-
-function pbVarint(field: number, value: number): number[] {
-	return [...varint((field << 3) | 0), ...varint(value)]
-}
-
-function buildParams(videoId: string, lang: string): string {
-	const inner = [...pbString(1, 'asr'), ...pbString(2, lang), ...pbString(3, '')]
-	const innerEncoded = encodeURIComponent(Buffer.from(inner).toString('base64'))
-	const outer = [
-		...pbString(1, videoId),
-		...pbString(2, innerEncoded),
-		...pbVarint(3, 1),
-		...pbString(5, 'engagement-panel-searchable-transcript-search-panel'),
-		...pbVarint(6, 1), ...pbVarint(7, 1), ...pbVarint(8, 1)
-	]
-	return Buffer.from(outer).toString('base64')
-}
-
 function formatTimestamp(ms: string): string {
 	const total = Math.floor(parseInt(ms, 10) / 1000)
 	const h = Math.floor(total / 3600)
@@ -70,52 +40,36 @@ function formatTimestamp(ms: string): string {
 	return `[${m}:${s.toString().padStart(2, '0')}]`
 }
 
-function parseSegments(data: Record<string, unknown>): TranscriptSegment[] {
-	try {
-		const actions = data.actions as Record<string, unknown>[]
-		const cmd = actions[0].elementsCommand as Record<string, unknown>
-		const entity = cmd.transformEntityCommand as Record<string, unknown>
-		const args = entity.arguments as Record<string, unknown>
-		const txArgs = args.transformTranscriptSegmentListArguments as Record<string, unknown>
-		const segments = (txArgs.overwrite as Record<string, unknown>).initialSegments as Record<string, unknown>[]
-
-		return segments
-			.filter(seg => seg.transcriptSegmentRenderer)
-			.map(seg => {
-				const tsr = seg.transcriptSegmentRenderer as Record<string, unknown>
-				const snippet = tsr.snippet as Record<string, unknown>
-				const attr = snippet.elementsAttributedString as Record<string, unknown>
-				return {
-					text: (attr.content as string).trim(),
-					startMs: tsr.startMs as string,
-					endMs: tsr.endMs as string
-				}
-			})
-			.filter(s => s.text.length > 0)
-	}
-	catch {
-		return []
-	}
+interface CaptionTrack {
+	baseUrl: string
+	languageCode: string
+	kind?: string
 }
 
-async function callTranscriptApi(videoId: string, lang: string, visitorData: string): Promise<TranscriptSegment[]> {
-	const resp = await fetch('https://www.youtube.com/youtubei/v1/get_transcript?prettyPrint=false', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			'User-Agent': 'com.google.android.youtube/19.29.37 (Linux; U; Android 11) gzip',
-			'Origin': 'https://www.youtube.com'
-		},
-		body: JSON.stringify({
-			context: {
-				client: { hl: lang, gl: 'US', clientName: 'ANDROID', clientVersion: '19.29.37', androidSdkVersion: 30, visitorData }
-			},
-			params: buildParams(videoId, lang)
-		})
-	})
+async function fetchCaptionTrack(baseUrl: string, cookie?: string): Promise<TranscriptSegment[]> {
+	const url = baseUrl + '&fmt=json3'
+	const headers: Record<string, string> = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+	}
+	if (cookie)
+		headers['Cookie'] = cookie
 
-	const data = await resp.json() as Record<string, unknown>
-	return parseSegments(data)
+	const resp = await fetch(url, { headers })
+	const data = await resp.json() as { events?: Record<string, unknown>[] }
+
+	if (!data.events)
+		return []
+
+	return data.events
+		.filter(e => e.segs && (e.tStartMs != null))
+		.map(e => {
+			const segs = e.segs as { utf8?: string }[]
+			const text = segs.map(s => s.utf8 ?? '').join('').trim()
+			const startMs = String(e.tStartMs)
+			const endMs = String(Number(e.tStartMs) + Number(e.dDurationMs ?? 0))
+			return { text, startMs, endMs }
+		})
+		.filter(s => s.text.length > 0 && s.text != '\n')
 }
 
 export async function fetchTranscript(input: string, lang: string = 'en'): Promise<TranscriptResult> {
@@ -123,25 +77,39 @@ export async function fetchTranscript(input: string, lang: string = 'en'): Promi
 	if (!videoId)
 		throw new Error(`Could not extract video ID from: ${input}`)
 
-	const pageResp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-		headers: {
-			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-			'Accept-Language': 'en-US,en;q=0.9'
-		}
-	})
+	const cookie = process.env.YOUTUBE_COOKIE
+	const pageHeaders: Record<string, string> = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+		'Accept-Language': 'en-US,en;q=0.9'
+	}
+	if (cookie)
+		pageHeaders['Cookie'] = cookie
+
+	const pageResp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, { headers: pageHeaders })
 	const html = await pageResp.text()
 
 	const title = html.match(/<title>(.*?)<\/title>/)?.[1]?.replace(' - YouTube', '').trim() ?? 'Unknown'
 	const author = html.match(/"ownerChannelName":"(.*?)"/)?.[1] ?? 'Unknown'
-	const visitorData = html.match(/"visitorData":"(.*?)"/)?.[1] ?? ''
 
-	let segments = await callTranscriptApi(videoId, lang, visitorData)
+	// Extract caption tracks from ytInitialPlayerResponse
+	const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|const|let|\s*<\/script)/)
+	if (!playerMatch)
+		throw new Error(`No transcript available for video ${videoId}${!cookie ? ' (tip: set YOUTUBE_COOKIE env var)' : ''}`)
 
-	if (segments.length == 0 && lang != 'en')
-		segments = await callTranscriptApi(videoId, 'en', visitorData)
+	const player = JSON.parse(playerMatch[1])
+	const tracks: CaptionTrack[] = player?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? []
+
+	if (tracks.length == 0)
+		throw new Error(`No transcript available for video ${videoId}`)
+
+	// Pick best track: prefer requested lang, fall back to English, then first available
+	const pick = (code: string) => tracks.find(t => t.languageCode == code)
+	const track = pick(lang) ?? pick('en') ?? tracks[0]
+
+	const segments = await fetchCaptionTrack(track.baseUrl, cookie)
 
 	if (segments.length == 0)
-		throw new Error(`No transcript available for video ${videoId}`)
+		throw new Error(`Transcript empty for video ${videoId}`)
 
 	return { title, author, videoId, segments }
 }

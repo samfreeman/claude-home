@@ -1,9 +1,9 @@
 {
-	"name": "nano-banana-mcp",
+	"name": "google-ai-mcp",
 	"version": "1.0.0",
 	"type": "module",
 	"bin": {
-		"nano-banana-mcp": "./dist/index.js"
+		"google-ai-mcp": "./dist/index.js"
 	},
 	"scripts": {
 		"build": "tsc && shx chmod +x dist/*.js"

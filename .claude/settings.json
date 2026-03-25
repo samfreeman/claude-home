@@ -11,7 +11,10 @@
       "Bash(cp /tmp/nb-debug.mjs /home/samfr/.claude/mcp-servers/nano-banana-mcp/nb-debug.mjs)",
       "Bash(node nb-debug.mjs)",
       "Bash(rm nb-debug.mjs)",
-      "Read(//mnt/c/Users/**)"
+      "Read(//mnt/c/Users/**)",
+      "Bash(node dist/index.js)",
+      "WebSearch",
+      "Bash(~/.local/bin/yt-dlp --write-auto-sub --sub-lang en --skip-download --sub-format json3 -o /tmp/yt-test \"https://www.youtube.com/watch?v=TZUTe7s11-I\")"
     ]
   }
 }

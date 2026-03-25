@@ -93,8 +93,22 @@ function getImageDimensions(buf: Buffer): { width: number, height: number } {
 	return { width: 0, height: 0 }
 }
 
+function errorMessage(error: unknown): string {
+	if (!(error instanceof Error))
+		return 'Unknown error'
+	const parts = [error.message]
+	if ((error as NodeJS.ErrnoException).code)
+		parts.push(`code=${( error as NodeJS.ErrnoException).code}`)
+	const cause = (error as Error & { cause?: unknown }).cause
+	if (cause instanceof Error)
+		parts.push(`cause=${cause.message}`)
+	else if (cause)
+		parts.push(`cause=${String(cause)}`)
+	return parts.join(' | ')
+}
+
 const server = new McpServer({
-	name: 'nano-banana-mcp',
+	name: 'google-ai-mcp',
 	version: '1.0.0'
 })
 
@@ -171,9 +185,57 @@ server.registerTool(
 			}
 		}
 		catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error'
 			return {
-				content: [{ type: 'text' as const, text: `Error: ${message}` }],
+				content: [{ type: 'text' as const, text: `Error: ${errorMessage(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'ask_about_video',
+	{
+		description: 'Ask a question about a YouTube video. Gemini watches the video and answers based on both audio and visual content.',
+		inputSchema: {
+			url: z.string().describe('YouTube video URL or video ID'),
+			question: z.string().describe('Question to ask about the video')
+		}
+	},
+	async ({ url, question }) => {
+		try {
+			if (!apiKey)
+				throw new Error('GEMINI_API_KEY environment variable is required')
+
+			// Normalize to clean watch URL — bare video IDs and extra params like &t= break Gemini
+			if (/^[a-zA-Z0-9_-]{11}$/.test(url))
+				url = `https://www.youtube.com/watch?v=${url}`
+			else try {
+				const parsed = new URL(url)
+				const v = parsed.searchParams.get('v')
+				if (v)
+					url = `https://www.youtube.com/watch?v=${v}`
+			}
+			catch {}
+
+			const response = await ai.models.generateContent({
+				model: 'gemini-2.5-flash',
+				contents: [
+					{
+						parts: [
+							{ fileData: { mimeType: 'video/*', fileUri: url } },
+							{ text: question }
+						]
+					}
+				]
+			})
+
+			const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response'
+			return { content: [{ type: 'text' as const, text }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${errorMessage(error)}` }],
 				isError: true
 			}
 		}
