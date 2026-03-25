@@ -15,6 +15,7 @@ import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
+import { spawn } from 'child_process'
 
 const MODEL_ALIASES: Record<string, string> = {
 	nb2: 'gemini-3.1-flash-image-preview',
@@ -36,6 +37,15 @@ function resolveOutputDir(cwd?: string): string {
 	if (configured)
 		return configured.replace(/^~/, os.homedir())
 	return path.join(os.homedir(), '.claude', 'images', 'nano-banana')
+}
+
+function openFile(filepath: string): void {
+	if (process.platform === 'darwin')
+		spawn('open', [filepath], { detached: true, stdio: 'ignore' }).unref()
+	else if (process.env.WSL_DISTRO_NAME)
+		spawn('explorer.exe', [filepath], { detached: true, stdio: 'ignore' }).unref()
+	else
+		spawn('xdg-open', [filepath], { detached: true, stdio: 'ignore' }).unref()
 }
 
 function slugify(text: string): string {
@@ -138,6 +148,7 @@ server.registerTool(
 					const filepath = path.join(saveDir, filename)
 					fs.writeFileSync(filepath, buf)
 					savedPaths.push(filepath)
+				openFile(filepath)
 				}
 			}
 

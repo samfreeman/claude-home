@@ -7,6 +7,10 @@ description: Load a previously saved conversation context
 
 Load command: $ARGUMENTS
 
+## Your state
+
+You are a freshly started Claude Code session. CC has already restarted — do not suggest restarting CC or tell the user to restart anything. Any "Restart CC" steps in the saved context are already done.
+
 ## Your task
 
 Load a previously saved conversation context and restore the state:
