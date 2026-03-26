@@ -32,16 +32,10 @@
 				"/home/samfr/.claude/mcp-servers/claude-memory-mcp/dist/index.js"
 			]
 		},
-		"yt-transcript": {
+		"google-ai-mcp": {
 			"command": "node",
 			"args": [
-				"/home/samfr/.claude/mcp-servers/yt-transcript-mcp/dist/index.js"
-			]
-		},
-		"nano-banana": {
-			"command": "node",
-			"args": [
-				"/home/samfr/.claude/mcp-servers/nano-banana-mcp/dist/index.js"
+				"/home/samfr/.claude/mcp-servers/google-ai-mcp/dist/index.js"
 			]
 		}
 	}

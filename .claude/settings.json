@@ -14,7 +14,11 @@
       "Read(//mnt/c/Users/**)",
       "Bash(node dist/index.js)",
       "WebSearch",
-      "Bash(~/.local/bin/yt-dlp --write-auto-sub --sub-lang en --skip-download --sub-format json3 -o /tmp/yt-test \"https://www.youtube.com/watch?v=TZUTe7s11-I\")"
+      "Bash(~/.local/bin/yt-dlp --write-auto-sub --sub-lang en --skip-download --sub-format json3 -o /tmp/yt-test \"https://www.youtube.com/watch?v=TZUTe7s11-I\")",
+      "Bash(node /home/samfr/.claude/mcp-servers/google-ai-mcp/dist/index.js)",
+      "Read(//tmp/claude-1000/-home-samfr--claude/**)",
+      "Bash(find ~/.config/claude -name *.log)",
+      "Bash(find ~/.local -name *.log)"
     ]
   }
 }
