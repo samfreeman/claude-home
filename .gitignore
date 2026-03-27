@@ -4,6 +4,7 @@ todos/
 file-history/
 session-environment/
 session-env/
+sessions/
 history.jsonl
 plans/
 cache/
