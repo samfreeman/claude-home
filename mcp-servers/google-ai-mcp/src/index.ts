@@ -227,7 +227,10 @@ server.registerTool(
 							{ text: question }
 						]
 					}
-				]
+				],
+				config: {
+					httpOptions: { timeout: 300_000 }
+				}
 			})
 
 			const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response'
