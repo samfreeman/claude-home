@@ -28,6 +28,10 @@ const apiKey = process.env.GEMINI_API_KEY ?? ''
 const ai = new GoogleGenAI({ apiKey })
 
 const VIDEO_CACHE_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'google-ai-mcp', 'cache')
+const TRANSCRIPT_CACHE_DIR = path.join(VIDEO_CACHE_DIR, 'transcripts')
+
+// Max video cache size in bytes — videos beyond this get evicted oldest-first
+const VIDEO_CACHE_MAX_BYTES = 500 * 1024 * 1024
 
 // Prefer /usr/local/bin/yt-dlp (manually updated) over apt version which goes stale
 const YT_DLP = fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' : 'yt-dlp'
@@ -89,6 +93,91 @@ function formatTimestamp(d: Date): string {
 	const date = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`
 	const time = `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
 	return `${date}_${time}`
+}
+
+function formatSecondsAsHMS(seconds: number): string {
+	const h = Math.floor(seconds / 3600)
+	const m = Math.floor((seconds % 3600) / 60)
+	const s = seconds % 60
+	return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function getCachedTranscript(cacheKey: string): string | null {
+	const cachePath = path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`)
+	if (fs.existsSync(cachePath))
+		return fs.readFileSync(cachePath, 'utf-8')
+	return null
+}
+
+function saveCachedTranscript(cacheKey: string, text: string): void {
+	fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
+	fs.writeFileSync(path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`), text, 'utf-8')
+}
+
+function hasTranscriptForVideo(videoId: string): boolean {
+	if (!fs.existsSync(TRANSCRIPT_CACHE_DIR))
+		return false
+	return fs.readdirSync(TRANSCRIPT_CACHE_DIR).some(f => f.startsWith(videoId) && f.endsWith('.txt'))
+}
+
+function cleanVideoCache(): void {
+	if (!fs.existsSync(VIDEO_CACHE_DIR))
+		return
+
+	const entries = fs.readdirSync(VIDEO_CACHE_DIR, { withFileTypes: true })
+
+	// Collect all video files and segment directories
+	const videoFiles: { path: string, size: number, mtime: number }[] = []
+
+	for (const entry of entries) {
+		if (entry.name == 'transcripts')
+			continue
+
+		const fullPath = path.join(VIDEO_CACHE_DIR, entry.name)
+
+		if (entry.isDirectory()) {
+			const dirFiles = fs.readdirSync(fullPath)
+			let dirSize = 0
+			for (const f of dirFiles)
+				dirSize += fs.statSync(path.join(fullPath, f)).size
+			const stat = fs.statSync(fullPath)
+			videoFiles.push({ path: fullPath, size: dirSize, mtime: stat.mtimeMs })
+		}
+		else if (entry.name.endsWith('.mp4')) {
+			const stat = fs.statSync(fullPath)
+			videoFiles.push({ path: fullPath, size: stat.size, mtime: stat.mtimeMs })
+		}
+	}
+
+	// Phase 1: delete any video files that have cached transcripts
+	const remaining: typeof videoFiles = []
+	for (const vf of videoFiles) {
+		const id = path.basename(vf.path).replace('.mp4', '')
+		if (hasTranscriptForVideo(id)) {
+			if (fs.statSync(vf.path).isDirectory())
+				fs.rmSync(vf.path, { recursive: true })
+			else
+				fs.unlinkSync(vf.path)
+		}
+		else
+			remaining.push(vf)
+	}
+
+	// Phase 2: if still over limit, evict oldest first
+	let totalSize = remaining.reduce((sum, vf) => sum + vf.size, 0)
+	if (totalSize <= VIDEO_CACHE_MAX_BYTES)
+		return
+
+	remaining.sort((a, b) => a.mtime - b.mtime)
+	for (const vf of remaining) {
+		if (totalSize <= VIDEO_CACHE_MAX_BYTES)
+			break
+		if (fs.statSync(vf.path).isDirectory())
+			fs.rmSync(vf.path, { recursive: true })
+		else
+			fs.unlinkSync(vf.path)
+		totalSize -= vf.size
+	}
 }
 
 function getImageDimensions(buf: Buffer): { width: number, height: number } {
@@ -312,6 +401,10 @@ server.registerTool(
 //
 // Short videos (≤20min): step 1 → step 4 (pass YouTube URL directly)
 // Long videos (>20min):  step 1 → 2 → 3 → 4 (download, split+upload, transcribe segments)
+// Timeframe: pass startSeconds/endSeconds to download_video to extract a section
+// Transcript caching: transcripts are cached in cache/transcripts/ to avoid re-transcribing
+// Video cache cleanup: runs in get_video_info and after transcription —
+//   deletes transcribed videos immediately, evicts oldest if over 500MB
 
 server.registerTool(
 	'get_video_info',
@@ -328,6 +421,8 @@ server.registerTool(
 	},
 	async ({ url }) => {
 		try {
+			cleanVideoCache()
+
 			const videoId = extractVideoId(url)
 			const output = execFileSync(YT_DLP, [
 				'--print', '%(duration)s\n%(title)s',
@@ -357,7 +452,7 @@ server.registerTool(
 			else {
 				const segments = Math.ceil(duration / SEGMENT_SECONDS)
 				info.push(`Segments: ${segments} x ${SEGMENT_SECONDS / 60}min`)
-				info.push('Next step: call download_video, then upload_video (splits into segments), then transcribe_video for each segment')
+				info.push('Next step: call download_video (with optional startSeconds/endSeconds to extract a section), then upload_video, then transcribe_video for each segment')
 			}
 
 			return { content: [{ type: 'text' as const, text: info.join('\n') }] }
@@ -378,32 +473,50 @@ server.registerTool(
 			'Step 2 of the video workflow (long videos only).',
 			'Downloads a YouTube video and compresses it for upload to Gemini.',
 			'Only needed when get_video_info returns strategy "upload".',
+			'Supports optional startSeconds/endSeconds to download only a section of the video.',
 			'Skips download if a cached compressed version exists.',
-			'Takes ~2-4 minutes depending on video length.'
+			'Takes ~2-4 minutes for full videos, much faster for short sections.'
 		].join(' '),
 		inputSchema: {
-			url: z.string().describe('YouTube video URL or video ID')
+			url: z.string().describe('YouTube video URL or video ID'),
+			startSeconds: z.number().int().min(0).optional().describe('Start time in seconds for partial download (e.g. 2700 for 45:00). Omit for full video.'),
+			endSeconds: z.number().int().min(1).optional().describe('End time in seconds for partial download (e.g. 3600 for 1:00:00). Omit for full video.')
 		}
 	},
-	async ({ url }) => {
+	async ({ url, startSeconds, endSeconds }) => {
 		try {
 			const videoId = extractVideoId(url)
 			fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true })
-			const compressedPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
+
+			const hasTimeframe = startSeconds != undefined || endSeconds != undefined
+			const cacheKey = hasTimeframe
+				? `${videoId}_${startSeconds ?? 0}-${endSeconds ?? 'end'}`
+				: videoId
+			const compressedPath = path.join(VIDEO_CACHE_DIR, `${cacheKey}.mp4`)
 
 			if (fs.existsSync(compressedPath)) {
 				const sizeMB = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext step: call upload_video with this video ID` }] }
+				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext step: call upload_video with url="${cacheKey}"` }] }
 			}
 
-			const rawPath = path.join(VIDEO_CACHE_DIR, `${videoId}_raw.mp4`)
+			const rawPath = path.join(VIDEO_CACHE_DIR, `${cacheKey}_raw.mp4`)
 
-			execFileSync(YT_DLP, [
+			const ytdlpArgs = [
 				'-f', 'worst[ext=mp4]/worst',
 				'--no-playlist',
-				'-o', rawPath,
-				`https://www.youtube.com/watch?v=${videoId}`
-			], { timeout: 180_000 })
+				'-o', rawPath
+			]
+
+			if (hasTimeframe) {
+				const start = formatSecondsAsHMS(startSeconds ?? 0)
+				const end = endSeconds != undefined ? formatSecondsAsHMS(endSeconds) : 'inf'
+				ytdlpArgs.push('--download-sections', `*${start}-${end}`)
+				ytdlpArgs.push('--force-keyframes-at-cuts')
+			}
+
+			ytdlpArgs.push(`https://www.youtube.com/watch?v=${videoId}`)
+
+			execFileSync(YT_DLP, ytdlpArgs, { timeout: 300_000 })
 
 			const rawSize = Math.round(fs.statSync(rawPath).size / 1024 / 1024)
 
@@ -420,7 +533,10 @@ server.registerTool(
 			fs.unlinkSync(rawPath)
 
 			const compressedSize = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-			return { content: [{ type: 'text' as const, text: `Downloaded (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext step: call upload_video with this video ID` }] }
+			const timeframeNote = hasTimeframe
+				? ` (section ${formatSecondsAsHMS(startSeconds ?? 0)} → ${endSeconds != undefined ? formatSecondsAsHMS(endSeconds) : 'end'})`
+				: ''
+			return { content: [{ type: 'text' as const, text: `Downloaded${timeframeNote} (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext step: call upload_video with url="${cacheKey}"` }] }
 		}
 		catch (error) {
 			return {
@@ -437,8 +553,8 @@ server.registerTool(
 		description: [
 			'Step 3 of the video workflow (long videos only).',
 			'Splits a downloaded video into 10-minute segments and uploads each to Gemini Files API.',
-			'Call download_video first. Returns Gemini file URIs for each segment.',
-			'Call transcribe_video once for each segment URI.',
+			'Call download_video first. Returns Gemini file URIs and cache keys for each segment.',
+			'Call transcribe_video once for each segment URI, passing the cacheKey to enable transcript caching.',
 			'Takes ~1-2 minutes per segment.'
 		].join(' '),
 		inputSchema: {
@@ -466,11 +582,11 @@ server.registerTool(
 			if (duration <= SEGMENT_SECONDS + 60) {
 				const uri = await uploadAndWaitForFile(filePath)
 				const sizeMB = Math.round(fs.statSync(filePath).size / 1024 / 1024)
-				return { content: [{ type: 'text' as const, text: `Uploaded ${sizeMB}MB (1 segment)\nSegment 1 [0:00]: ${uri}\n\nCall transcribe_video once with this URI.` }] }
+				const cacheKey = `${videoId}_seg0`
+				return { content: [{ type: 'text' as const, text: `Uploaded ${sizeMB}MB (1 segment)\nSegment 1 [0:00]: ${uri} (cacheKey: ${cacheKey})\n\nCall transcribe_video once with this URI and cacheKey.` }] }
 			}
 
 			// Split into segments
-			const segmentCount = Math.ceil(duration / SEGMENT_SECONDS)
 			const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
 			fs.mkdirSync(segmentDir, { recursive: true })
 
@@ -496,7 +612,8 @@ server.registerTool(
 				const offsetMin = Math.floor(offsetSec / 60)
 				const offsetSecRem = offsetSec % 60
 				const uri = await uploadAndWaitForFile(segPath)
-				results.push(`Segment ${i + 1} [${offsetMin}:${String(offsetSecRem).padStart(2, '0')}]: ${uri}`)
+				const cacheKey = `${videoId}_seg${i}`
+				results.push(`Segment ${i + 1} [${offsetMin}:${String(offsetSecRem).padStart(2, '0')}]: ${uri} (cacheKey: ${cacheKey})`)
 			}
 
 			const output = [
@@ -505,7 +622,7 @@ server.registerTool(
 				...results,
 				'',
 				'Call transcribe_video once for EACH segment URI above, in order.',
-				'Pass the segment URI as the url parameter.'
+				'Pass the segment URI as the url parameter and the cacheKey to enable transcript caching.'
 			]
 
 			return { content: [{ type: 'text' as const, text: output.join('\n') }] }
@@ -529,18 +646,31 @@ server.registerTool(
 			'Gemini does extraction only — Claude should do all analysis and summarization.',
 			'For short videos (≤20min): pass the YouTube URL directly.',
 			'For long videos: call once per segment URI returned by upload_video.',
+			'Pass cacheKey from upload_video to enable transcript caching (skips Gemini on repeat calls).',
 			'IMPORTANT: Always call get_video_info first to determine the right approach.',
-			'Takes ~30-60 seconds per call.'
+			'Takes ~30-60 seconds per call (instant if cached).'
 		].join(' '),
 		inputSchema: {
 			url: z.string().describe('YouTube video URL, video ID, or a single Gemini file URI from upload_video'),
-			offsetSeconds: z.number().optional().default(0).describe('Start offset in seconds for this segment (used to adjust timestamps). Default 0.')
+			offsetSeconds: z.number().optional().default(0).describe('Start offset in seconds for this segment (used to adjust timestamps). Default 0.'),
+			cacheKey: z.string().optional().describe('Cache key from upload_video (e.g. "5L3dm7KBCmY_seg0"). When provided, transcript is cached and reused on repeat calls.')
 		}
 	},
-	async ({ url, offsetSeconds }) => {
+	async ({ url, offsetSeconds, cacheKey }) => {
 		try {
 			if (!apiKey)
 				throw new Error('GEMINI_API_KEY environment variable is required')
+
+			// Derive cache key for direct YouTube URL calls
+			const effectiveCacheKey = cacheKey
+				?? (!url.startsWith('https://generativelanguage.googleapis.com/') ? extractVideoId(url) : undefined)
+
+			// Check transcript cache
+			if (effectiveCacheKey) {
+				const cached = getCachedTranscript(effectiveCacheKey)
+				if (cached)
+					return { content: [{ type: 'text' as const, text: `[cached transcript]\n${cached}` }] }
+			}
 
 			const isFileUri = url.startsWith('https://generativelanguage.googleapis.com/')
 
@@ -557,6 +687,13 @@ server.registerTool(
 			}
 
 			const text = await transcribeWithGemini(mimeType, fileUri, offsetSeconds)
+
+			// Save to transcript cache, then clean up video files
+			if (effectiveCacheKey) {
+				saveCachedTranscript(effectiveCacheKey, text)
+				cleanVideoCache()
+			}
+
 			return { content: [{ type: 'text' as const, text }] }
 		}
 		catch (error) {
