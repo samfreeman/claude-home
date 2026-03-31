@@ -9,13 +9,13 @@ config({ path: resolve(__dirname, '../.env') })
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI, ApiError, FileState } from '@google/genai'
 import { findProjectRoot } from '@mcp-local/shared'
 import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { spawn, execSync } from 'child_process'
+import { spawn, execSync, execFileSync } from 'child_process'
 
 const MODEL_ALIASES: Record<string, string> = {
 	nb2: 'gemini-3.1-flash-image-preview',
@@ -26,6 +26,31 @@ const DEFAULT_MODEL = 'nb2'
 
 const apiKey = process.env.GEMINI_API_KEY ?? ''
 const ai = new GoogleGenAI({ apiKey })
+
+const VIDEO_CACHE_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'google-ai-mcp', 'cache')
+
+// Prefer /usr/local/bin/yt-dlp (manually updated) over apt version which goes stale
+const YT_DLP = fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' : 'yt-dlp'
+
+// Videos shorter than this use the direct YouTube URL approach (faster, no download)
+// Videos longer than this get downloaded, split into segments, and uploaded via Files API
+const DIRECT_URL_MAX_SECONDS = 1200
+
+// Segment length for splitting long videos — 10 min is safe (21 min works, so 10 has margin)
+const SEGMENT_SECONDS = 600
+
+// Extraction model
+const VIDEO_MODEL = 'gemini-2.5-flash'
+
+// Fixed extraction prompt — keeps Gemini's job minimal and fast
+const EXTRACTION_PROMPT = [
+	'Transcribe this video completely. Include:',
+	'1. All spoken words (verbatim transcript)',
+	'2. Descriptions of any on-screen text, slides, diagrams, or code shown',
+	'3. Timestamps at natural section breaks (e.g. [0:00], [2:15])',
+	'4. Speaker changes if multiple speakers',
+	'Output raw data only. No analysis, no summary, no commentary.'
+].join('\n')
 
 function resolveOutputDir(cwd?: string): string {
 	if (cwd) {
@@ -67,7 +92,6 @@ function formatTimestamp(d: Date): string {
 }
 
 function getImageDimensions(buf: Buffer): { width: number, height: number } {
-	// JPEG: scan for SOF marker (0xFF 0xC0 or 0xFF 0xC2)
 	if (buf[0] == 0xFF && buf[1] == 0xD8) {
 		let i = 2
 		while (i < buf.length - 8) {
@@ -83,7 +107,6 @@ function getImageDimensions(buf: Buffer): { width: number, height: number } {
 			i += 2 + buf.readUInt16BE(i + 2)
 		}
 	}
-	// PNG: fixed offsets
 	if (buf[1] == 0x50 && buf[2] == 0x4E && buf[3] == 0x47) {
 		return {
 			width: buf.readUInt32BE(16),
@@ -107,6 +130,93 @@ function errorMessage(error: unknown): string {
 	return parts.join(' | ')
 }
 
+function detailedError(error: unknown): string {
+	if (error instanceof ApiError)
+		return `ApiError [${error.status}]: ${error.message}`
+
+	if (!(error instanceof Error))
+		return `Non-Error thrown: ${JSON.stringify(error)}`
+
+	const parts = [
+		`${error.constructor.name}: ${error.message}`
+	]
+
+	if ((error as NodeJS.ErrnoException).code)
+		parts.push(`Code: ${(error as NodeJS.ErrnoException).code}`)
+
+	const cause = (error as Error & { cause?: unknown }).cause
+	if (cause instanceof Error)
+		parts.push(`Cause: ${cause.constructor.name}: ${cause.message}`)
+	else if (cause)
+		parts.push(`Cause: ${String(cause)}`)
+
+	return parts.join('\n')
+}
+
+function extractVideoId(url: string): string {
+	if (/^[a-zA-Z0-9_-]{11}$/.test(url))
+		return url
+	try {
+		const parsed = new URL(url)
+		const v = parsed.searchParams.get('v')
+		if (v) return v
+	}
+	catch {}
+	return url
+}
+
+async function uploadAndWaitForFile(filePath: string): Promise<string> {
+	let file = await ai.files.upload({
+		file: filePath,
+		config: { mimeType: 'video/mp4' }
+	})
+
+	while (file.state == FileState.PROCESSING) {
+		await new Promise(r => setTimeout(r, 3000))
+		file = await ai.files.get({ name: file.name! })
+	}
+
+	if (file.state == FileState.FAILED)
+		throw new Error(`Gemini file processing failed: ${JSON.stringify(file.error)}`)
+
+	if (!file.uri)
+		throw new Error('Gemini file has no URI after processing')
+
+	return file.uri
+}
+
+async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSeconds: number): Promise<string> {
+	const prompt = offsetSeconds > 0
+		? `${EXTRACTION_PROMPT}\n\nNote: this is a segment starting at ${Math.floor(offsetSeconds / 60)}:${String(offsetSeconds % 60).padStart(2, '0')} in the original video. Adjust timestamps accordingly.`
+		: EXTRACTION_PROMPT
+
+	const stream = await ai.models.generateContentStream({
+		model: VIDEO_MODEL,
+		contents: [
+			{
+				parts: [
+					{ fileData: { mimeType, fileUri } },
+					{ text: prompt }
+				]
+			}
+		],
+		config: {
+			httpOptions: { timeout: 300_000 }
+		}
+	})
+
+	const chunks: string[] = []
+	for await (const chunk of stream) {
+		const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
+		if (text)
+			chunks.push(text)
+	}
+
+	return chunks.join('') || 'No response'
+}
+
+// ─── Image generation ───────────────────────────────────────────────────────
+
 const server = new McpServer({
 	name: 'google-ai-mcp',
 	version: '1.0.0'
@@ -118,10 +228,8 @@ server.registerTool(
 		description: 'Generate images using the Nano Banana (Gemini) image generation API',
 		inputSchema: {
 			prompt: z.string().describe('Text description of the image to generate'),
-			// nb2 also supports '512' (no K suffix), but only for that model
 			resolution: z.enum(['1K', '2K', '4K']).optional().default('2K').describe(
 				'Output resolution (default: 2K)'),
-			// nb2 also supports extreme ratios: 4:5, 5:4, 1:4, 4:1, 1:8, 8:1 — not exposed here as they are nb2-only
 			aspectRatio: z.enum([
 				'1:1', '2:3', '3:2', '3:4', '4:3', '9:16', '16:9', '21:9'
 			]).optional().default('16:9').describe(
@@ -193,52 +301,268 @@ server.registerTool(
 	}
 )
 
+// ─── Video tools ────────────────────────────────────────────────────────────
+//
+// Workflow for extracting data from YouTube videos:
+//
+//   1. get_video_info    → fetch metadata (duration, title, strategy)        ~2s
+//   2. download_video    → download + compress (only for long videos)        ~2-4min
+//   3. upload_video      → split into segments, upload each to Gemini        ~1-2min
+//   4. transcribe_video  → transcribe (direct URL or segment URIs)           ~30-60s per segment
+//
+// Short videos (≤20min): step 1 → step 4 (pass YouTube URL directly)
+// Long videos (>20min):  step 1 → 2 → 3 → 4 (download, split+upload, transcribe segments)
+
 server.registerTool(
-	'ask_about_video',
+	'get_video_info',
 	{
-		description: 'Ask a question about a YouTube video. Gemini watches the video and answers based on both audio and visual content.',
+		description: [
+			'Step 1 of the video workflow. Fetches YouTube video metadata without downloading.',
+			'Returns duration, title, and the recommended strategy (direct or upload).',
+			'ALWAYS call this first before transcribe_video to determine the right approach.',
+			'Takes ~2 seconds.'
+		].join(' '),
 		inputSchema: {
-			url: z.string().describe('YouTube video URL or video ID'),
-			question: z.string().describe('Question to ask about the video')
+			url: z.string().describe('YouTube video URL or video ID')
 		}
 	},
-	async ({ url, question }) => {
+	async ({ url }) => {
+		try {
+			const videoId = extractVideoId(url)
+			const output = execFileSync(YT_DLP, [
+				'--print', '%(duration)s\n%(title)s',
+				'--no-download',
+				`https://www.youtube.com/watch?v=${videoId}`
+			], { timeout: 30_000 }).toString().trim()
+
+			const lines = output.split('\n')
+			const duration = parseInt(lines[0], 10) || 0
+			const title = lines.slice(1).join('\n').trim() || 'Unknown'
+			const durationMin = Math.round(duration / 60)
+			const strategy = duration <= DIRECT_URL_MAX_SECONDS ? 'direct' : 'upload'
+
+			const cached = fs.existsSync(VIDEO_CACHE_DIR)
+				&& fs.readdirSync(VIDEO_CACHE_DIR).some(f => f == `${videoId}.mp4`)
+
+			const info = [
+				`Title: ${title}`,
+				`Duration: ${durationMin}min (${duration}s)`,
+				`Video ID: ${videoId}`,
+				`Strategy: ${strategy}`,
+				cached ? 'Cache: compressed video already downloaded' : 'Cache: not cached'
+			]
+
+			if (strategy == 'direct')
+				info.push('Next step: call transcribe_video with the YouTube URL directly')
+			else {
+				const segments = Math.ceil(duration / SEGMENT_SECONDS)
+				info.push(`Segments: ${segments} x ${SEGMENT_SECONDS / 60}min`)
+				info.push('Next step: call download_video, then upload_video (splits into segments), then transcribe_video for each segment')
+			}
+
+			return { content: [{ type: 'text' as const, text: info.join('\n') }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'download_video',
+	{
+		description: [
+			'Step 2 of the video workflow (long videos only).',
+			'Downloads a YouTube video and compresses it for upload to Gemini.',
+			'Only needed when get_video_info returns strategy "upload".',
+			'Skips download if a cached compressed version exists.',
+			'Takes ~2-4 minutes depending on video length.'
+		].join(' '),
+		inputSchema: {
+			url: z.string().describe('YouTube video URL or video ID')
+		}
+	},
+	async ({ url }) => {
+		try {
+			const videoId = extractVideoId(url)
+			fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true })
+			const compressedPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
+
+			if (fs.existsSync(compressedPath)) {
+				const sizeMB = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
+				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext step: call upload_video with this video ID` }] }
+			}
+
+			const rawPath = path.join(VIDEO_CACHE_DIR, `${videoId}_raw.mp4`)
+
+			execFileSync(YT_DLP, [
+				'-f', 'worst[ext=mp4]/worst',
+				'--no-playlist',
+				'-o', rawPath,
+				`https://www.youtube.com/watch?v=${videoId}`
+			], { timeout: 180_000 })
+
+			const rawSize = Math.round(fs.statSync(rawPath).size / 1024 / 1024)
+
+			execFileSync('ffmpeg', [
+				'-i', rawPath,
+				'-vf', 'scale=256:-2',
+				'-b:v', '100k',
+				'-b:a', '32k',
+				'-ar', '22050',
+				'-y',
+				compressedPath
+			], { timeout: 300_000 })
+
+			fs.unlinkSync(rawPath)
+
+			const compressedSize = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
+			return { content: [{ type: 'text' as const, text: `Downloaded (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext step: call upload_video with this video ID` }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'upload_video',
+	{
+		description: [
+			'Step 3 of the video workflow (long videos only).',
+			'Splits a downloaded video into 10-minute segments and uploads each to Gemini Files API.',
+			'Call download_video first. Returns Gemini file URIs for each segment.',
+			'Call transcribe_video once for each segment URI.',
+			'Takes ~1-2 minutes per segment.'
+		].join(' '),
+		inputSchema: {
+			url: z.string().describe('YouTube video URL or video ID (must have been downloaded first)')
+		}
+	},
+	async ({ url }) => {
+		try {
+			const videoId = extractVideoId(url)
+			const filePath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
+
+			if (!fs.existsSync(filePath))
+				throw new Error(`No cached video found for ${videoId}. Call download_video first.`)
+
+			// Get duration of compressed file
+			const durationStr = execFileSync('ffprobe', [
+				'-v', 'error',
+				'-show_entries', 'format=duration',
+				'-of', 'default=noprint_wrappers=1:nokey=1',
+				filePath
+			], { timeout: 10_000 }).toString().trim()
+			const duration = parseFloat(durationStr) || 0
+
+			// If short enough, upload whole file
+			if (duration <= SEGMENT_SECONDS + 60) {
+				const uri = await uploadAndWaitForFile(filePath)
+				const sizeMB = Math.round(fs.statSync(filePath).size / 1024 / 1024)
+				return { content: [{ type: 'text' as const, text: `Uploaded ${sizeMB}MB (1 segment)\nSegment 1 [0:00]: ${uri}\n\nCall transcribe_video once with this URI.` }] }
+			}
+
+			// Split into segments
+			const segmentCount = Math.ceil(duration / SEGMENT_SECONDS)
+			const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
+			fs.mkdirSync(segmentDir, { recursive: true })
+
+			execFileSync('ffmpeg', [
+				'-i', filePath,
+				'-c', 'copy',
+				'-map', '0',
+				'-segment_time', String(SEGMENT_SECONDS),
+				'-f', 'segment',
+				'-reset_timestamps', '1',
+				path.join(segmentDir, 'seg_%03d.mp4')
+			], { timeout: 120_000 })
+
+			const segFiles = fs.readdirSync(segmentDir)
+				.filter(f => f.startsWith('seg_') && f.endsWith('.mp4'))
+				.sort()
+
+			// Upload each segment
+			const results: string[] = []
+			for (let i = 0; i < segFiles.length; i++) {
+				const segPath = path.join(segmentDir, segFiles[i])
+				const offsetSec = i * SEGMENT_SECONDS
+				const offsetMin = Math.floor(offsetSec / 60)
+				const offsetSecRem = offsetSec % 60
+				const uri = await uploadAndWaitForFile(segPath)
+				results.push(`Segment ${i + 1} [${offsetMin}:${String(offsetSecRem).padStart(2, '0')}]: ${uri}`)
+			}
+
+			const output = [
+				`Uploaded ${segFiles.length} segments`,
+				'',
+				...results,
+				'',
+				'Call transcribe_video once for EACH segment URI above, in order.',
+				'Pass the segment URI as the url parameter.'
+			]
+
+			return { content: [{ type: 'text' as const, text: output.join('\n') }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'transcribe_video',
+	{
+		description: [
+			'Step 4 (final step) of the video workflow.',
+			'Extracts raw transcript and visual data from a video using Gemini.',
+			'Returns verbatim transcript with timestamps and on-screen text descriptions.',
+			'Gemini does extraction only — Claude should do all analysis and summarization.',
+			'For short videos (≤20min): pass the YouTube URL directly.',
+			'For long videos: call once per segment URI returned by upload_video.',
+			'IMPORTANT: Always call get_video_info first to determine the right approach.',
+			'Takes ~30-60 seconds per call.'
+		].join(' '),
+		inputSchema: {
+			url: z.string().describe('YouTube video URL, video ID, or a single Gemini file URI from upload_video'),
+			offsetSeconds: z.number().optional().default(0).describe('Start offset in seconds for this segment (used to adjust timestamps). Default 0.')
+		}
+	},
+	async ({ url, offsetSeconds }) => {
 		try {
 			if (!apiKey)
 				throw new Error('GEMINI_API_KEY environment variable is required')
 
-			// Normalize to clean watch URL — bare video IDs and extra params like &t= break Gemini
-			if (/^[a-zA-Z0-9_-]{11}$/.test(url))
-				url = `https://www.youtube.com/watch?v=${url}`
-			else try {
-				const parsed = new URL(url)
-				const v = parsed.searchParams.get('v')
-				if (v)
-					url = `https://www.youtube.com/watch?v=${v}`
+			const isFileUri = url.startsWith('https://generativelanguage.googleapis.com/')
+
+			let mimeType: string
+			let fileUri: string
+			if (isFileUri) {
+				mimeType = 'video/mp4'
+				fileUri = url
 			}
-			catch {}
+			else {
+				const videoId = extractVideoId(url)
+				mimeType = 'video/*'
+				fileUri = `https://www.youtube.com/watch?v=${videoId}`
+			}
 
-			const response = await ai.models.generateContent({
-				model: 'gemini-2.5-flash',
-				contents: [
-					{
-						parts: [
-							{ fileData: { mimeType: 'video/*', fileUri: url } },
-							{ text: question }
-						]
-					}
-				],
-				config: {
-					httpOptions: { timeout: 300_000 }
-				}
-			})
-
-			const text = response.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response'
+			const text = await transcribeWithGemini(mimeType, fileUri, offsetSeconds)
 			return { content: [{ type: 'text' as const, text }] }
 		}
 		catch (error) {
+			const detail = detailedError(error)
 			return {
-				content: [{ type: 'text' as const, text: `Error: ${errorMessage(error)}` }],
+				content: [{ type: 'text' as const, text: detail }],
 				isError: true
 			}
 		}
