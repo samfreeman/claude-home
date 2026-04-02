@@ -18,7 +18,10 @@
       "Bash(node /home/samfr/.claude/mcp-servers/google-ai-mcp/dist/index.js)",
       "Read(//tmp/claude-1000/-home-samfr--claude/**)",
       "Bash(find ~/.config/claude -name *.log)",
-      "Bash(find ~/.local -name *.log)"
+      "Bash(find ~/.local -name *.log)",
+      "mcp__google-ai-mcp__get_video_info",
+      "mcp__google-ai-mcp__download_video",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
