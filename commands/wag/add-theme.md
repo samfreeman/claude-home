@@ -25,16 +25,16 @@ pnpm add next-themes
 
 Ask the user:
 
-> Browse [tweakcn.com](https://tweakcn.com/) and pick a theme preset you like. What is the preset name? (e.g. `catppuccin`, `rose-pine`, `tokyo-night`)
+> Browse [tweakcn.com](https://tweakcn.com/editor/theme) and pick a theme you like. Click "Code", then give me the preset name from the install command (e.g. `claude`, `catppuccin`, `rose-pine`).
 
 Wait for the user's response before continuing.
 
-## Step 4: Add Theme Import
+## Step 4: Install Theme
 
-Open the project's `globals.css` (typically at `src/app/globals.css`). Add the tweakcn import near the top of the file, after any existing `@import` or `@tailwind` directives:
+Install the theme via shadcn's registry. This updates the CSS variables in `globals.css`:
 
-```css
-@import 'tweakcn/themes/[chosen-preset]';
+```bash
+pnpm dlx shadcn@latest add https://tweakcn.com/r/themes/[chosen-preset].json
 ```
 
 Replace `[chosen-preset]` with the preset name the user provided.

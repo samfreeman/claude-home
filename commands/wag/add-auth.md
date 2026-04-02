@@ -297,9 +297,7 @@ export default function LandingPage() {
 		<div className="flex min-h-screen flex-col items-center justify-center gap-4">
 			<h1 className="text-4xl font-bold">Welcome</h1>
 			<p className="text-muted-foreground">Get started by signing in.</p>
-			<Button asChild>
-				<Link href="/sign-in">Sign In</Link>
-			</Button>
+			<Button render={<Link href="/sign-in" />}>Sign In</Button>
 		</div>
 	)
 }
@@ -481,7 +479,7 @@ export default function ResetPasswordPage() {
 		const result = await authClient.changePassword({
 			newPassword,
 			currentPassword: '',
-			revokeSessions: false
+			revokeOtherSessions: false
 		})
 
 		if (result.error) {

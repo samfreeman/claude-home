@@ -17,6 +17,10 @@ Show available WAG commands and their usage.
 | `/wag:add-auth` | Add BetterAuth authentication (requires database) |
 | `/wag:add-theme` | Add tweakcn theming and dark mode |
 | `/wag:init` | Add planning infrastructure (intake → research → requirements → scaffold) |
+| `/wag:adr` | Design a PBI — Architecture Decision Record with snag and learning awareness |
+| `/wag:snag` | Capture a plan defect, resolve it, optionally promote to a learning |
+| `/wag:audit` | Scan all projects against promoted learnings — compliance matrix |
+| `/wag:apply` | Walk through audit gaps and apply fixes with user approval |
 
 ## Typical flow
 
@@ -24,21 +28,31 @@ Show available WAG commands and their usage.
 /wag:create-nextjs myapp     # scaffold app + optional layers + git
 cd myapp
 /wag:init                    # add .wag/ planning infrastructure
+/wag:adr                     # design a PBI (creates feature branch)
+/wag:dev                     # implement the ADR (coming soon)
 ```
 
-`create-nextjs` handles app scaffolding, baseline deps (shadcn, mobx, zod, vitest, playwright), and asks which optional layers to add. It runs `/wag:add-db`, `/wag:add-auth`, and `/wag:add-theme` in the correct order based on your choices.
+## During development
 
-`init` runs four phases to create `.wag/` planning infrastructure:
+When you discover an upstream assumption is wrong:
 
-1. **Intake** — capture your vision through conversation
-2. **Research** — parallel investigation of ecosystem, feasibility, architecture patterns
-3. **Requirements** — synthesise vision + research into scoped requirements
-4. **Scaffold** — create `.wag/` with populated PRD, Architecture, and backlog
+```
+/wag:snag                    # capture and resolve the plan defect
+```
 
-The add-* commands can also be run standalone on an existing project.
+Snag resolution updates the impacted doc. If the learning applies across projects, promote it.
+
+## Cross-project intelligence
+
+```
+/wag:audit                   # scan all projects against learnings
+/wag:apply                   # fix gaps with user approval
+```
+
+The learning loop: snags become learnings, learnings become standards, standards are checked by audit, gaps are fixed by apply. New projects inherit learnings via init.
 
 ## Updating
 
 ```bash
-npx wag-cc --global
+npx wag-cc
 ```

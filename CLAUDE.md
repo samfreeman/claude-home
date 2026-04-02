@@ -35,6 +35,10 @@ Never use the AskUserQuestion tool. Just ask questions as plain text and let the
 
 Always commit to `dev`. Never commit or push directly to `main`. If the working directory is on `main`, stop and ask the user how to proceed.
 
+### 6. Never Chain Git Commands
+
+Run `git add`, `git commit`, and `git push` as separate Bash calls. Never combine with `&&` or `;`. The permission system handles commit approval.
+
 ---
 
 ## Git Commit Authorship

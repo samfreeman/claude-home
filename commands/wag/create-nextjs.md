@@ -43,7 +43,7 @@ Show the full scaffold command and wait for approval before running:
 ```bash
 pnpm create next-app@latest [app] \
     --typescript --tailwind --eslint --app --src-dir \
-    --turbopack --import-alias "@/*" --use-pnpm --no-git --yes
+    --turbopack --import-alias "@/*" --use-pnpm --yes
 ```
 
 After scaffold completes, cd into the new `[app]/` directory.
@@ -60,7 +60,7 @@ These are always installed regardless of optional layer choices.
 
 ```bash
 # UI framework
-pnpm dlx shadcn@canary init
+pnpm dlx shadcn@canary init --defaults -y
 
 # Base ShadCN components
 pnpm dlx shadcn@canary add button card input label form \
@@ -267,7 +267,7 @@ Wait for each command to complete before running the next one. They must run seq
 
 ### CLAUDE.md
 
-Create `CLAUDE.md` in the project root:
+CLAUDE.md may already exist from the Next.js scaffold. Read it first if present, then overwrite with:
 
 ```markdown
 # CLAUDE.md
@@ -305,7 +305,7 @@ Co-Authored-By: [user name] <[user email]>
 
 ### README.md
 
-Create `README.md` in the project root:
+README.md may already exist from the Next.js scaffold. Read it first if present, then overwrite with:
 
 ```markdown
 # [App Name]
@@ -384,15 +384,11 @@ QA branch auto-deploys. Main and dev do not deploy automatically.
 
 ---
 
-## Phase 6: Git Init
+## Phase 6: Git Configuration
 
-### Step 1: Initialize repo
+`create-next-app` already initialized git. This phase configures it.
 
-```bash
-git init
-```
-
-### Step 2: Per-repo identity
+### Step 1: Per-repo identity
 
 Check for existing git identity:
 
@@ -412,7 +408,7 @@ git config user.email "[email]"
 
 These values are also used in Phase 5 (project CLAUDE.md co-author tags). If Phase 5 was completed before these values were known, update CLAUDE.md now with the correct name and email.
 
-### Step 3: SSH key selection
+### Step 2: SSH key selection
 
 List SSH keys from `~/.ssh/`:
 
@@ -426,19 +422,41 @@ Show the available keys and ask the user which one to use for this project. Then
 git config core.sshCommand "ssh -i ~/.ssh/[chosen key]"
 ```
 
-### Step 4: Remote URL
+### Step 3: Create or connect remote
 
-Ask the user for the remote URL (e.g., `git@github.com:user/repo.git`). If they don't have one yet, skip — they can add it later.
+Ask the user: "Create a new GitHub repo, connect to an existing one, or skip?"
 
-If provided:
+**If create new:**
+
+First check GitHub CLI auth:
+
+```bash
+gh auth status
+```
+
+If not authenticated, tell the user: "GitHub CLI not authenticated. Run `gh auth login` in another terminal, then tell me when done." Wait for confirmation and re-check. If still not authed, offer to skip remote setup.
+
+If authenticated, create the repo:
+
+```bash
+gh repo create [app-name] --private --source . --remote origin
+```
+
+**If connect existing:**
+
+Ask for the remote URL (e.g., `git@github.com:user/repo.git`):
 
 ```bash
 git remote add origin [url]
 ```
 
-### Step 5: Verify auth
+**If skip:**
 
-If a remote was added, verify the SSH key works against the remote:
+Continue without remote. They can add it later.
+
+### Step 4: Verify auth
+
+If a remote was added, verify it works:
 
 ```bash
 git ls-remote origin
@@ -446,7 +464,7 @@ git ls-remote origin
 
 If this fails, stop and help the user diagnose. Do not continue until auth works.
 
-### Step 6: Branches, commit, push
+### Step 5: Branches, commit, push
 
 ```bash
 git checkout -b main
@@ -470,11 +488,20 @@ git push origin dev
 
 After all phases complete:
 
-1. Summarize what was created:
+1. Ensure all dependencies are resolved after add-* commands, then verify everything compiles:
+
+```bash
+pnpm install
+pnpm build
+```
+
+If the build fails, show the error and stop. Do not report success until the build passes.
+
+2. Summarize what was created:
    - App name and location
    - Baseline dependencies installed
    - Which optional layers were added
    - Git branches created (main, qa, dev)
    - Remote status (connected or not)
 
-2. Suggest next step: "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."
+3. Suggest next step: "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."

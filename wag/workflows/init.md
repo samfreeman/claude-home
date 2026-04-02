@@ -87,11 +87,13 @@ Take a user from "I have an idea" to a project with populated `.wag/` infrastruc
    ├── adr/
    │   └── active/
    └── snags/
+       └── _resolved/
    ```
-2. Seed PRD.md from the vision (Phase A) and requirements (Phase C). Not an empty template — a populated document.
-3. Seed Architecture.md from research findings (Phase B). Tech stack choices, architecture patterns, and key decisions are pre-filled from research.
-4. Create PBI files in `backlog/` from the PBI candidates in requirements.
-5. Initialise `state.json`:
+2. Register the project in `~/.claude/wag/projects.json`. Read the existing file (or create it as an empty array). Add an entry: `{ "name": "[project name]", "path": "[absolute path]", "type": "[nextjs|cli|other]" }`. Don't duplicate if already registered.
+3. Seed PRD.md from the vision (Phase A) and requirements (Phase C). Not an empty template — a populated document.
+4. Seed Architecture.md from research findings (Phase B). Tech stack choices, architecture patterns, and key decisions are pre-filled from research. Then read all learning files from `~/.claude/wag/learnings/` whose `Applies to` field matches this project type. For each, merge the Template Patch section into the appropriate section of the Architecture doc.
+5. Create PBI files in `backlog/` from the PBI candidates in requirements.
+6. Initialise `state.json`:
    ```json
    {
      "app_name": "{{PROJECT_NAME}}",
@@ -99,7 +101,7 @@ Take a user from "I have an idea" to a project with populated `.wag/` infrastruc
      "active_pbi": null
    }
    ```
-6. Present the scaffolded structure to the user. Walk through each document.
+7. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents.
 
