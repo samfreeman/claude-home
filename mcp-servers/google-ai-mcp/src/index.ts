@@ -36,15 +36,22 @@ const VIDEO_CACHE_MAX_BYTES = 500 * 1024 * 1024
 // Prefer /usr/local/bin/yt-dlp (manually updated) over apt version which goes stale
 const YT_DLP = fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' : 'yt-dlp'
 
-// Videos shorter than this use the direct YouTube URL approach (faster, no download)
-// Videos longer than this get downloaded, split into segments, and uploaded via Files API
-const DIRECT_URL_MAX_SECONDS = 1200
+// Videos ≤10min: single direct Gemini call via YouTube URL (no download needed)
+// Videos >10min: download, split into segments, upload each to Gemini
+const DIRECT_URL_MAX_SECONDS = 600
+const SEGMENT_SECONDS = 120   // 2-min default segments
+const CANARY_SECONDS = 60     // 1-min fail-fast probe before committing to full segments
 
-// Exponential probing: start at 60s, double on success, back off on failure
-const INITIAL_SEGMENT_SECONDS = 60
-
-// Per-segment upload timeout — if upload + processing exceeds this, the segment is too big
+// Per-segment upload timeout — 2-min segment is ~2MB, well within this
 const SEGMENT_UPLOAD_TIMEOUT_MS = 180_000
+
+// Transcript quality gate: minimum chars per minute of video to accept a transcript.
+// Healthy transcripts produce 600-1900 chars/min. Below this threshold the transcript
+// is incomplete — retry, and if still bad, report failure for that segment.
+const MIN_CHARS_PER_MINUTE = 200
+
+// Max retries for a single segment transcription that fails quality gate
+const MAX_TRANSCRIPT_RETRIES = 1
 
 // Extraction model
 const VIDEO_MODEL = 'gemini-2.5-flash'
@@ -58,6 +65,51 @@ const EXTRACTION_PROMPT = [
 	'4. Speaker changes if multiple speakers',
 	'Output raw data only. No analysis, no summary, no commentary.'
 ].join('\n')
+
+// ─── Manifest ───────────────────────────────────────────────────────────────
+//
+// Each video gets a manifest: cache/transcripts/{videoId}_manifest.json
+// The manifest records segment boundaries so we know what time ranges are
+// covered by cached transcripts and what still needs work.
+
+interface SegmentInfo {
+	index: number
+	start: number      // seconds from video start
+	end: number        // seconds from video start
+	status: 'ok' | 'failed'
+}
+
+interface VideoManifest {
+	videoId: string
+	duration: number   // total video duration in seconds
+	segments: SegmentInfo[]
+}
+
+function getManifestPath(videoId: string): string {
+	return path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_manifest.json`)
+}
+
+function loadManifest(videoId: string): VideoManifest | null {
+	const p = getManifestPath(videoId)
+	if (!fs.existsSync(p))
+		return null
+	return JSON.parse(fs.readFileSync(p, 'utf-8'))
+}
+
+function saveManifest(manifest: VideoManifest): void {
+	fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
+	fs.writeFileSync(getManifestPath(manifest.videoId), JSON.stringify(manifest, null, '\t'), 'utf-8')
+}
+
+function loadAllManifests(): VideoManifest[] {
+	if (!fs.existsSync(TRANSCRIPT_CACHE_DIR))
+		return []
+	return fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+		.filter(f => f.endsWith('_manifest.json'))
+		.map(f => JSON.parse(fs.readFileSync(path.join(TRANSCRIPT_CACHE_DIR, f), 'utf-8')) as VideoManifest)
+}
+
+// ─── Utilities ──────────────────────────────────────────────────────────────
 
 function resolveOutputDir(cwd?: string): string {
 	if (cwd) {
@@ -98,11 +150,10 @@ function formatTimestamp(d: Date): string {
 	return `${date}_${time}`
 }
 
-function formatSecondsAsHMS(seconds: number): string {
-	const h = Math.floor(seconds / 3600)
-	const m = Math.floor((seconds % 3600) / 60)
-	const s = seconds % 60
-	return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+function formatMmSs(seconds: number): string {
+	const m = Math.floor(seconds / 60)
+	const s = Math.round(seconds % 60)
+	return `${m}:${String(s).padStart(2, '0')}`
 }
 
 function getCachedTranscript(cacheKey: string): string | null {
@@ -117,19 +168,12 @@ function saveCachedTranscript(cacheKey: string, text: string): void {
 	fs.writeFileSync(path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`), text, 'utf-8')
 }
 
-function hasTranscriptForVideo(videoId: string): boolean {
-	if (!fs.existsSync(TRANSCRIPT_CACHE_DIR))
-		return false
-	return fs.readdirSync(TRANSCRIPT_CACHE_DIR).some(f => f.startsWith(videoId) && f.endsWith('.txt'))
-}
-
 function cleanVideoCache(): void {
 	if (!fs.existsSync(VIDEO_CACHE_DIR))
 		return
 
 	const entries = fs.readdirSync(VIDEO_CACHE_DIR, { withFileTypes: true })
 
-	// Collect all video files and segment directories
 	const videoFiles: { path: string, size: number, mtime: number }[] = []
 
 	for (const entry of entries) {
@@ -152,27 +196,15 @@ function cleanVideoCache(): void {
 		}
 	}
 
-	// Phase 1: delete any video files that have cached transcripts
-	const remaining: typeof videoFiles = []
-	for (const vf of videoFiles) {
-		const id = path.basename(vf.path).replace('.mp4', '')
-		if (hasTranscriptForVideo(id)) {
-			if (fs.statSync(vf.path).isDirectory())
-				fs.rmSync(vf.path, { recursive: true })
-			else
-				fs.unlinkSync(vf.path)
-		}
-		else
-			remaining.push(vf)
-	}
-
-	// Phase 2: if still over limit, evict oldest first
-	let totalSize = remaining.reduce((sum, vf) => sum + vf.size, 0)
+	// Size-based eviction only — evict oldest videos when over 500MB.
+	// We no longer auto-delete videos that have transcripts, because partial
+	// transcription means the video may still be needed for retrying failed segments.
+	let totalSize = videoFiles.reduce((sum, vf) => sum + vf.size, 0)
 	if (totalSize <= VIDEO_CACHE_MAX_BYTES)
 		return
 
-	remaining.sort((a, b) => a.mtime - b.mtime)
-	for (const vf of remaining) {
+	videoFiles.sort((a, b) => a.mtime - b.mtime)
+	for (const vf of videoFiles) {
 		if (totalSize <= VIDEO_CACHE_MAX_BYTES)
 			break
 		if (fs.statSync(vf.path).isDirectory())
@@ -257,6 +289,8 @@ function extractVideoId(url: string): string {
 	return url
 }
 
+// ─── Gemini API helpers ─────────────────────────────────────────────────────
+
 async function uploadAndWaitForFile(filePath: string, timeoutMs: number = 300_000): Promise<string> {
 	let file = await ai.files.upload({
 		file: filePath,
@@ -309,6 +343,134 @@ async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSec
 	}
 
 	return chunks.join('') || 'No response'
+}
+
+// ─── Video pipeline internals ───────────────────────────────────────────────
+//
+// transcribe_video is the single orchestrating tool. Internally it:
+//   1. Checks what segment transcripts are already cached (via manifest)
+//   2. For any gaps in the requested range: splits from cached video, uploads, transcribes
+//   3. Quality-gates each segment — retries once if too thin, marks failed if still bad
+//   4. On first uncached segment, runs a 1-min canary to fail fast
+//   5. Stitches all segment transcripts covering the requested range
+//   6. Returns the assembled transcript or reports what failed
+//
+// The caller just asks for a video (or range) and gets a transcript back.
+// Internally we do as little work as possible — use cached transcripts first,
+// use cached video for retries, only download/upload what's missing.
+
+function getVideoDuration(filePath: string): number {
+	const durationStr = execFileSync('ffprobe', [
+		'-v', 'error',
+		'-show_entries', 'format=duration',
+		'-of', 'default=noprint_wrappers=1:nokey=1',
+		filePath
+	], { timeout: 10_000 }).toString().trim()
+	return parseFloat(durationStr) || 0
+}
+
+function cutSegment(sourcePath: string, start: number, duration: number, outputPath: string): void {
+	execFileSync('ffmpeg', [
+		'-ss', String(start),
+		'-i', sourcePath,
+		'-t', String(duration),
+		'-c', 'copy',
+		'-y',
+		outputPath
+	], { timeout: 30_000 })
+}
+
+async function uploadAndTranscribeSegment(
+	videoId: string,
+	segIndex: number,
+	seg: SegmentInfo,
+	videoPath: string
+): Promise<{ text: string, ok: boolean }> {
+	const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
+	fs.mkdirSync(segmentDir, { recursive: true })
+
+	const segPath = path.join(segmentDir, `seg_${String(segIndex).padStart(3, '0')}.mp4`)
+	const cacheKey = `${videoId}_seg${segIndex}`
+	const durationMinutes = (seg.end - seg.start) / 60
+
+	for (let attempt = 0; attempt <= MAX_TRANSCRIPT_RETRIES; attempt++) {
+		cutSegment(videoPath, seg.start, seg.end - seg.start, segPath)
+		const uri = await uploadAndWaitForFile(segPath, SEGMENT_UPLOAD_TIMEOUT_MS)
+		const text = await transcribeWithGemini('video/mp4', uri, seg.start)
+
+		const charsPerMin = text.length / durationMinutes
+		if (charsPerMin >= MIN_CHARS_PER_MINUTE) {
+			saveCachedTranscript(cacheKey, text)
+			// Clean up segment file after successful transcription
+			if (fs.existsSync(segPath))
+				fs.unlinkSync(segPath)
+			return { text, ok: true }
+		}
+
+		// Quality gate failed — retry or give up
+		if (attempt < MAX_TRANSCRIPT_RETRIES)
+			continue
+
+		// Final attempt still bad — don't cache, keep video for future retry
+		return { text, ok: false }
+	}
+
+	// Unreachable, but TypeScript needs it
+	return { text: '', ok: false }
+}
+
+// planSegments: first segment is a 1-min canary, rest are 2-min segments.
+// Segments are just time ranges — any length, all stitched together on delivery.
+function planSegments(startSeconds: number, endSeconds: number): SegmentInfo[] {
+	const segments: SegmentInfo[] = []
+	let position = startSeconds
+	let index = 0
+	let isFirst = true
+
+	while (position < endSeconds) {
+		const remaining = endSeconds - position
+		const targetDuration = isFirst ? CANARY_SECONDS : SEGMENT_SECONDS
+		const chunkDuration = Math.min(targetDuration, remaining)
+		segments.push({
+			index,
+			start: Math.round(position),
+			end: Math.round(position + chunkDuration),
+			status: 'ok'
+		})
+		position += chunkDuration
+		index++
+		isFirst = false
+	}
+
+	return segments
+}
+
+// insertCanary: when we hit the first uncached segment on retry, split it so
+// the first piece is a 1-min canary. Reshapes the manifest from that point.
+function insertCanary(manifest: VideoManifest, segIndex: number): void {
+	const seg = manifest.segments[segIndex]
+	const segDuration = seg.end - seg.start
+
+	// Only split if the segment is longer than the canary
+	if (segDuration <= CANARY_SECONDS)
+		return
+
+	const canary: SegmentInfo = {
+		index: seg.index,
+		start: seg.start,
+		end: seg.start + CANARY_SECONDS,
+		status: 'ok'
+	}
+
+	// Shrink the original segment to start after the canary
+	seg.start = canary.end
+
+	// Insert canary before the shrunken segment
+	manifest.segments.splice(segIndex, 0, canary)
+
+	// Re-index all segments from the insertion point
+	for (let i = segIndex; i < manifest.segments.length; i++)
+		manifest.segments[i].index = i
 }
 
 // ─── Image generation ───────────────────────────────────────────────────────
@@ -399,30 +561,27 @@ server.registerTool(
 
 // ─── Video tools ────────────────────────────────────────────────────────────
 //
-// Workflow for extracting data from YouTube videos:
+// 4-tool API:
+//   1. get_video_info     → lightweight metadata check                         ~2s
+//   2. download_video     → download + compress (separate because it's slow)   ~2-4min
+//   3. transcribe_video   → orchestrates segmenting, uploading, transcribing,
+//                           quality-gates, retries, caching, and stitching
+//   4. list_transcripts   → shows all cached videos and their segment coverage
 //
-//   1. get_video_info    → fetch metadata (duration, title, strategy)        ~2s
-//   2. download_video    → download + compress (only for long videos)        ~2-4min
-//   3. upload_video      → exponential-probe segments, upload to Gemini      ~1-4min
-//   4. transcribe_video  → transcribe (direct URL or segment URIs)           ~30-60s per segment
+// Short videos (≤10min): get_video_info → transcribe_video (YouTube URL directly)
+// Long videos (>10min):  get_video_info → download_video → transcribe_video
 //
-// Short videos (≤20min): step 1 → step 4 (pass YouTube URL directly)
-// Long videos (>20min):  step 1 → 2 → 3 → 4 (download, probe+upload, transcribe segments)
-// Timeframe: pass startSeconds/endSeconds to download_video to extract a section
-// Transcript caching: transcripts are cached in cache/transcripts/ to avoid re-transcribing
-// Video cache cleanup: runs in get_video_info and after transcription —
-//   deletes transcribed videos immediately, evicts oldest if over 500MB
-//
-// Upload probing: upload_video uses exponential segment sizing — starts at 60s,
-// doubles on success (60→120→240→...), backs off to last successful size on failure.
-// Self-tunes to the caller's timeout constraints without hardcoding assumptions.
+// Long videos are split into segments: a 1-min canary first, then 2-min segments.
+// The canary provides fail-fast behavior — if the first minute can't be transcribed,
+// we stop immediately instead of making the user wait. On retry, a new canary is
+// inserted at the first uncached segment to re-test before committing.
 
 server.registerTool(
 	'get_video_info',
 	{
 		description: [
-			'Step 1 of the video workflow. Fetches YouTube video metadata without downloading.',
-			'Returns duration, title, and the recommended strategy (direct or upload).',
+			'Fetches YouTube video metadata without downloading.',
+			'Returns duration, title, and the recommended strategy (direct or download+transcribe).',
 			'ALWAYS call this first before transcribe_video to determine the right approach.',
 			'Takes ~2 seconds.'
 		].join(' '),
@@ -445,25 +604,42 @@ server.registerTool(
 			const duration = parseInt(lines[0], 10) || 0
 			const title = lines.slice(1).join('\n').trim() || 'Unknown'
 			const durationMin = Math.round(duration / 60)
-			const strategy = duration <= DIRECT_URL_MAX_SECONDS ? 'direct' : 'upload'
+			const strategy = duration <= DIRECT_URL_MAX_SECONDS ? 'direct' : 'download'
 
-			const cached = fs.existsSync(VIDEO_CACHE_DIR)
-				&& fs.readdirSync(VIDEO_CACHE_DIR).some(f => f == `${videoId}.mp4`)
+			const videoPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
+			const hasVideo = fs.existsSync(videoPath)
+			const manifest = loadManifest(videoId)
+			const cachedSegments = manifest
+				? manifest.segments.filter(s => getCachedTranscript(`${videoId}_seg${s.index}`) != null).length
+				: 0
+			const failedSegments = manifest
+				? manifest.segments.filter(s => s.status == 'failed').length
+				: 0
+			const totalSegments = manifest ? manifest.segments.length : 0
 
 			const info = [
 				`Title: ${title}`,
 				`Duration: ${durationMin}min (${duration}s)`,
 				`Video ID: ${videoId}`,
 				`Strategy: ${strategy}`,
-				cached ? 'Cache: compressed video already downloaded' : 'Cache: not cached'
+				hasVideo ? 'Video cache: downloaded' : 'Video cache: not cached'
 			]
 
-			if (strategy == 'direct')
-				info.push('Next step: call transcribe_video with the YouTube URL directly')
-			else {
-				info.push('Upload uses exponential probing (starts 60s, doubles on success)')
-				info.push('Next step: call download_video (with optional startSeconds/endSeconds to extract a section), then upload_video, then transcribe_video for each segment')
+			if (manifest) {
+				let cacheStatus = `Transcript cache: ${cachedSegments}/${totalSegments} segments`
+				if (failedSegments > 0)
+					cacheStatus += ` (${failedSegments} failed)`
+				info.push(cacheStatus)
 			}
+			else
+				info.push('Transcript cache: none')
+
+			if (strategy == 'direct')
+				info.push('Next: call transcribe_video with the YouTube URL directly')
+			else if (hasVideo)
+				info.push('Next: call transcribe_video (video already downloaded)')
+			else
+				info.push('Next: call download_video, then transcribe_video')
 
 			return { content: [{ type: 'text' as const, text: info.join('\n') }] }
 		}
@@ -480,53 +656,35 @@ server.registerTool(
 	'download_video',
 	{
 		description: [
-			'Step 2 of the video workflow (long videos only).',
-			'Downloads a YouTube video and compresses it for upload to Gemini.',
-			'Only needed when get_video_info returns strategy "upload".',
-			'Supports optional startSeconds/endSeconds to download only a section of the video.',
+			'Downloads a YouTube video and compresses it for transcription.',
+			'Only needed when get_video_info returns strategy "download".',
 			'Skips download if a cached compressed version exists.',
-			'Takes ~2-4 minutes for full videos, much faster for short sections.'
+			'Takes ~2-4 minutes for full videos.'
 		].join(' '),
 		inputSchema: {
-			url: z.string().describe('YouTube video URL or video ID'),
-			startSeconds: z.number().int().min(0).optional().describe('Start time in seconds for partial download (e.g. 2700 for 45:00). Omit for full video.'),
-			endSeconds: z.number().int().min(1).optional().describe('End time in seconds for partial download (e.g. 3600 for 1:00:00). Omit for full video.')
+			url: z.string().describe('YouTube video URL or video ID')
 		}
 	},
-	async ({ url, startSeconds, endSeconds }) => {
+	async ({ url }) => {
 		try {
 			const videoId = extractVideoId(url)
 			fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true })
 
-			const hasTimeframe = startSeconds != undefined || endSeconds != undefined
-			const cacheKey = hasTimeframe
-				? `${videoId}_${startSeconds ?? 0}-${endSeconds ?? 'end'}`
-				: videoId
-			const compressedPath = path.join(VIDEO_CACHE_DIR, `${cacheKey}.mp4`)
+			const compressedPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
 
 			if (fs.existsSync(compressedPath)) {
 				const sizeMB = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext step: call upload_video with url="${cacheKey}"` }] }
+				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext: call transcribe_video` }] }
 			}
 
-			const rawPath = path.join(VIDEO_CACHE_DIR, `${cacheKey}_raw.mp4`)
+			const rawPath = path.join(VIDEO_CACHE_DIR, `${videoId}_raw.mp4`)
 
-			const ytdlpArgs = [
+			execFileSync(YT_DLP, [
 				'-f', 'worst[ext=mp4]/worst',
 				'--no-playlist',
-				'-o', rawPath
-			]
-
-			if (hasTimeframe) {
-				const start = formatSecondsAsHMS(startSeconds ?? 0)
-				const end = endSeconds != undefined ? formatSecondsAsHMS(endSeconds) : 'inf'
-				ytdlpArgs.push('--download-sections', `*${start}-${end}`)
-				ytdlpArgs.push('--force-keyframes-at-cuts')
-			}
-
-			ytdlpArgs.push(`https://www.youtube.com/watch?v=${videoId}`)
-
-			execFileSync(YT_DLP, ytdlpArgs, { timeout: 300_000 })
+				'-o', rawPath,
+				`https://www.youtube.com/watch?v=${videoId}`
+			], { timeout: 300_000 })
 
 			const rawSize = Math.round(fs.statSync(rawPath).size / 1024 / 1024)
 
@@ -543,130 +701,7 @@ server.registerTool(
 			fs.unlinkSync(rawPath)
 
 			const compressedSize = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-			const timeframeNote = hasTimeframe
-				? ` (section ${formatSecondsAsHMS(startSeconds ?? 0)} → ${endSeconds != undefined ? formatSecondsAsHMS(endSeconds) : 'end'})`
-				: ''
-			return { content: [{ type: 'text' as const, text: `Downloaded${timeframeNote} (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext step: call upload_video with url="${cacheKey}"` }] }
-		}
-		catch (error) {
-			return {
-				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
-				isError: true
-			}
-		}
-	}
-)
-
-server.registerTool(
-	'upload_video',
-	{
-		description: [
-			'Step 3 of the video workflow (long videos only).',
-			'Uploads a downloaded video to Gemini Files API using exponential segment probing.',
-			'Starts with 60s segments, doubles on success (60→120→240→...), backs off on failure.',
-			'Self-tunes to the caller\'s timeout constraints — works from CD, CC, or anywhere else.',
-			'Call download_video first. Returns Gemini file URIs and cache keys for each segment.',
-			'Call transcribe_video once for each segment URI, passing the cacheKey to enable transcript caching.'
-		].join(' '),
-		inputSchema: {
-			url: z.string().describe('YouTube video URL or video ID (must have been downloaded first)')
-		}
-	},
-	async ({ url }) => {
-		try {
-			const videoId = extractVideoId(url)
-			const filePath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
-
-			if (!fs.existsSync(filePath))
-				throw new Error(`No cached video found for ${videoId}. Call download_video first.`)
-
-			// Get duration of compressed file
-			const durationStr = execFileSync('ffprobe', [
-				'-v', 'error',
-				'-show_entries', 'format=duration',
-				'-of', 'default=noprint_wrappers=1:nokey=1',
-				filePath
-			], { timeout: 10_000 }).toString().trim()
-			const duration = parseFloat(durationStr) || 0
-
-			// If short enough for a single upload, skip segmenting
-			if (duration <= INITIAL_SEGMENT_SECONDS + 30) {
-				const uri = await uploadAndWaitForFile(filePath, SEGMENT_UPLOAD_TIMEOUT_MS)
-				const sizeMB = Math.round(fs.statSync(filePath).size / 1024 / 1024)
-				const cacheKey = `${videoId}_seg0`
-				return { content: [{ type: 'text' as const, text: `Uploaded ${sizeMB}MB (1 segment)\nSegment 1 [0:00]: ${uri} (cacheKey: ${cacheKey})\n\nCall transcribe_video once with this URI and cacheKey.` }] }
-			}
-
-			// Exponential probing: start small, double on success, back off on failure
-			const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
-			fs.mkdirSync(segmentDir, { recursive: true })
-
-			let segmentSeconds = INITIAL_SEGMENT_SECONDS
-			let lastSuccessSize = 0
-			let position = 0
-			let segIndex = 0
-			let consecutiveFailures = 0
-			const results: string[] = []
-
-			while (position < duration) {
-				const remaining = duration - position
-				const chunkDuration = Math.min(segmentSeconds, remaining)
-
-				// Cut this segment from the source video
-				const segPath = path.join(segmentDir, `seg_${String(segIndex).padStart(3, '0')}.mp4`)
-				execFileSync('ffmpeg', [
-					'-ss', String(position),
-					'-i', filePath,
-					'-t', String(chunkDuration),
-					'-c', 'copy',
-					'-y',
-					segPath
-				], { timeout: 30_000 })
-
-				try {
-					const uri = await uploadAndWaitForFile(segPath, SEGMENT_UPLOAD_TIMEOUT_MS)
-					const cacheKey = `${videoId}_seg${segIndex}`
-					const offsetMin = Math.floor(position / 60)
-					const offsetSec = Math.round(position % 60)
-					results.push(`Segment ${segIndex + 1} [${offsetMin}:${String(offsetSec).padStart(2, '0')}]: ${uri} (cacheKey: ${cacheKey})`)
-
-					lastSuccessSize = segmentSeconds
-					position += chunkDuration
-					segIndex++
-					consecutiveFailures = 0
-
-					// Double for next segment if this wasn't a tail chunk
-					if (chunkDuration == segmentSeconds)
-						segmentSeconds *= 2
-				}
-				catch (err) {
-					// Clean up the failed segment file
-					if (fs.existsSync(segPath))
-						fs.unlinkSync(segPath)
-
-					consecutiveFailures++
-
-					if (lastSuccessSize == 0)
-						throw new Error(`Failed to upload a ${INITIAL_SEGMENT_SECONDS}s segment — cannot proceed`)
-
-					if (consecutiveFailures >= 2)
-						throw new Error(`Upload failed twice at ${segmentSeconds}s segments after backoff — cannot proceed`)
-
-					// Back off to last successful size for all remaining segments
-					segmentSeconds = lastSuccessSize
-				}
-			}
-
-			const output = [
-				`Uploaded ${results.length} segments (probed to ${lastSuccessSize}s max segment size)`,
-				'',
-				...results,
-				'',
-				'Call transcribe_video once for EACH segment URI above, in order.',
-				'Pass the segment URI as the url parameter and the cacheKey to enable transcript caching.'
-			]
-
-			return { content: [{ type: 'text' as const, text: output.join('\n') }] }
+			return { content: [{ type: 'text' as const, text: `Downloaded (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext: call transcribe_video` }] }
 		}
 		catch (error) {
 			return {
@@ -681,66 +716,302 @@ server.registerTool(
 	'transcribe_video',
 	{
 		description: [
-			'Step 4 (final step) of the video workflow.',
-			'Extracts raw transcript and visual data from a video using Gemini.',
-			'Returns verbatim transcript with timestamps and on-screen text descriptions.',
-			'Gemini does extraction only — Claude should do all analysis and summarization.',
-			'For short videos (≤20min): pass the YouTube URL directly.',
-			'For long videos: call once per segment URI returned by upload_video.',
-			'Pass cacheKey from upload_video to enable transcript caching (skips Gemini on repeat calls).',
-			'IMPORTANT: Always call get_video_info first to determine the right approach.',
-			'Takes ~30-60 seconds per call (instant if cached).'
+			'Transcribes a video and returns the assembled transcript.',
+			'For short videos (≤10min): pass the YouTube URL directly — transcribes via Gemini in one shot.',
+			'For long videos: requires download_video first. Splits into segments, uploads,',
+			'transcribes, quality-validates, retries failures, caches, and stitches automatically.',
+			'Uses a 1-min canary on the first uncached segment to fail fast before committing.',
+			'Supports optional startSeconds/endSeconds to transcribe a specific range.',
+			'Uses cached transcripts when available — only does work for missing/failed segments.',
+			'ALWAYS call get_video_info first to determine the right approach.',
+			'Returns the full assembled transcript or an error explaining what failed.'
 		].join(' '),
 		inputSchema: {
-			url: z.string().describe('YouTube video URL, video ID, or a single Gemini file URI from upload_video'),
-			offsetSeconds: z.number().optional().default(0).describe('Start offset in seconds for this segment (used to adjust timestamps). Default 0.'),
-			cacheKey: z.string().optional().describe('Cache key from upload_video (e.g. "5L3dm7KBCmY_seg0"). When provided, transcript is cached and reused on repeat calls.')
+			url: z.string().describe('YouTube video URL or video ID'),
+			startSeconds: z.number().int().min(0).optional().describe('Start of range to transcribe (seconds). Omit for start of video.'),
+			endSeconds: z.number().int().min(1).optional().describe('End of range to transcribe (seconds). Omit for end of video.')
 		}
 	},
-	async ({ url, offsetSeconds, cacheKey }) => {
+	async ({ url, startSeconds, endSeconds }) => {
 		try {
 			if (!apiKey)
 				throw new Error('GEMINI_API_KEY environment variable is required')
 
-			// Derive cache key for direct YouTube URL calls
-			const effectiveCacheKey = cacheKey
-				?? (!url.startsWith('https://generativelanguage.googleapis.com/') ? extractVideoId(url) : undefined)
+			const videoId = extractVideoId(url)
+			const videoPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
 
-			// Check transcript cache
-			if (effectiveCacheKey) {
-				const cached = getCachedTranscript(effectiveCacheKey)
+			// ── Short video: direct YouTube URL transcription ──────────
+			const isShortOrDirect = !fs.existsSync(videoPath)
+			if (isShortOrDirect) {
+				const cacheKey = startSeconds || endSeconds
+					? `${videoId}_${startSeconds ?? 0}-${endSeconds ?? 'end'}`
+					: videoId
+
+				const cached = getCachedTranscript(cacheKey)
 				if (cached)
-					return { content: [{ type: 'text' as const, text: `[cached transcript]\n${cached}` }] }
+					return { content: [{ type: 'text' as const, text: cached }] }
+
+				const text = await transcribeWithGemini(
+					'video/*',
+					`https://www.youtube.com/watch?v=${videoId}`,
+					startSeconds ?? 0
+				)
+
+				saveCachedTranscript(cacheKey, text)
+				return { content: [{ type: 'text' as const, text }] }
 			}
 
-			const isFileUri = url.startsWith('https://generativelanguage.googleapis.com/')
+			// ── Long video: segmented pipeline ────────────────────────
+			const duration = getVideoDuration(videoPath)
+			const rangeStart = startSeconds ?? 0
+			const rangeEnd = endSeconds ?? Math.round(duration)
 
-			let mimeType: string
-			let fileUri: string
-			if (isFileUri) {
-				mimeType = 'video/mp4'
-				fileUri = url
-			}
-			else {
-				const videoId = extractVideoId(url)
-				mimeType = 'video/*'
-				fileUri = `https://www.youtube.com/watch?v=${videoId}`
-			}
-
-			const text = await transcribeWithGemini(mimeType, fileUri, offsetSeconds)
-
-			// Save to transcript cache, then clean up video files
-			if (effectiveCacheKey) {
-				saveCachedTranscript(effectiveCacheKey, text)
-				cleanVideoCache()
+			// Load or create manifest
+			let manifest = loadManifest(videoId)
+			if (!manifest) {
+				manifest = {
+					videoId,
+					duration,
+					segments: planSegments(0, Math.round(duration))
+				}
+				saveManifest(manifest)
 			}
 
-			return { content: [{ type: 'text' as const, text }] }
+			// Find segments that overlap the requested range
+			const neededSegments = manifest.segments.filter(
+				s => s.end > rangeStart && s.start < rangeEnd
+			)
+
+			if (neededSegments.length == 0)
+				throw new Error(`No segments cover range ${rangeStart}-${rangeEnd}s (video is ${Math.round(duration)}s)`)
+
+			// Process each needed segment: use cache, or upload+transcribe
+			const transcriptParts: string[] = []
+			const failures: string[] = []
+			let canaryDone = false
+
+			for (let i = 0; i < neededSegments.length; i++) {
+				const seg = neededSegments[i]
+				const cacheKey = `${videoId}_seg${seg.index}`
+
+				// Check cache first
+				const cached = getCachedTranscript(cacheKey)
+				if (cached) {
+					transcriptParts.push(cached)
+					continue
+				}
+
+				// First uncached segment — insert canary if needed
+				if (!canaryDone) {
+					canaryDone = true
+
+					// Find the position of this segment in the full manifest
+					const manifestIdx = manifest.segments.findIndex(s => s.index == seg.index)
+					if (manifestIdx >= 0 && (seg.end - seg.start) > CANARY_SECONDS) {
+						// Split: insert canary, shrink original
+						insertCanary(manifest, manifestIdx)
+						saveManifest(manifest)
+
+						// Re-query needed segments since manifest changed
+						const updatedNeeded = manifest.segments.filter(
+							s => s.end > rangeStart && s.start < rangeEnd
+						)
+
+						// Restart the loop with updated segments
+						// Process canary (the newly inserted segment at manifestIdx)
+						const canarySeg = manifest.segments[manifestIdx]
+						const canaryKey = `${videoId}_seg${canarySeg.index}`
+
+						try {
+							const result = await uploadAndTranscribeSegment(videoId, canarySeg.index, canarySeg, videoPath)
+							if (result.ok) {
+								transcriptParts.push(result.text)
+							}
+							else {
+								canarySeg.status = 'failed'
+								saveManifest(manifest)
+								return {
+									content: [{ type: 'text' as const, text: `Canary failed — transcription not viable at [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}]: ${result.text.length} chars for 1min (${Math.round(result.text.length / (CANARY_SECONDS / 60))} chars/min, need ${MIN_CHARS_PER_MINUTE})` }],
+									isError: true
+								}
+							}
+						}
+						catch (err) {
+							canarySeg.status = 'failed'
+							saveManifest(manifest)
+							return {
+								content: [{ type: 'text' as const, text: `Canary failed at [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}]: ${err instanceof Error ? err.message : String(err)}` }],
+								isError: true
+							}
+						}
+
+						saveManifest(manifest)
+
+						// Continue with the remaining needed segments (skip canary, already processed)
+						const remainingNeeded = updatedNeeded.filter(s => s.start >= canarySeg.end)
+						for (const remSeg of remainingNeeded) {
+							const remKey = `${videoId}_seg${remSeg.index}`
+							const remCached = getCachedTranscript(remKey)
+							if (remCached) {
+								transcriptParts.push(remCached)
+								continue
+							}
+
+							if (remSeg.status == 'failed')
+								remSeg.status = 'ok'
+
+							try {
+								const result = await uploadAndTranscribeSegment(videoId, remSeg.index, remSeg, videoPath)
+								if (result.ok) {
+									transcriptParts.push(result.text)
+								}
+								else {
+									remSeg.status = 'failed'
+									failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: transcript too short (${result.text.length} chars for ${Math.round((remSeg.end - remSeg.start) / 60)}min)`)
+								}
+							}
+							catch (err) {
+								remSeg.status = 'failed'
+								failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
+							}
+
+							saveManifest(manifest)
+						}
+
+						// Done — break out of the original loop
+						break
+					}
+				}
+
+				// Normal segment processing (no canary needed — segment is small enough, or canary path not taken)
+				if (seg.status == 'failed')
+					seg.status = 'ok'
+
+				try {
+					const result = await uploadAndTranscribeSegment(videoId, seg.index, seg, videoPath)
+					if (result.ok) {
+						transcriptParts.push(result.text)
+					}
+					else {
+						seg.status = 'failed'
+						failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: transcript too short (${result.text.length} chars for ${Math.round((seg.end - seg.start) / 60)}min)`)
+					}
+				}
+				catch (err) {
+					seg.status = 'failed'
+					failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
+				}
+
+				saveManifest(manifest)
+			}
+
+			cleanVideoCache()
+
+			// All or nothing: if any segment failed, report failure
+			if (failures.length > 0) {
+				const partial = transcriptParts.length > 0
+					? `\n\nPartial transcript (${transcriptParts.length} segments succeeded):\n${transcriptParts.join('\n\n')}`
+					: ''
+				return {
+					content: [{ type: 'text' as const, text: `Transcription incomplete — ${failures.length} segment(s) failed:\n${failures.join('\n')}${partial}` }],
+					isError: true
+				}
+			}
+
+			return { content: [{ type: 'text' as const, text: transcriptParts.join('\n\n') }] }
 		}
 		catch (error) {
-			const detail = detailedError(error)
 			return {
-				content: [{ type: 'text' as const, text: detail }],
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'list_transcripts',
+	{
+		description: [
+			'Lists all cached videos and their transcription status.',
+			'Shows each video ID, total duration, segment count, and per-segment coverage.',
+			'Segments show their time range, status (cached/failed/pending), and size.',
+			'Also lists any standalone (non-segmented) cached transcripts.',
+			'Use this to see what data is available before requesting a transcription.'
+		].join(' '),
+		inputSchema: {}
+	},
+	async () => {
+		try {
+			const lines: string[] = []
+
+			// Segmented videos (have manifests)
+			const manifests = loadAllManifests()
+			if (manifests.length > 0) {
+				for (const manifest of manifests) {
+					const videoPath = path.join(VIDEO_CACHE_DIR, `${manifest.videoId}.mp4`)
+					const hasVideo = fs.existsSync(videoPath)
+					const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
+
+					lines.push(`${manifest.videoId} (${Math.round(manifest.duration / 60)}min, ${manifest.segments.length} segments)`)
+					if (hasVideo)
+						lines.push(`  Video: cached (${videoSize}MB)`)
+					else
+						lines.push('  Video: not cached')
+
+					for (const seg of manifest.segments) {
+						const cacheKey = `${manifest.videoId}_seg${seg.index}`
+						const transcript = getCachedTranscript(cacheKey)
+						const range = `${formatMmSs(seg.start)}-${formatMmSs(seg.end)}`
+						const segDuration = seg.end - seg.start
+
+						if (transcript) {
+							const kb = Math.round(transcript.length / 1024)
+							const charsPerMin = Math.round(transcript.length / (segDuration / 60))
+							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: cached (${kb}KB, ${charsPerMin} chars/min)`)
+						}
+						else if (seg.status == 'failed')
+							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: FAILED`)
+						else
+							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: pending`)
+					}
+
+					lines.push('')
+				}
+			}
+
+			// Standalone transcripts (no manifest — direct/short video transcriptions)
+			if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+				const allFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+				const manifestVideoIds = new Set(manifests.map(m => m.videoId))
+				const standaloneFiles = allFiles.filter(f => {
+					if (!f.endsWith('.txt')) return false
+					for (const id of manifestVideoIds)
+						if (f.startsWith(id)) return false
+					return true
+				})
+
+				if (standaloneFiles.length > 0) {
+					if (lines.length > 0)
+						lines.push('───')
+					lines.push('Standalone transcripts:')
+					for (const f of standaloneFiles) {
+						const fullPath = path.join(TRANSCRIPT_CACHE_DIR, f)
+						const size = Math.round(fs.statSync(fullPath).size / 1024)
+						const name = f.replace('.txt', '')
+						lines.push(`  ${name} (${size}KB)`)
+					}
+				}
+			}
+
+			if (lines.length == 0)
+				return { content: [{ type: 'text' as const, text: 'No cached transcripts.' }] }
+
+			return { content: [{ type: 'text' as const, text: lines.join('\n') }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
 				isError: true
 			}
 		}
