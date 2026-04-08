@@ -71,6 +71,10 @@ const EXTRACTION_PROMPT = [
 // Each video gets a manifest: cache/transcripts/{videoId}_manifest.json
 // The manifest records segment boundaries so we know what time ranges are
 // covered by cached transcripts and what still needs work.
+//
+// Transcript files are stitched contiguous runs of ok segments:
+//   - Full video complete:  {videoId}.txt
+//   - Partial (gap):        {videoId}_HHMMSS-HHMMSS.txt  (one per contiguous run)
 
 interface SegmentInfo {
 	index: number
@@ -107,6 +111,116 @@ function loadAllManifests(): VideoManifest[] {
 	return fs.readdirSync(TRANSCRIPT_CACHE_DIR)
 		.filter(f => f.endsWith('_manifest.json'))
 		.map(f => JSON.parse(fs.readFileSync(path.join(TRANSCRIPT_CACHE_DIR, f), 'utf-8')) as VideoManifest)
+}
+
+// ─── Stitched transcript files ──────────────────────────────────────────────
+
+function formatHhmmss(seconds: number): string {
+	const h = String(Math.floor(seconds / 3600)).padStart(2, '0')
+	const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
+	const s = String(Math.round(seconds % 60)).padStart(2, '0')
+	return `${h}${m}${s}`
+}
+
+// Get the path for a stitched transcript file covering a contiguous run
+function getStitchedPath(videoId: string, start: number, end: number, duration: number): string {
+	const isFullVideo = start == 0 && end >= duration
+	if (isFullVideo)
+		return path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
+	return path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_${formatHhmmss(start)}-${formatHhmmss(end)}.txt`)
+}
+
+// Find contiguous runs of ok segments and return their boundaries
+function findContiguousRuns(manifest: VideoManifest): { start: number, end: number, segIndices: number[] }[] {
+	const runs: { start: number, end: number, segIndices: number[] }[] = []
+	let currentRun: { start: number, end: number, segIndices: number[] } | null = null
+
+	for (const seg of manifest.segments) {
+		if (seg.status == 'ok') {
+			if (!currentRun)
+				currentRun = { start: seg.start, end: seg.end, segIndices: [seg.index] }
+			else {
+				currentRun.end = seg.end
+				currentRun.segIndices.push(seg.index)
+			}
+		}
+		else {
+			if (currentRun) {
+				runs.push(currentRun)
+				currentRun = null
+			}
+		}
+	}
+	if (currentRun)
+		runs.push(currentRun)
+
+	return runs
+}
+
+// Stitch segment transcripts into contiguous run files.
+// Called after each successful segment transcription.
+// Reads individual _segN.txt files, writes stitched files, removes segment files.
+function stitchTranscript(videoId: string, manifest: VideoManifest): void {
+	const runs = findContiguousRuns(manifest)
+
+	// Remove any old stitched files for this video before writing new ones
+	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+		for (const f of files) {
+			if (!f.endsWith('.txt')) continue
+			if (!f.startsWith(videoId)) continue
+			// Skip segment files — we'll clean those up after stitching
+			if (f.match(/_seg\d+\.txt$/)) continue
+			fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
+		}
+	}
+
+	for (const run of runs) {
+		const parts: string[] = []
+		for (const segIdx of run.segIndices) {
+			const segPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_seg${segIdx}.txt`)
+			if (fs.existsSync(segPath))
+				parts.push(fs.readFileSync(segPath, 'utf-8'))
+		}
+
+		if (parts.length > 0) {
+			const stitchedPath = getStitchedPath(videoId, run.start, run.end, manifest.duration)
+			fs.writeFileSync(stitchedPath, parts.join('\n\n'), 'utf-8')
+		}
+	}
+
+	// Clean up individual segment files now that they're stitched
+	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+		for (const f of files) {
+			if (f.startsWith(videoId) && f.match(/_seg\d+\.txt$/))
+				fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
+		}
+	}
+}
+
+// Get the full transcript for a video by reading all stitched files in order
+function getFullTranscript(videoId: string, manifest: VideoManifest): string | null {
+	const runs = findContiguousRuns(manifest)
+	if (runs.length == 0)
+		return null
+
+	const parts: string[] = []
+	for (const run of runs) {
+		const p = getStitchedPath(videoId, run.start, run.end, manifest.duration)
+		if (fs.existsSync(p))
+			parts.push(fs.readFileSync(p, 'utf-8'))
+	}
+
+	return parts.length > 0 ? parts.join('\n\n') : null
+}
+
+// Check if a video's transcript is fully cached (all segments ok, stitched file exists)
+function isTranscriptComplete(videoId: string, manifest: VideoManifest): boolean {
+	const allOk = manifest.segments.every(s => s.status == 'ok')
+	if (!allOk) return false
+	const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
+	return fs.existsSync(fullPath)
 }
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
@@ -343,16 +457,15 @@ async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSec
 // ─── Video pipeline internals ───────────────────────────────────────────────
 //
 // transcribe_video is the single orchestrating tool. Internally it:
-//   1. Checks what segment transcripts are already cached (via manifest)
-//   2. For any gaps in the requested range: splits from cached video, uploads, transcribes
+//   1. Checks if a stitched transcript already exists (full cache hit)
+//   2. For any gaps: splits from cached video, uploads, transcribes
 //   3. Quality-gates each segment — retries once if too thin, marks failed if still bad
 //   4. On first uncached segment, runs a 1-min canary to fail fast
-//   5. Stitches all segment transcripts covering the requested range
+//   5. After each successful segment, stitches contiguous runs into files
 //   6. Returns the assembled transcript or reports what failed
 //
-// The caller just asks for a video (or range) and gets a transcript back.
-// Internally we do as little work as possible — use cached transcripts first,
-// use cached video for retries, only download/upload what's missing.
+// Stitching happens on write: each successful segment triggers a re-stitch of
+// contiguous runs. The final transcript is read from the stitched files.
 
 function getVideoDuration(filePath: string): number {
 	const durationStr = execFileSync('ffprobe', [
@@ -379,13 +492,13 @@ async function uploadAndTranscribeSegment(
 	videoId: string,
 	segIndex: number,
 	seg: SegmentInfo,
-	videoPath: string
+	videoPath: string,
+	manifest: VideoManifest
 ): Promise<{ text: string, ok: boolean }> {
 	const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
 	fs.mkdirSync(segmentDir, { recursive: true })
 
 	const segPath = path.join(segmentDir, `seg_${String(segIndex).padStart(3, '0')}.mp4`)
-	const cacheKey = `${videoId}_seg${segIndex}`
 	const durationMinutes = (seg.end - seg.start) / 60
 
 	for (let attempt = 0; attempt <= MAX_TRANSCRIPT_RETRIES; attempt++) {
@@ -395,8 +508,12 @@ async function uploadAndTranscribeSegment(
 
 		const charsPerMin = text.length / durationMinutes
 		if (charsPerMin >= MIN_CHARS_PER_MINUTE) {
-			saveCachedTranscript(cacheKey, text)
-			// Clean up segment file after successful transcription
+			// Save segment file temporarily, then stitch
+			saveCachedTranscript(`${videoId}_seg${segIndex}`, text)
+			seg.status = 'ok'
+			saveManifest(manifest)
+			stitchTranscript(videoId, manifest)
+			// Clean up segment video file
 			if (fs.existsSync(segPath))
 				fs.unlinkSync(segPath)
 			return { text, ok: true }
@@ -415,7 +532,6 @@ async function uploadAndTranscribeSegment(
 }
 
 // planSegments: first segment is a 1-min canary, rest are 2-min segments.
-// Segments are just time ranges — any length, all stitched together on delivery.
 function planSegments(startSeconds: number, endSeconds: number): SegmentInfo[] {
 	const segments: SegmentInfo[] = []
 	let position = startSeconds
@@ -559,7 +675,7 @@ server.registerTool(
 //   2. download_video     → download + compress (separate because it's slow)   ~2-4min
 //   3. transcribe_video   → orchestrates segmenting, uploading, transcribing,
 //                           quality-gates, retries, caching, and stitching
-//   4. list_transcripts   → shows all cached videos and their segment coverage
+//   4. list_transcripts   → shows all cached videos and their transcript files
 //
 // Short videos (≤10min): get_video_info → transcribe_video (YouTube URL directly)
 // Long videos (>10min):  get_video_info → download_video → transcribe_video
@@ -568,6 +684,10 @@ server.registerTool(
 // The canary provides fail-fast behavior — if the first minute can't be transcribed,
 // we stop immediately instead of making the user wait. On retry, a new canary is
 // inserted at the first uncached segment to re-test before committing.
+//
+// Transcripts are stitched on write: after each segment succeeds, contiguous runs
+// of ok segments are merged into single files. A fully complete video becomes
+// {videoId}.txt. A video with gaps becomes multiple {videoId}_HHMMSS-HHMMSS.txt.
 
 server.registerTool(
 	'get_video_info',
@@ -602,13 +722,6 @@ server.registerTool(
 			const videoPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
 			const hasVideo = fs.existsSync(videoPath)
 			const manifest = loadManifest(videoId)
-			const cachedSegments = manifest
-				? manifest.segments.filter(s => getCachedTranscript(`${videoId}_seg${s.index}`) != null).length
-				: 0
-			const failedSegments = manifest
-				? manifest.segments.filter(s => s.status == 'failed').length
-				: 0
-			const totalSegments = manifest ? manifest.segments.length : 0
 
 			const info = [
 				`Title: ${title}`,
@@ -619,13 +732,21 @@ server.registerTool(
 			]
 
 			if (manifest) {
-				let cacheStatus = `Transcript cache: ${cachedSegments}/${totalSegments} segments`
-				if (failedSegments > 0)
-					cacheStatus += ` (${failedSegments} failed)`
+				const okSegs = manifest.segments.filter(s => s.status == 'ok').length
+				const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
+				const total = manifest.segments.length
+				let cacheStatus = `Transcript: ${okSegs}/${total} segments ok`
+				if (failedSegs > 0)
+					cacheStatus += ` (${failedSegs} failed)`
+				if (isTranscriptComplete(videoId, manifest))
+					cacheStatus += ' — complete'
 				info.push(cacheStatus)
 			}
-			else
-				info.push('Transcript cache: none')
+			else {
+				// Check for standalone transcript (short video)
+				const standalone = getCachedTranscript(videoId)
+				info.push(standalone ? 'Transcript: cached (standalone)' : 'Transcript: none')
+			}
 
 			if (strategy == 'direct')
 				info.push('Next: call transcribe_video with the YouTube URL directly')
@@ -712,7 +833,7 @@ server.registerTool(
 			'Transcribes a video and returns the assembled transcript.',
 			'For short videos (≤10min): pass the YouTube URL directly — transcribes via Gemini in one shot.',
 			'For long videos: requires download_video first. Splits into segments, uploads,',
-			'transcribes, quality-validates, retries failures, caches, and stitches automatically.',
+			'transcribes, quality-validates, retries failures, and stitches into cache files automatically.',
 			'Uses a 1-min canary on the first uncached segment to fail fast before committing.',
 			'Supports optional startSeconds/endSeconds to transcribe a specific range.',
 			'Uses cached transcripts when available — only does work for missing/failed segments.',
@@ -770,7 +891,13 @@ server.registerTool(
 				saveManifest(manifest)
 			}
 
-			// Find segments that overlap the requested range
+			// Check for full cache hit via stitched file
+			if (!startSeconds && !endSeconds && isTranscriptComplete(videoId, manifest)) {
+				const text = fs.readFileSync(path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`), 'utf-8')
+				return { content: [{ type: 'text' as const, text }] }
+			}
+
+			// Find segments that overlap the requested range and need work
 			const neededSegments = manifest.segments.filter(
 				s => s.end > rangeStart && s.start < rangeEnd
 			)
@@ -778,49 +905,49 @@ server.registerTool(
 			if (neededSegments.length == 0)
 				throw new Error(`No segments cover range ${rangeStart}-${rangeEnd}s (video is ${Math.round(duration)}s)`)
 
-			// Process each needed segment: use cache, or upload+transcribe
-			const transcriptParts: string[] = []
+			// Find which segments actually need transcription (not already in a stitched file)
+			const uncachedSegments = neededSegments.filter(seg => {
+				const segKey = `${videoId}_seg${seg.index}`
+				// Check if individual segment file exists (shouldn't after stitch, but just in case)
+				if (getCachedTranscript(segKey)) return false
+				// Check if this segment is covered by a stitched file
+				const runs = findContiguousRuns(manifest!)
+				for (const run of runs) {
+					if (seg.start >= run.start && seg.end <= run.end) {
+						const p = getStitchedPath(videoId, run.start, run.end, manifest!.duration)
+						if (fs.existsSync(p)) return false
+					}
+				}
+				return true
+			})
+
+			// All segments already cached in stitched files — just return the transcript
+			if (uncachedSegments.length == 0) {
+				const text = getFullTranscript(videoId, manifest)
+				if (text)
+					return { content: [{ type: 'text' as const, text }] }
+			}
+
+			// Process uncached segments
 			const failures: string[] = []
 			let canaryDone = false
 
-			for (let i = 0; i < neededSegments.length; i++) {
-				const seg = neededSegments[i]
-				const cacheKey = `${videoId}_seg${seg.index}`
-
-				// Check cache first
-				const cached = getCachedTranscript(cacheKey)
-				if (cached) {
-					transcriptParts.push(cached)
-					continue
-				}
-
+			for (const seg of uncachedSegments) {
 				// First uncached segment — insert canary if needed
 				if (!canaryDone) {
 					canaryDone = true
 
-					// Find the position of this segment in the full manifest
 					const manifestIdx = manifest.segments.findIndex(s => s.index == seg.index)
 					if (manifestIdx >= 0 && (seg.end - seg.start) > CANARY_SECONDS) {
-						// Split: insert canary, shrink original
 						insertCanary(manifest, manifestIdx)
 						saveManifest(manifest)
 
-						// Re-query needed segments since manifest changed
-						const updatedNeeded = manifest.segments.filter(
-							s => s.end > rangeStart && s.start < rangeEnd
-						)
-
-						// Restart the loop with updated segments
-						// Process canary (the newly inserted segment at manifestIdx)
+						// Process canary
 						const canarySeg = manifest.segments[manifestIdx]
-						const canaryKey = `${videoId}_seg${canarySeg.index}`
 
 						try {
-							const result = await uploadAndTranscribeSegment(videoId, canarySeg.index, canarySeg, videoPath)
-							if (result.ok) {
-								transcriptParts.push(result.text)
-							}
-							else {
+							const result = await uploadAndTranscribeSegment(videoId, canarySeg.index, canarySeg, videoPath, manifest)
+							if (!result.ok) {
 								canarySeg.status = 'failed'
 								saveManifest(manifest)
 								return {
@@ -838,72 +965,71 @@ server.registerTool(
 							}
 						}
 
-						saveManifest(manifest)
-
-						// Continue with the remaining needed segments (skip canary, already processed)
-						const remainingNeeded = updatedNeeded.filter(s => s.start >= canarySeg.end)
-						for (const remSeg of remainingNeeded) {
-							const remKey = `${videoId}_seg${remSeg.index}`
-							const remCached = getCachedTranscript(remKey)
-							if (remCached) {
-								transcriptParts.push(remCached)
-								continue
+						// Re-query uncached segments since manifest changed
+						const remaining = manifest.segments.filter(s => {
+							if (s.start < rangeStart || s.end > rangeEnd) return false
+							if (s.index == canarySeg.index) return false // already done
+							const runs = findContiguousRuns(manifest!)
+							for (const run of runs) {
+								if (s.start >= run.start && s.end <= run.end) {
+									const p = getStitchedPath(videoId, run.start, run.end, manifest!.duration)
+									if (fs.existsSync(p)) return false
+								}
 							}
+							return true
+						})
 
+						for (const remSeg of remaining) {
 							if (remSeg.status == 'failed')
 								remSeg.status = 'ok'
 
 							try {
-								const result = await uploadAndTranscribeSegment(videoId, remSeg.index, remSeg, videoPath)
-								if (result.ok) {
-									transcriptParts.push(result.text)
-								}
-								else {
+								const result = await uploadAndTranscribeSegment(videoId, remSeg.index, remSeg, videoPath, manifest)
+								if (!result.ok) {
 									remSeg.status = 'failed'
-									failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: transcript too short (${result.text.length} chars for ${Math.round((remSeg.end - remSeg.start) / 60)}min)`)
+									saveManifest(manifest)
+									failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: transcript too short`)
 								}
 							}
 							catch (err) {
 								remSeg.status = 'failed'
+								saveManifest(manifest)
 								failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
 							}
-
-							saveManifest(manifest)
 						}
 
-						// Done — break out of the original loop
+						// Done — break out of the loop (canary path processes everything)
 						break
 					}
 				}
 
-				// Normal segment processing (no canary needed — segment is small enough, or canary path not taken)
+				// Normal segment processing (no canary needed)
 				if (seg.status == 'failed')
 					seg.status = 'ok'
 
 				try {
-					const result = await uploadAndTranscribeSegment(videoId, seg.index, seg, videoPath)
-					if (result.ok) {
-						transcriptParts.push(result.text)
-					}
-					else {
+					const result = await uploadAndTranscribeSegment(videoId, seg.index, seg, videoPath, manifest)
+					if (!result.ok) {
 						seg.status = 'failed'
-						failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: transcript too short (${result.text.length} chars for ${Math.round((seg.end - seg.start) / 60)}min)`)
+						saveManifest(manifest)
+						failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: transcript too short`)
 					}
 				}
 				catch (err) {
 					seg.status = 'failed'
+					saveManifest(manifest)
 					failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
 				}
-
-				saveManifest(manifest)
 			}
 
 			cleanVideoCache()
 
-			// All or nothing: if any segment failed, report failure
+			// Read the final transcript from stitched files
+			const finalText = getFullTranscript(videoId, manifest)
+
 			if (failures.length > 0) {
-				const partial = transcriptParts.length > 0
-					? `\n\nPartial transcript (${transcriptParts.length} segments succeeded):\n${transcriptParts.join('\n\n')}`
+				const partial = finalText
+					? `\n\nPartial transcript (from cached segments):\n${finalText}`
 					: ''
 				return {
 					content: [{ type: 'text' as const, text: `Transcription incomplete — ${failures.length} segment(s) failed:\n${failures.join('\n')}${partial}` }],
@@ -911,7 +1037,10 @@ server.registerTool(
 				}
 			}
 
-			return { content: [{ type: 'text' as const, text: transcriptParts.join('\n\n') }] }
+			if (!finalText)
+				throw new Error('No transcript available after processing')
+
+			return { content: [{ type: 'text' as const, text: finalText }] }
 		}
 		catch (error) {
 			return {
@@ -927,9 +1056,7 @@ server.registerTool(
 	{
 		description: [
 			'Lists all cached videos and their transcription status.',
-			'Shows each video ID, total duration, segment count, and per-segment coverage.',
-			'Segments show their time range, status (cached/failed/pending), and size.',
-			'Also lists any standalone (non-segmented) cached transcripts.',
+			'Shows each video ID, duration, segment progress, and transcript files.',
 			'Use this to see what data is available before requesting a transcription.'
 		].join(' '),
 		inputSchema: {}
@@ -938,7 +1065,7 @@ server.registerTool(
 		try {
 			const lines: string[] = []
 
-			// Segmented videos (have manifests)
+			// Videos with manifests
 			const manifests = loadAllManifests()
 			if (manifests.length > 0) {
 				for (const manifest of manifests) {
@@ -946,27 +1073,25 @@ server.registerTool(
 					const hasVideo = fs.existsSync(videoPath)
 					const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
 
-					lines.push(`${manifest.videoId} (${Math.round(manifest.duration / 60)}min, ${manifest.segments.length} segments)`)
+					const okSegs = manifest.segments.filter(s => s.status == 'ok').length
+					const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
+					const total = manifest.segments.length
+					const complete = isTranscriptComplete(manifest.videoId, manifest)
+
+					lines.push(`${manifest.videoId} (${Math.round(manifest.duration / 60)}min, ${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''})`)
+
 					if (hasVideo)
 						lines.push(`  Video: cached (${videoSize}MB)`)
-					else
-						lines.push('  Video: not cached')
 
-					for (const seg of manifest.segments) {
-						const cacheKey = `${manifest.videoId}_seg${seg.index}`
-						const transcript = getCachedTranscript(cacheKey)
-						const range = `${formatMmSs(seg.start)}-${formatMmSs(seg.end)}`
-						const segDuration = seg.end - seg.start
-
-						if (transcript) {
-							const kb = Math.round(transcript.length / 1024)
-							const charsPerMin = Math.round(transcript.length / (segDuration / 60))
-							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: cached (${kb}KB, ${charsPerMin} chars/min)`)
+					// List stitched transcript files
+					const runs = findContiguousRuns(manifest)
+					for (const run of runs) {
+						const p = getStitchedPath(manifest.videoId, run.start, run.end, manifest.duration)
+						if (fs.existsSync(p)) {
+							const size = Math.round(fs.statSync(p).size / 1024)
+							const name = path.basename(p)
+							lines.push(`  ${name} (${size}KB)`)
 						}
-						else if (seg.status == 'failed')
-							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: FAILED`)
-						else
-							lines.push(`  seg${seg.index} [${range}] ${segDuration}s: pending`)
 					}
 
 					lines.push('')
