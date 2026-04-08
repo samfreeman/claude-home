@@ -6,13 +6,9 @@
 
 If the user's prompt contains a question mark, they are asking a question. Answer it. Do not write code, create files, or make changes — only research and respond. A `?` means the user wants understanding, not a solution.
 
-### 2. All File Changes Require Diff Review
+### 2. No Bash File Modifications
 
-All file modifications must use the **Write** tool so the user can review diffs before approval.
-
-- ✅ Use `Write` tool for all file changes
-- ❌ Never use `Edit` tool (no diff shown to user)
-- ❌ Never use bash commands to modify files (echo, sed, awk, etc.)
+Never use bash commands to modify files (echo, sed, awk, etc.). Use Edit or Write tools.
 
 ### 3. TypeScript/JavaScript Code Style
 

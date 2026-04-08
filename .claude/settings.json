@@ -23,6 +23,9 @@
       "mcp__google-ai-mcp__download_video",
       "WebFetch(domain:github.com)",
       "Bash(npm view:*)"
+    ],
+    "additionalDirectories": [
+      "/home/samfr/.claude/mcp-servers/google-ai-mcp/cache/transcripts"
     ]
   }
 }
