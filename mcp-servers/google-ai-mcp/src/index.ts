@@ -40,8 +40,11 @@ const YT_DLP = fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' 
 // Videos longer than this get downloaded, split into segments, and uploaded via Files API
 const DIRECT_URL_MAX_SECONDS = 1200
 
-// Segment length for splitting long videos — 10 min is safe (21 min works, so 10 has margin)
-const SEGMENT_SECONDS = 600
+// Exponential probing: start at 60s, double on success, back off on failure
+const INITIAL_SEGMENT_SECONDS = 60
+
+// Per-segment upload timeout — if upload + processing exceeds this, the segment is too big
+const SEGMENT_UPLOAD_TIMEOUT_MS = 180_000
 
 // Extraction model
 const VIDEO_MODEL = 'gemini-2.5-flash'
@@ -254,13 +257,17 @@ function extractVideoId(url: string): string {
 	return url
 }
 
-async function uploadAndWaitForFile(filePath: string): Promise<string> {
+async function uploadAndWaitForFile(filePath: string, timeoutMs: number = 300_000): Promise<string> {
 	let file = await ai.files.upload({
 		file: filePath,
 		config: { mimeType: 'video/mp4' }
 	})
 
+	const deadline = Date.now() + timeoutMs
+
 	while (file.state == FileState.PROCESSING) {
+		if (Date.now() > deadline)
+			throw new Error(`Upload processing exceeded ${Math.round(timeoutMs / 1000)}s timeout`)
 		await new Promise(r => setTimeout(r, 3000))
 		file = await ai.files.get({ name: file.name! })
 	}
@@ -396,15 +403,19 @@ server.registerTool(
 //
 //   1. get_video_info    → fetch metadata (duration, title, strategy)        ~2s
 //   2. download_video    → download + compress (only for long videos)        ~2-4min
-//   3. upload_video      → split into segments, upload each to Gemini        ~1-2min
+//   3. upload_video      → exponential-probe segments, upload to Gemini      ~1-4min
 //   4. transcribe_video  → transcribe (direct URL or segment URIs)           ~30-60s per segment
 //
 // Short videos (≤20min): step 1 → step 4 (pass YouTube URL directly)
-// Long videos (>20min):  step 1 → 2 → 3 → 4 (download, split+upload, transcribe segments)
+// Long videos (>20min):  step 1 → 2 → 3 → 4 (download, probe+upload, transcribe segments)
 // Timeframe: pass startSeconds/endSeconds to download_video to extract a section
 // Transcript caching: transcripts are cached in cache/transcripts/ to avoid re-transcribing
 // Video cache cleanup: runs in get_video_info and after transcription —
 //   deletes transcribed videos immediately, evicts oldest if over 500MB
+//
+// Upload probing: upload_video uses exponential segment sizing — starts at 60s,
+// doubles on success (60→120→240→...), backs off to last successful size on failure.
+// Self-tunes to the caller's timeout constraints without hardcoding assumptions.
 
 server.registerTool(
 	'get_video_info',
@@ -450,8 +461,7 @@ server.registerTool(
 			if (strategy == 'direct')
 				info.push('Next step: call transcribe_video with the YouTube URL directly')
 			else {
-				const segments = Math.ceil(duration / SEGMENT_SECONDS)
-				info.push(`Segments: ${segments} x ${SEGMENT_SECONDS / 60}min`)
+				info.push('Upload uses exponential probing (starts 60s, doubles on success)')
 				info.push('Next step: call download_video (with optional startSeconds/endSeconds to extract a section), then upload_video, then transcribe_video for each segment')
 			}
 
@@ -552,10 +562,11 @@ server.registerTool(
 	{
 		description: [
 			'Step 3 of the video workflow (long videos only).',
-			'Splits a downloaded video into 10-minute segments and uploads each to Gemini Files API.',
+			'Uploads a downloaded video to Gemini Files API using exponential segment probing.',
+			'Starts with 60s segments, doubles on success (60→120→240→...), backs off on failure.',
+			'Self-tunes to the caller\'s timeout constraints — works from CD, CC, or anywhere else.',
 			'Call download_video first. Returns Gemini file URIs and cache keys for each segment.',
-			'Call transcribe_video once for each segment URI, passing the cacheKey to enable transcript caching.',
-			'Takes ~1-2 minutes per segment.'
+			'Call transcribe_video once for each segment URI, passing the cacheKey to enable transcript caching.'
 		].join(' '),
 		inputSchema: {
 			url: z.string().describe('YouTube video URL or video ID (must have been downloaded first)')
@@ -578,46 +589,76 @@ server.registerTool(
 			], { timeout: 10_000 }).toString().trim()
 			const duration = parseFloat(durationStr) || 0
 
-			// If short enough, upload whole file
-			if (duration <= SEGMENT_SECONDS + 60) {
-				const uri = await uploadAndWaitForFile(filePath)
+			// If short enough for a single upload, skip segmenting
+			if (duration <= INITIAL_SEGMENT_SECONDS + 30) {
+				const uri = await uploadAndWaitForFile(filePath, SEGMENT_UPLOAD_TIMEOUT_MS)
 				const sizeMB = Math.round(fs.statSync(filePath).size / 1024 / 1024)
 				const cacheKey = `${videoId}_seg0`
 				return { content: [{ type: 'text' as const, text: `Uploaded ${sizeMB}MB (1 segment)\nSegment 1 [0:00]: ${uri} (cacheKey: ${cacheKey})\n\nCall transcribe_video once with this URI and cacheKey.` }] }
 			}
 
-			// Split into segments
+			// Exponential probing: start small, double on success, back off on failure
 			const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
 			fs.mkdirSync(segmentDir, { recursive: true })
 
-			execFileSync('ffmpeg', [
-				'-i', filePath,
-				'-c', 'copy',
-				'-map', '0',
-				'-segment_time', String(SEGMENT_SECONDS),
-				'-f', 'segment',
-				'-reset_timestamps', '1',
-				path.join(segmentDir, 'seg_%03d.mp4')
-			], { timeout: 120_000 })
-
-			const segFiles = fs.readdirSync(segmentDir)
-				.filter(f => f.startsWith('seg_') && f.endsWith('.mp4'))
-				.sort()
-
-			// Upload each segment
+			let segmentSeconds = INITIAL_SEGMENT_SECONDS
+			let lastSuccessSize = 0
+			let position = 0
+			let segIndex = 0
+			let consecutiveFailures = 0
 			const results: string[] = []
-			for (let i = 0; i < segFiles.length; i++) {
-				const segPath = path.join(segmentDir, segFiles[i])
-				const offsetSec = i * SEGMENT_SECONDS
-				const offsetMin = Math.floor(offsetSec / 60)
-				const offsetSecRem = offsetSec % 60
-				const uri = await uploadAndWaitForFile(segPath)
-				const cacheKey = `${videoId}_seg${i}`
-				results.push(`Segment ${i + 1} [${offsetMin}:${String(offsetSecRem).padStart(2, '0')}]: ${uri} (cacheKey: ${cacheKey})`)
+
+			while (position < duration) {
+				const remaining = duration - position
+				const chunkDuration = Math.min(segmentSeconds, remaining)
+
+				// Cut this segment from the source video
+				const segPath = path.join(segmentDir, `seg_${String(segIndex).padStart(3, '0')}.mp4`)
+				execFileSync('ffmpeg', [
+					'-ss', String(position),
+					'-i', filePath,
+					'-t', String(chunkDuration),
+					'-c', 'copy',
+					'-y',
+					segPath
+				], { timeout: 30_000 })
+
+				try {
+					const uri = await uploadAndWaitForFile(segPath, SEGMENT_UPLOAD_TIMEOUT_MS)
+					const cacheKey = `${videoId}_seg${segIndex}`
+					const offsetMin = Math.floor(position / 60)
+					const offsetSec = Math.round(position % 60)
+					results.push(`Segment ${segIndex + 1} [${offsetMin}:${String(offsetSec).padStart(2, '0')}]: ${uri} (cacheKey: ${cacheKey})`)
+
+					lastSuccessSize = segmentSeconds
+					position += chunkDuration
+					segIndex++
+					consecutiveFailures = 0
+
+					// Double for next segment if this wasn't a tail chunk
+					if (chunkDuration == segmentSeconds)
+						segmentSeconds *= 2
+				}
+				catch (err) {
+					// Clean up the failed segment file
+					if (fs.existsSync(segPath))
+						fs.unlinkSync(segPath)
+
+					consecutiveFailures++
+
+					if (lastSuccessSize == 0)
+						throw new Error(`Failed to upload a ${INITIAL_SEGMENT_SECONDS}s segment — cannot proceed`)
+
+					if (consecutiveFailures >= 2)
+						throw new Error(`Upload failed twice at ${segmentSeconds}s segments after backoff — cannot proceed`)
+
+					// Back off to last successful size for all remaining segments
+					segmentSeconds = lastSuccessSize
+				}
 			}
 
 			const output = [
-				`Uploaded ${segFiles.length} segments`,
+				`Uploaded ${results.length} segments (probed to ${lastSuccessSize}s max segment size)`,
 				'',
 				...results,
 				'',
