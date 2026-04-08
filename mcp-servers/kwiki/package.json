@@ -1,0 +1,25 @@
+{
+  "name": "kwiki-mcp",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Federated LLM wiki MCP server",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && shx chmod +x dist/*.js",
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^17.4.1",
+    "gray-matter": "^4.0.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "shx": "^0.4.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.3"
+  }
+}

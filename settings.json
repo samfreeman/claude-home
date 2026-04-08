@@ -124,6 +124,9 @@
     "claude-inbox",
     "google-ai-mcp"
   ],
+  "enabledPlugins": {
+    "vercel-plugin@vercel-vercel-plugin": true
+  },
   "extraKnownMarketplaces": {
     "vercel-vercel-plugin": {
       "source": {
@@ -131,8 +134,5 @@
         "path": "/home/samfr/.cache/plugins/.install-staging/76ad68be0eed6139d3f6bb2a0582e056ded2e998/claude-code/repo"
       }
     }
-  },
-  "enabledPlugins": {
-    "vercel-plugin@vercel-vercel-plugin": true
   }
 }
