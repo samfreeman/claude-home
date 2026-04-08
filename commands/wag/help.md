@@ -18,6 +18,7 @@ Show available WAG commands and their usage.
 | `/wag:add-theme` | Add tweakcn theming and dark mode |
 | `/wag:init` | Add planning infrastructure (intake → research → requirements → scaffold) |
 | `/wag:adr` | Design a PBI — Architecture Decision Record with snag and learning awareness |
+| `/wag:dev` | Implement the ADR — spawn an Agent Team (Architect, Dev, CQ, Tester) |
 | `/wag:snag` | Capture a plan defect, resolve it, optionally promote to a learning |
 | `/wag:audit` | Scan all projects against promoted learnings — compliance matrix |
 | `/wag:apply` | Walk through audit gaps and apply fixes with user approval |
@@ -29,7 +30,7 @@ Show available WAG commands and their usage.
 cd myapp
 /wag:init                    # add .wag/ planning infrastructure
 /wag:adr                     # design a PBI (creates feature branch)
-/wag:dev                     # implement the ADR (coming soon)
+/wag:dev                     # implement the ADR (Agent Team)
 ```
 
 ## During development

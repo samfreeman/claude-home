@@ -125,6 +125,10 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 - **Integration tests:** [specific flows]
 - **Edge cases:** [what could go wrong]
 
+## Team Shape
+**Devs:** 1 | 2
+**Rationale:** [why — e.g. "two independent modules with no shared files" or "sequential dependencies, one Dev"]
+
 ## What NOT to do
 [Explicitly list anti-patterns and wrong approaches for this PBI]
 ```
