@@ -21,7 +21,8 @@
       "Bash(find ~/.local -name *.log)",
       "mcp__google-ai-mcp__get_video_info",
       "mcp__google-ai-mcp__download_video",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm view:*)"
     ]
   }
 }

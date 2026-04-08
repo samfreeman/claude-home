@@ -1,7 +1,12 @@
 {
 	"name": "google-ai-mcp",
 	"version": "1.0.0",
+	"description": "MCP server for Google Gemini image generation and video transcription",
 	"type": "module",
+	"license": "MIT",
+	"author": "Sam Freeman",
+	"keywords": ["mcp", "gemini", "image-generation", "video-transcription"],
+	"files": ["dist/"],
 	"bin": {
 		"google-ai-mcp": "./dist/index.js"
 	},
@@ -10,7 +15,6 @@
 	},
 	"dependencies": {
 		"@google/genai": "^1.0.0",
-		"@mcp-local/shared": "file:../shared",
 		"@modelcontextprotocol/sdk": "^1.9.0",
 		"dotenv": "^16.0.0",
 		"zod": "^3.24.0"

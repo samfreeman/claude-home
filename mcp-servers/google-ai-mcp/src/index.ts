@@ -10,7 +10,7 @@ config({ path: resolve(__dirname, '../.env') })
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { GoogleGenAI, ApiError, FileState } from '@google/genai'
-import { findProjectRoot } from '@mcp-local/shared'
+
 import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
@@ -111,16 +111,11 @@ function loadAllManifests(): VideoManifest[] {
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
 
-function resolveOutputDir(cwd?: string): string {
-	if (cwd) {
-		const projectRoot = findProjectRoot(cwd)
-		if (projectRoot)
-			return path.join(projectRoot, 'images/nano-banana')
-	}
+function resolveOutputDir(): string {
 	const configured = process.env.NB_OUTPUT_DIR
 	if (configured)
 		return configured.replace(/^~/, os.homedir())
-	return path.join(os.homedir(), '.claude', 'images', 'nano-banana')
+	return path.join(os.homedir(), 'images', 'nano-banana')
 }
 
 function openFile(filepath: string): void {
@@ -496,18 +491,16 @@ server.registerTool(
 				'Number of images to generate, 1-4 (default: 1)'),
 			model: z.enum(['nb2', 'pro']).optional().default(DEFAULT_MODEL).describe(
 				'Model alias: nb2 (gemini-3.1-flash-image-preview) or pro (gemini-3-pro-image-preview). Default: nb2'),
-			cwd: z.string().optional().describe(
-				'Caller\'s working directory — used to locate the project root. Pass this when calling from CC.')
 		}
 	},
-	async ({ prompt, resolution, aspectRatio, count, model, cwd }) => {
+	async ({ prompt, resolution, aspectRatio, count, model }) => {
 		try {
 			if (!apiKey)
 				throw new Error('GEMINI_API_KEY environment variable is required')
 
 			const resolvedModel = MODEL_ALIASES[model]
 
-			const saveDir = resolveOutputDir(cwd)
+			const saveDir = resolveOutputDir()
 			fs.mkdirSync(saveDir, { recursive: true })
 
 			const ts = formatTimestamp(new Date())
