@@ -17,6 +17,11 @@ plugins/
 .credentials.json
 stats-cache.json
 mcp-needs-auth-cache.json
+tasks/
+
+# Vercel plugin state
+vercel-plugin-device-id
+vercel-plugin-telemetry-preference
 
 # Setup state (machine-specific)
 setup/state.json
