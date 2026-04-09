@@ -67,3 +67,4 @@ out/
 # Test outputs
 playwright-report/
 test-results/
+mcp-servers/kwiki
