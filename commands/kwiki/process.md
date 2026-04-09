@@ -18,9 +18,10 @@ Process unprocessed raw items in the kwiki intake hopper.
      - Pattern/concept names (e.g. `isolation`, `promote-up`)
      - Domain terms someone might search for (e.g. `saas`, `connection-strings`, `env-vars`)
      - Action words that describe what this is about (e.g. `seeding`, `migration`)
-     - Aim for 10-20 tags per entry. More is better than fewer — tags are the search index.
+     - **Minimum 3 tags** (hard server-side rule — `wiki_process` rejects with `InsufficientTagsError` if fewer). Aim for 10-20 per entry.
    - **target_path** — which node this belongs under
    - **focus** — what the extraction focused on
 
 6. Present the extraction to the user for approval before calling `wiki_process`.
-7. After processing, confirm success.
+7. After `wiki_process` succeeds, the server automatically auto-links this entry to any existing entries in other nodes with a tag/alias overlap score >= 2.0 (tag = 1.0, alias = 0.5). You do NOT need to call `wiki_link` — that's for manual cross-references only.
+8. If `wiki_process` returns `InsufficientTagsError`, re-extract with more tags and retry. This is a programming error, not a user issue.

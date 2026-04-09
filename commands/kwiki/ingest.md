@@ -17,3 +17,5 @@ $ARGUMENTS — description of what to ingest, or a URL
    - **source_type** — one of: youtube, article, pdf, conversation, other
 4. Confirm the item was added to the hopper.
 5. Ask the user if they want to process it now (run `/kwiki/process`).
+
+Note: If the user wants immediate capture with no hopper round-trip, use `/kwiki/capture` instead. Ingest is for deferred processing (e.g. batch later).

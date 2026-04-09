@@ -100,7 +100,14 @@
       "mcp__claude-inbox__inbox_update",
       "mcp__claude-inbox__inbox_delete",
       "mcp__google-ai-mcp__generate_image",
-      "mcp__google-ai-mcp__ask_about_video"
+      "mcp__google-ai-mcp__ask_about_video",
+      "mcp__kwiki__wiki_read",
+      "mcp__kwiki__wiki_process",
+      "mcp__kwiki__wiki_status",
+      "mcp__kwiki__wiki_search",
+      "mcp__kwiki__wiki_lint",
+      "Bash(pnpm vitest:*)",
+      "Bash(pnpm run:*)"
     ],
     "deny": [
       "Bash(git revert*)",

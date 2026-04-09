@@ -1,15 +1,21 @@
 # kwiki update
 
-Update the body content of an existing wiki entry.
+Update an existing wiki entry. Can change body, tags, aliases, or any combination.
 
 ## Arguments
 
-$ARGUMENTS — the entry to update and what to change
+$ARGUMENTS — the entry to update and what to change (e.g. "patterns/database-environment-isolation-pattern add saas tag")
 
 ## Instructions
 
-1. Parse $ARGUMENTS for the node path and entry name.
+1. Parse $ARGUMENTS for the node path, entry name, and what's being changed.
 2. Call `wiki_read` to fetch the current content.
-3. Present the current content and the proposed changes to the user.
-4. After approval, call `wiki_update` with the new body.
-5. Confirm the update.
+3. Determine which fields to update:
+   - **body** — if the user wants content rewritten
+   - **tags** — if the user wants tags added, removed, or replaced. **`wiki_update` REPLACES the tag set**, so when adding, pass the FULL merged list (existing + new).
+   - **aliases** — same rule: `wiki_update` replaces, so pass the full merged list.
+4. If tags are being updated, ensure the final count is **minimum 3** — the server rejects `<3` with `InsufficientTagsError`.
+5. Present the current state and the proposed changes to the user.
+6. After approval, call `wiki_update` with only the fields that are changing. Omit fields that shouldn't change.
+7. Confirm the update. Note: if tags or aliases changed, auto-links are recomputed on the server — no follow-up action needed. Manual links (from `wiki_link`) are preserved.
+8. If `wiki_update` returns an error, diagnose and retry — do not surface raw errors to the user without context.
