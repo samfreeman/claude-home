@@ -707,15 +707,49 @@ server.registerTool(
 			cleanVideoCache()
 
 			const videoId = extractVideoId(url)
+
+			// Fetch rich metadata — fields separated by a delimiter to handle multiline description
+			const META_SEP = '<<<META_SEP>>>'
+			const printFormat = [
+				'%(duration)s',
+				'%(title)s',
+				'%(channel)s',
+				'%(upload_date)s',
+				'%(view_count)s',
+				'%(description)s'
+			].join(`${META_SEP}\n`)
+
 			const output = execFileSync(YT_DLP, [
-				'--print', '%(duration)s\n%(title)s',
+				'--print', printFormat,
 				'--no-download',
 				`https://www.youtube.com/watch?v=${videoId}`
 			], { timeout: 30_000 }).toString().trim()
 
-			const lines = output.split('\n')
-			const duration = parseInt(lines[0], 10) || 0
-			const title = lines.slice(1).join('\n').trim() || 'Unknown'
+			const parts = output.split(META_SEP).map(s => s.trim())
+			const duration = parseInt(parts[0], 10) || 0
+			const title = parts[1] || 'Unknown'
+			const channel = parts[2] || 'Unknown'
+			const uploadDate = parts[3] || 'Unknown'
+			const viewCount = parts[4] || 'Unknown'
+			const description = parts[5] || ''
+
+			// Persist metadata alongside transcript cache
+			const meta = {
+				videoId,
+				title,
+				channel,
+				uploadDate,
+				viewCount,
+				description,
+				duration,
+				url: `https://www.youtube.com/watch?v=${videoId}`,
+				fetchedAt: new Date().toISOString()
+			}
+			fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
+			fs.writeFileSync(
+				path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_meta.json`),
+				JSON.stringify(meta, null, '\t')
+			)
 			const durationMin = Math.round(duration / 60)
 			const strategy = duration <= DIRECT_URL_MAX_SECONDS ? 'direct' : 'download'
 
@@ -725,6 +759,8 @@ server.registerTool(
 
 			const info = [
 				`Title: ${title}`,
+				`Channel: ${channel}`,
+				`Uploaded: ${uploadDate}`,
 				`Duration: ${durationMin}min (${duration}s)`,
 				`Video ID: ${videoId}`,
 				`Strategy: ${strategy}`,
