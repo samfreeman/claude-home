@@ -1,4 +1,4 @@
-import { query, execute, now } from '../db.js'
+import { query, execute, now, pruneAndRenumber } from '../db.js'
 import type { ToolResult, InboxSendArgs, InboxListArgs, InboxReadArgs, InboxUpdateArgs, InboxDeleteArgs, InboxItem } from '../types.js'
 
 function text(t: string): ToolResult {
@@ -15,7 +15,13 @@ export function handleInboxSend(args: InboxSendArgs): ToolResult {
 		[source, target, title, content || null, project || null, timestamp, timestamp]
 	)
 
-	return text(JSON.stringify({ id: result.lastInsertRowid, title, from: source, to: target, project: project || null }, null, 2))
+	pruneAndRenumber()
+
+	// Re-read the actual ID after potential renumbering
+	const [sent] = query<{ id: number }>('SELECT id FROM inbox WHERE created = ? AND title = ? ORDER BY id DESC LIMIT 1', [timestamp, title])
+	const id = sent ? sent.id : result.lastInsertRowid
+
+	return text(JSON.stringify({ id, title, from: source, to: target, project: project || null }, null, 2))
 }
 
 export function handleInboxList(args: InboxListArgs): ToolResult {

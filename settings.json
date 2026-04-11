@@ -111,7 +111,9 @@
       "Read(//home/samfr/Dropbox/**)",
       "mcp__google-ai-mcp__list_transcripts",
       "mcp__kwiki__wiki_list",
-      "Read(//mnt/**)"
+      "Read(//mnt/**)",
+      "Bash(/usr/local/bin/yt-dlp --print:*)",
+      "mcp__kwiki__wiki_capture"
     ],
     "deny": [
       "Bash(git revert*)",

@@ -42,6 +42,30 @@ export function execute(sql: string, args: unknown[] = []): { lastInsertRowid: n
 	}
 }
 
+export function pruneAndRenumber(maxItems = 100): void {
+	const [{ cnt }] = db.prepare('SELECT COUNT(*) as cnt FROM inbox').all() as [{ cnt: number }]
+	if (cnt <= maxItems) return
+
+	// Delete oldest rows beyond the limit
+	db.exec(`
+		DELETE FROM inbox WHERE id NOT IN (
+			SELECT id FROM inbox ORDER BY created DESC LIMIT ${maxItems}
+		)
+	`)
+
+	// Renumber remaining rows starting from 1
+	const rows = db.prepare('SELECT id FROM inbox ORDER BY created ASC').all() as { id: number }[]
+	for (let i = 0; i < rows.length; i++)
+		db.prepare('UPDATE inbox SET id = ? WHERE id = ?').run(-(i + 1), rows[i].id)
+	for (let i = 0; i < rows.length; i++)
+		db.prepare('UPDATE inbox SET id = ? WHERE id = ?').run(i + 1, -(i + 1))
+
+	// Reset SQLite autoincrement sequence if it exists
+	const hasSeq = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'").get()
+	if (hasSeq)
+		db.exec(`DELETE FROM sqlite_sequence WHERE name = 'inbox'`)
+}
+
 export function close(): void {
 	db.close()
 }
