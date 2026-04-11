@@ -15,7 +15,7 @@ $ARGUMENTS — content to capture (description, URL, or inline text)
    - **title** — clear descriptive title (used for both raw filename and entry name)
    - **body** — core content, cleaned up and well-structured
    - **aliases** — generous list: abbreviations, acronyms, informal names, related terms
-   - **tags** — aggressive: 10-20 tags covering technology names, pattern/concept names, domain terms, action words. **Minimum 3 tags** (hard server-side rule).
+   - **tags** — aggressive: 10-20 tags covering technology names, pattern/concept names, domain terms, action words. **Minimum 3 tags** (hard server-side rule). **Format as plain comma-separated strings** (e.g. `saas, turso, libsql`), NOT JSON arrays.
    - **target_path** — which node this belongs under
    - **source_url**, **source_type** — if known (source_type must be one of: youtube, article, pdf, conversation, other)
    - **focus** — what the extraction focused on

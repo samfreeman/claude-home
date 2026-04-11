@@ -22,7 +22,8 @@
       "mcp__google-ai-mcp__get_video_info",
       "mcp__google-ai-mcp__download_video",
       "WebFetch(domain:github.com)",
-      "Bash(npm view:*)"
+      "Bash(npm view:*)",
+      "mcp__kwiki__wiki_update"
     ],
     "additionalDirectories": [
       "/home/samfr/.claude/mcp-servers/google-ai-mcp/cache/transcripts"

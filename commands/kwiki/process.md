@@ -19,6 +19,7 @@ Process unprocessed raw items in the kwiki intake hopper.
      - Domain terms someone might search for (e.g. `saas`, `connection-strings`, `env-vars`)
      - Action words that describe what this is about (e.g. `seeding`, `migration`)
      - **Minimum 3 tags** (hard server-side rule — `wiki_process` rejects with `InsufficientTagsError` if fewer). Aim for 10-20 per entry.
+     - **Format tags as plain comma-separated strings** (e.g. `saas, turso, libsql`). Do NOT pass JSON arrays like `["saas", "turso"]` — the brackets and quotes get stored literally and corrupt the tag index.
    - **target_path** — which node this belongs under
    - **focus** — what the extraction focused on
 

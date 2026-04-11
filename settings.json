@@ -107,7 +107,8 @@
       "mcp__kwiki__wiki_search",
       "mcp__kwiki__wiki_lint",
       "Bash(pnpm vitest:*)",
-      "Bash(pnpm run:*)"
+      "Bash(pnpm run:*)",
+      "Read(//home/samfr/Dropbox/**)"
     ],
     "deny": [
       "Bash(git revert*)",
