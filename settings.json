@@ -108,7 +108,10 @@
       "mcp__kwiki__wiki_lint",
       "Bash(pnpm vitest:*)",
       "Bash(pnpm run:*)",
-      "Read(//home/samfr/Dropbox/**)"
+      "Read(//home/samfr/Dropbox/**)",
+      "mcp__google-ai-mcp__list_transcripts",
+      "mcp__kwiki__wiki_list",
+      "Read(//mnt/**)"
     ],
     "deny": [
       "Bash(git revert*)",
