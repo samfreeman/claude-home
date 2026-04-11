@@ -1,3 +1,8 @@
+---
+name: kwiki-search
+description: "Search the kwiki knowledge base. Use when the user asks to 'search kwiki', 'find in wiki', or says 'kwiki [topic]'."
+---
+
 # kwiki search
 
 Search the kwiki knowledge base for the user's query.
