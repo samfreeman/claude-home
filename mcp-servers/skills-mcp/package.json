@@ -1,0 +1,21 @@
+{
+	"name": "skills-mcp",
+	"version": "1.0.0",
+	"description": "MCP server that exposes CC skills and commands over MCP so CD (or any MCP client) can read and execute them",
+	"type": "module",
+	"main": "dist/index.js",
+	"scripts": {
+		"build": "tsc",
+		"start": "node dist/index.js",
+		"dev": "tsx src/index.ts"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.0.0",
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.10.0",
+		"tsx": "^4.7.0",
+		"typescript": "^5.3.0"
+	}
+}
