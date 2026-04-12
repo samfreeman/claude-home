@@ -46,6 +46,12 @@
 			"env": {
 				"KWIKI_ROOT": "/mnt/c/Users/samfr/Dropbox/Claude/kwiki"
 			}
+		},
+		"skills": {
+			"command": "node",
+			"args": [
+				"/home/samfr/.claude/mcp-servers/skills-mcp/dist/index.js"
+			]
 		}
 	}
 }

@@ -115,7 +115,11 @@
       "Bash(/usr/local/bin/yt-dlp --print:*)",
       "mcp__kwiki__wiki_capture",
       "Read(//home/samfr/source/**)",
-      "Read(//home/**)"
+      "Read(//home/**)",
+      "mcp__skills__skill_list",
+      "mcp__skills__skill_read",
+      "mcp__skills__command_list",
+      "mcp__skills__command_read"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -128,7 +132,8 @@
     "defaultMode": "default",
     "additionalDirectories": [
       "/home/samfr/source/cs-bounce/.wag/adr/active",
-      "/home/samfr/source/coin-bounce/.wag"
+      "/home/samfr/source/coin-bounce/.wag",
+      "/home/samfr/.claude/context"
     ]
   },
   "enableAllProjectMcpServers": true,
