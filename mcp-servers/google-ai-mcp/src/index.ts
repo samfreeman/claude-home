@@ -882,7 +882,22 @@ server.registerTool(
 			endSeconds: z.number().int().min(1).optional().describe('End of range to transcribe (seconds). Omit for end of video.')
 		}
 	},
-	async ({ url, startSeconds, endSeconds }) => {
+	async ({ url, startSeconds, endSeconds }, extra) => {
+		// Out-of-band progress reporting. If the client sent a progressToken in
+		// _meta, each notification resets its response timeout AND gives it live
+		// feedback to render. Without a token we silently no-op.
+		const progressToken = extra?._meta?.progressToken as string | number | undefined
+		const sendProgress = async (progress: number, total: number | undefined, message: string) => {
+			if (progressToken == undefined) return
+			try {
+				await extra.sendNotification({
+					method: 'notifications/progress',
+					params: { progressToken, progress, total, message }
+				})
+			}
+			catch {}
+		}
+
 		try {
 			if (!apiKey)
 				throw new Error('GEMINI_API_KEY environment variable is required')
@@ -901,6 +916,8 @@ server.registerTool(
 				if (cached)
 					return { content: [{ type: 'text' as const, text: cached }] }
 
+				await sendProgress(0, 1, `Transcribing ${videoId} via direct YouTube URL`)
+
 				const text = await transcribeWithGemini(
 					'video/*',
 					`https://www.youtube.com/watch?v=${videoId}`,
@@ -908,6 +925,7 @@ server.registerTool(
 				)
 
 				saveCachedTranscript(cacheKey, text)
+				await sendProgress(1, 1, `Transcribed ${videoId} (${text.length} chars)`)
 				return { content: [{ type: 'text' as const, text }] }
 			}
 
@@ -967,6 +985,10 @@ server.registerTool(
 			// Process uncached segments
 			const failures: string[] = []
 			let canaryDone = false
+			const totalWork = uncachedSegments.length
+			let completedWork = 0
+
+			await sendProgress(0, totalWork, `Starting segmented transcription of ${videoId}: ${totalWork} segment(s)`)
 
 			for (const seg of uncachedSegments) {
 				// First uncached segment — insert canary if needed
@@ -980,6 +1002,8 @@ server.registerTool(
 
 						// Process canary
 						const canarySeg = manifest.segments[manifestIdx]
+
+						await sendProgress(completedWork, totalWork, `Canary [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}] — fail-fast probe`)
 
 						try {
 							const result = await uploadAndTranscribeSegment(videoId, canarySeg.index, canarySeg, videoPath, manifest)
@@ -1015,9 +1039,15 @@ server.registerTool(
 							return true
 						})
 
-						for (const remSeg of remaining) {
+						completedWork++
+						await sendProgress(completedWork, totalWork, `Canary passed — ${remaining.length} segment(s) remaining`)
+
+						for (let ri = 0; ri < remaining.length; ri++) {
+							const remSeg = remaining[ri]
 							if (remSeg.status == 'failed')
 								remSeg.status = 'ok'
+
+							await sendProgress(completedWork, totalWork, `Segment ${ri + 1}/${remaining.length} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}] — uploading`)
 
 							try {
 								const result = await uploadAndTranscribeSegment(videoId, remSeg.index, remSeg, videoPath, manifest)
@@ -1032,6 +1062,9 @@ server.registerTool(
 								saveManifest(manifest)
 								failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
 							}
+
+							completedWork++
+							await sendProgress(completedWork, totalWork, `Segment ${ri + 1}/${remaining.length} done`)
 						}
 
 						// Done — break out of the loop (canary path processes everything)
@@ -1042,6 +1075,8 @@ server.registerTool(
 				// Normal segment processing (no canary needed)
 				if (seg.status == 'failed')
 					seg.status = 'ok'
+
+				await sendProgress(completedWork, totalWork, `Segment [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}] — uploading`)
 
 				try {
 					const result = await uploadAndTranscribeSegment(videoId, seg.index, seg, videoPath, manifest)
@@ -1056,6 +1091,9 @@ server.registerTool(
 					saveManifest(manifest)
 					failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
 				}
+
+				completedWork++
+				await sendProgress(completedWork, totalWork, `Segment [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}] done`)
 			}
 
 			cleanVideoCache()
@@ -1077,6 +1115,65 @@ server.registerTool(
 				throw new Error('No transcript available after processing')
 
 			return { content: [{ type: 'text' as const, text: finalText }] }
+		}
+		catch (error) {
+			return {
+				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
+				isError: true
+			}
+		}
+	}
+)
+
+server.registerTool(
+	'delete_transcript',
+	{
+		description: [
+			'Deletes cached transcript data for a video so the next transcribe_video call redoes the work.',
+			'By default removes: stitched transcript files, segment transcripts, manifest, and the segment working directory.',
+			'Keeps the downloaded .mp4 and _meta.json unless includeVideo is true.',
+			'Use this when you want to force re-transcription (e.g. after changing prompts or testing the pipeline).'
+		].join(' '),
+		inputSchema: {
+			url: z.string().describe('YouTube video URL or video ID'),
+			includeVideo: z.boolean().optional().describe('Also delete the cached compressed video (.mp4) and metadata. Default: false.')
+		}
+	},
+	async ({ url, includeVideo }) => {
+		try {
+			const videoId = extractVideoId(url)
+			const removed: string[] = []
+
+			const tryRemove = (p: string) => {
+				if (!fs.existsSync(p)) return
+				const stat = fs.statSync(p)
+				if (stat.isDirectory())
+					fs.rmSync(p, { recursive: true, force: true })
+				else
+					fs.unlinkSync(p)
+				removed.push(path.basename(p))
+			}
+
+			// Transcript files for this video: {id}.txt, {id}_*.txt, {id}_manifest.json, {id}_seg*.txt
+			if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+				for (const f of fs.readdirSync(TRANSCRIPT_CACHE_DIR)) {
+					if (!f.startsWith(videoId)) continue
+					if (f == `${videoId}_meta.json` && !includeVideo) continue
+					tryRemove(path.join(TRANSCRIPT_CACHE_DIR, f))
+				}
+			}
+
+			// Segment working directory (cut .mp4 chunks)
+			tryRemove(path.join(VIDEO_CACHE_DIR, videoId))
+
+			// Downloaded compressed video
+			if (includeVideo)
+				tryRemove(path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`))
+
+			if (removed.length == 0)
+				return { content: [{ type: 'text' as const, text: `Nothing to delete for ${videoId}` }] }
+
+			return { content: [{ type: 'text' as const, text: `Deleted ${removed.length} item(s) for ${videoId}:\n${removed.map(r => `  ${r}`).join('\n')}` }] }
 		}
 		catch (error) {
 			return {
