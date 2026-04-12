@@ -3,24 +3,29 @@ name: kwiki-update
 description: "Update an existing wiki entry. Use when the user asks to 'update kwiki entry', 'edit wiki entry', 'change the entry on...'."
 ---
 
-# kwiki update
+# kwiki-update
 
-Update an existing wiki entry. Can change body, tags, aliases, or any combination.
+Update an existing wiki entry. The update replaces the file — read first, write second.
+
+## kwiki root
+
+The wiki lives at `$KWIKI_ROOT` (defaults to `~/kwiki`).
 
 ## Arguments
 
-$ARGUMENTS — the entry to update and what to change (e.g. "database-isolation-pattern add saas tag")
+`$ARGUMENTS` — what to change (e.g. "the entry on v8 isolates — add a note about Firecracker").
 
-## Instructions
+## Workflow
 
-1. Parse $ARGUMENTS for the entry name and what's being changed.
-2. Call `wiki_read` to fetch the current content.
-3. Determine which fields to update:
-   - **body** — if the user wants content rewritten
-   - **tags** — if the user wants tags added, removed, or replaced. **`wiki_update` REPLACES the tag set**, so when adding, pass the FULL merged list (existing + new).
-   - **aliases** — same rule: `wiki_update` replaces, so pass the full merged list.
-4. If tags are being updated, ensure the final count is **minimum 3** — the server rejects `<3` with `InsufficientTagsError`.
-5. Present the current state and the proposed changes to the user.
-6. After approval, call `wiki_update` with only the fields that are changing. Omit fields that shouldn't change.
-7. Confirm the update. Note: if tags or aliases changed, auto-links are recomputed on the server. Manual links are preserved.
-8. If `wiki_update` returns an error, diagnose and retry — do not surface raw errors to the user without context.
+1. **Resolve the target entry.** Use the kwiki-read skill or Glob + Read to find the right file
+2. **Read** `$KWIKI_ROOT/wiki/{slug}.md` in full
+3. **Load the wiki context** — Glob and read other entries that may be relevant to the update. Same mandatory step as kwiki-capture
+4. Construct the new body. Preserve frontmatter (update the `updated` timestamp). Include `[[wikilinks]]` to related existing entries wherever the new body mentions them
+5. Present the diff to the user and wait for approval
+6. **Write** the file with the updated content
+
+## Principles
+
+- Update is just read + edit + write. No tools hide it.
+- Wikilinks are STILL mandatory on updates. If the new body mentions something with an entry, link it.
+- Don't lose existing wikilinks in the body. Preserve or improve.

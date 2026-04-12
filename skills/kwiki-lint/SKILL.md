@@ -3,17 +3,36 @@ name: kwiki-lint
 description: "Run wiki health checks. Use when the user asks 'kwiki lint', 'check wiki health'."
 ---
 
-# kwiki lint
+# kwiki-lint
 
 Run health checks on the kwiki knowledge base.
 
-## Instructions
+## kwiki root
 
-1. Call `wiki_lint` (no arguments needed).
-2. Present the results clearly, grouped by issue type:
-   - Stale entries
-   - Missing files
-   - Broken links
-   - Sparse aliases (entries with few or no aliases)
-3. For sparse aliases, suggest additional aliases based on the entry content.
-4. If issues are found, offer to fix them (e.g. `/kwiki:update` for sparse entries, `/kwiki:delete` for broken items).
+The wiki lives at `$KWIKI_ROOT` (defaults to `~/kwiki`).
+
+## Workflow
+
+1. **Glob** `$KWIKI_ROOT/wiki/*.md`
+2. For each entry, **Read** and check:
+   - Frontmatter present and valid (title, aliases list)
+   - Has at least one `[[wikilink]]` in body (entries with zero links are orphans — flag them)
+   - Body is not a pure summary (flag entries that look like "here's what X said" without the LLM's distillation)
+3. **Grep** for broken wikilinks: for every `[[target]]` reference, check that `$KWIKI_ROOT/wiki/{target}.md` exists
+4. Report issues grouped by type:
+
+```
+## Lint issues
+
+**Orphans** (no wikilinks in body):
+- entry-a
+- entry-b
+
+**Broken links**:
+- entry-c references [[missing-entry]]
+
+**Missing frontmatter**:
+- entry-d (no aliases)
+```
+
+5. If issues found, offer to fix — but don't auto-fix without explicit approval.

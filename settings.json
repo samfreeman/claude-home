@@ -113,7 +113,9 @@
       "mcp__kwiki__wiki_list",
       "Read(//mnt/**)",
       "Bash(/usr/local/bin/yt-dlp --print:*)",
-      "mcp__kwiki__wiki_capture"
+      "mcp__kwiki__wiki_capture",
+      "Read(//home/samfr/source/**)",
+      "Read(//home/**)"
     ],
     "deny": [
       "Bash(git revert*)",

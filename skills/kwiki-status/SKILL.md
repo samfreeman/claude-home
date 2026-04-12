@@ -3,14 +3,24 @@ name: kwiki-status
 description: "Show wiki overview. Use when the user asks 'kwiki status', 'wiki health', 'what's pending in kwiki'."
 ---
 
-# kwiki status
+# kwiki-status
 
 Show the current state of the kwiki knowledge base.
 
-## Instructions
+## kwiki root
 
-1. Call `wiki_status` (no arguments needed).
-2. Present a clean overview:
-   - Number of unprocessed items in the hopper
-   - Entry count and recent activity
-3. If there are unprocessed raws, mention that `/kwiki:capture` can handle them.
+The wiki lives at `$KWIKI_ROOT` (defaults to `~/kwiki`).
+
+## Workflow
+
+1. **Glob** `$KWIKI_ROOT/wiki/*.md` — entry count
+2. **Glob** `$KWIKI_ROOT/raw/*.md` — unprocessed raw count (if raw directory exists)
+3. Present a clean overview:
+
+```
+## kwiki status
+- entries: N
+- raws (unprocessed): M
+```
+
+Keep it brief.
