@@ -31,9 +31,11 @@ Never use the AskUserQuestion tool. Just ask questions as plain text and let the
 
 Always commit to `dev`. Never commit or push directly to `main`. If the working directory is on `main`, stop and ask the user how to proceed.
 
-### 6. Never Chain Git Commands
+### 6. Never Chain Bash Commands
 
-Run `git add`, `git commit`, and `git push` as separate Bash calls. Never combine with `&&` or `;`. The permission system handles commit approval.
+Run each command as its own Bash tool call. Never combine with `&&` or `;`.
+
+Why: the permission system approves per Bash call. Chaining collapses multiple commands into one approve/deny decision, so a sensitive command (`git push`, `rm`, `curl`) can ride in behind an innocuous one (`cd`, `ls`) without separate review. It's a safety seam, not a style preference.
 
 ---
 
