@@ -17,9 +17,9 @@ The wiki lives at `$KWIKI_ROOT` (defaults to `~/kwiki`).
 
 ## Workflow
 
-1. **Resolve the target entry.** Use the kwiki-read skill or Glob + Read to find the right file
+1. **Resolve the target entry.** Use the kwiki:read command or Glob + Read to find the right file
 2. **Read** `$KWIKI_ROOT/wiki/{slug}.md` in full
-3. **Load the wiki context** — Glob and read other entries that may be relevant to the update. Same mandatory step as kwiki-capture
+3. **Load the wiki context** — Glob and read other entries that may be relevant to the update. Same mandatory step as kwiki:capture
 4. Construct the new body. Preserve frontmatter (update the `updated` timestamp). Include `[[wikilinks]]` to related existing entries wherever the new body mentions them
 5. Present the diff to the user and wait for approval
 6. **Write** the file with the updated content

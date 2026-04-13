@@ -22,7 +22,7 @@ Call `mcp__google-ai-mcp__get_video_info` with the URL/ID. Record:
 
 Search existing wiki entries for this video ID. Grep `$KWIKI_ROOT/wiki/*.md` (default `~/kwiki/wiki/*.md`) for the video ID inside `source_url` frontmatter.
 
-**If any entry matches**: the video is already captured. Behave like `kwiki-search`:
+**If any entry matches**: the video is already captured. Behave like `kwiki:search`:
 
 1. List each matching entry: title, slug, and a one-line summary pulled from the body
 2. Tell the user the video is already in kwiki and point to the entries
@@ -48,9 +48,9 @@ For long videos with no cache, the `get_video_info` strategy will tell you to do
 
 `transcribe_video` handles caching internally — it only does work for missing/failed segments. For the "use cached partial range" case on long videos, call it with `startSeconds: 0` and `endSeconds` set to the end of the already-cached range so it doesn't try to transcribe the missing tail.
 
-### Step 4 — Hand off to kwiki-capture
+### Step 4 — Hand off to kwiki:capture
 
-Invoke the `kwiki-capture` skill via the Skill tool. Give it the transcript plus provenance:
+Invoke the `kwiki:capture` command via the Skill tool. Give it the transcript plus provenance:
 
 ```
 Capture this YouTube transcript into kwiki.
@@ -63,7 +63,7 @@ Transcript:
 <full transcript text>
 ```
 
-Let `kwiki-capture` run its full workflow: read existing entries, decompose into atomic concepts, propose a split plan, wait for user approval, and write entries with `[[wikilinks]]`. Do not try to bypass or shortcut that workflow — the decompose/link step is the whole point of kwiki.
+Let `kwiki:capture` run its full workflow: read existing entries, decompose into atomic concepts, propose a split plan, wait for user approval, and write entries with `[[wikilinks]]`. Do not try to bypass or shortcut that workflow — the decompose/link step is the whole point of kwiki.
 
 Make sure the entries written include `source_url` and `source_type: youtube` in their frontmatter so Step 2 can find them on future runs.
 
@@ -72,4 +72,4 @@ Make sure the entries written include `source_url` and `source_type: youtube` in
 1. **Kwiki is the first check.** If the video is already captured, surface the entries — don't redo the work.
 2. **Cached transcripts are the second check.** Don't re-transcribe what google-ai already has.
 3. **Long videos with gaps stay partial.** Filling gaps on a 2-hour video is expensive. Only short videos (≤40 min) get gap-filled automatically.
-4. **Capture always goes through kwiki-capture.** Atomic entries with wikilinks is the whole point — don't write a single monolithic "video summary" entry.
+4. **Capture always goes through kwiki:capture.** Atomic entries with wikilinks is the whole point — don't write a single monolithic "video summary" entry.

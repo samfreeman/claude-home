@@ -110,29 +110,46 @@ function listSkills(): SkillEntry[] {
 
 	const entries: SkillEntry[] = []
 
-	for (const dirent of fs.readdirSync(SKILLS_ROOT, { withFileTypes: true })) {
-		if (!dirent.isDirectory()) continue
-		const skillPath = path.join(SKILLS_ROOT, dirent.name, 'SKILL.md')
-		if (!fs.existsSync(skillPath)) continue
+	const collect = (dir: string, namespace: string) => {
+		for (const dirent of fs.readdirSync(dir, { withFileTypes: true })) {
+			if (!dirent.isDirectory()) continue
+			const subdir = path.join(dir, dirent.name)
+			const skillPath = path.join(subdir, 'SKILL.md')
 
-		try {
-			const raw = fs.readFileSync(skillPath, 'utf-8')
-			const { frontmatter } = parseDoc(raw)
-			entries.push({
-				name: dirent.name,
-				description: frontmatter.description || '(no description)',
-				path: skillPath
-			})
+			if (fs.existsSync(skillPath)) {
+				const name = namespace ? `${namespace}:${dirent.name}` : dirent.name
+				try {
+					const raw = fs.readFileSync(skillPath, 'utf-8')
+					const { frontmatter } = parseDoc(raw)
+					entries.push({
+						name,
+						description: frontmatter.description || '(no description)',
+						path: skillPath
+					})
+				}
+				catch {}
+			}
+			else if (namespace.length == 0) {
+				collect(subdir, dirent.name)
+			}
 		}
-		catch {}
 	}
 
+	collect(SKILLS_ROOT, '')
 	entries.sort((a, b) => a.name.localeCompare(b.name))
 	return entries
 }
 
 function readSkill(name: string): string {
-	const skillPath = path.join(SKILLS_ROOT, name, 'SKILL.md')
+	let relPath: string
+	if (name.includes(':')) {
+		const [ns, base] = name.split(':', 2)
+		relPath = path.join(ns, base, 'SKILL.md')
+	}
+	else
+		relPath = path.join(name, 'SKILL.md')
+
+	const skillPath = path.join(SKILLS_ROOT, relPath)
 	if (!fs.existsSync(skillPath))
 		throw new Error(`Skill not found: ${name} (looked in ${skillPath})`)
 	return fs.readFileSync(skillPath, 'utf-8')
