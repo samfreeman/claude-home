@@ -67,7 +67,14 @@ const MIN_CHARS_PER_MINUTE = 200
 const MAX_TRANSCRIPT_RETRIES = 1
 
 // Extraction model
-const VIDEO_MODEL = 'gemini-2.5-flash'
+// Ordered best-to-worst. transcribeWithGemini tries each in order on transient
+// failures (503/UNAVAILABLE). Other errors (auth, quota, bad request) bail immediately.
+const VIDEO_MODELS = [
+	'gemini-2.5-pro',
+	'gemini-2.5-flash',
+	'gemini-flash-latest',
+	'gemini-2.5-flash-lite'
+]
 
 // Fixed extraction prompt — keeps Gemini's job minimal and fast
 const EXTRACTION_PROMPT = [
@@ -100,6 +107,7 @@ interface VideoManifest {
 	videoId: string
 	duration: number   // total video duration in seconds
 	segments: SegmentInfo[]
+	source?: string    // e.g. 'gemini:gemini-flash-latest' or 'yt-dlp' — set on first successful transcription
 }
 
 function getManifestPath(videoId: string): string {
@@ -116,6 +124,36 @@ function loadManifest(videoId: string): VideoManifest | null {
 function saveManifest(manifest: VideoManifest): void {
 	fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
 	fs.writeFileSync(getManifestPath(manifest.videoId), JSON.stringify(manifest, null, '\t'), 'utf-8')
+}
+
+interface VideoMeta {
+	videoId?: string
+	title?: string
+	channel?: string
+	uploadDate?: string   // 'YYYYMMDD' from yt-dlp
+	duration?: number     // seconds
+	url?: string
+	description?: string
+}
+
+function loadMeta(videoId: string): VideoMeta | null {
+	const p = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_meta.json`)
+	if (!fs.existsSync(p))
+		return null
+	try {
+		return JSON.parse(fs.readFileSync(p, 'utf-8'))
+	}
+	catch {
+		return null
+	}
+}
+
+// 'YYYYMMDD' → 'YYYY-MM-DD'. Returns the input unchanged if it doesn't match.
+function formatUploadDate(raw: string | undefined): string | null {
+	if (!raw) return null
+	const m = raw.match(/^(\d{4})(\d{2})(\d{2})$/)
+	if (!m) return raw
+	return `${m[1]}-${m[2]}-${m[3]}`
 }
 
 function loadAllManifests(): VideoManifest[] {
@@ -236,19 +274,6 @@ function stitchTranscript(videoId: string, manifest: VideoManifest): void {
 			dlog('stitch', 'skipped-run-empty', { videoId, runStart: run.start, runEnd: run.end })
 		}
 	}
-
-	// Clean up individual segment files now that they're stitched
-	const cleanedSegs: string[] = []
-	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
-		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
-		for (const f of files) {
-			if (f.startsWith(videoId) && f.match(/_seg\d+\.txt$/)) {
-				fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
-				cleanedSegs.push(f)
-			}
-		}
-	}
-	dlog('stitch', 'cleaned-segs', { videoId, cleaned: cleanedSegs })
 
 	// Final state for comparison
 	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
@@ -495,34 +520,97 @@ async function uploadAndWaitForFile(filePath: string, timeoutMs: number = 300_00
 	return file.uri
 }
 
-async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSeconds: number): Promise<string> {
+async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSeconds: number): Promise<{ text: string, model: string }> {
 	const prompt = offsetSeconds > 0
 		? `${EXTRACTION_PROMPT}\n\nNote: this is a segment starting at ${Math.floor(offsetSeconds / 60)}:${String(offsetSeconds % 60).padStart(2, '0')} in the original video. Adjust timestamps accordingly.`
 		: EXTRACTION_PROMPT
 
-	const stream = await ai.models.generateContentStream({
-		model: VIDEO_MODEL,
-		contents: [
-			{
-				parts: [
-					{ fileData: { mimeType, fileUri } },
-					{ text: prompt }
-				]
+	let lastError: unknown
+	for (const model of VIDEO_MODELS) {
+		try {
+			const stream = await ai.models.generateContentStream({
+				model,
+				contents: [
+					{
+						parts: [
+							{ fileData: { mimeType, fileUri } },
+							{ text: prompt }
+						]
+					}
+				],
+				config: {
+					httpOptions: { timeout: 300_000 }
+				}
+			})
+
+			const chunks: string[] = []
+			for await (const chunk of stream) {
+				const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
+				if (text)
+					chunks.push(text)
 			}
-		],
-		config: {
-			httpOptions: { timeout: 300_000 }
+
+			return { text: chunks.join('') || 'No response', model }
 		}
-	})
-
-	const chunks: string[] = []
-	for await (const chunk of stream) {
-		const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
-		if (text)
-			chunks.push(text)
+		catch (err) {
+			lastError = err
+			const msg = err instanceof Error ? err.message : String(err)
+			// Only fall through on UNAVAILABLE/503. Other errors (auth, quota, bad request) bail immediately.
+			if (!/UNAVAILABLE|503/i.test(msg)) throw err
+			dlog('transcribe', 'model-unavailable', { model, msg: msg.slice(0, 200) })
+		}
 	}
+	throw lastError instanceof Error ? lastError : new Error(String(lastError))
+}
 
-	return chunks.join('') || 'No response'
+// Whole-video fallback using YouTube auto-captions via yt-dlp. No Gemini, no
+// segmentation, no visual description — just the spoken text as YouTube saw it.
+// Used when every Gemini model in VIDEO_MODELS has returned UNAVAILABLE.
+async function transcribeWithYtDlp(videoId: string): Promise<string> {
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gai-ytdlp-'))
+	try {
+		execFileSync('yt-dlp', [
+			'--write-auto-sub',
+			'--skip-download',
+			'--sub-format', 'vtt',
+			'--sub-lang', 'en',
+			'-o', path.join(tmpDir, `${videoId}.%(ext)s`),
+			`https://www.youtube.com/watch?v=${videoId}`
+		], { timeout: 120_000, stdio: 'pipe' })
+
+		const vttFiles = fs.readdirSync(tmpDir).filter(f => f.endsWith('.vtt'))
+		if (vttFiles.length == 0)
+			throw new Error('yt-dlp produced no .vtt file (captions may not be available)')
+
+		const vtt = fs.readFileSync(path.join(tmpDir, vttFiles[0]), 'utf-8')
+		return cleanVttToText(vtt)
+	}
+	finally {
+		try { fs.rmSync(tmpDir, { recursive: true, force: true }) }
+		catch {}
+	}
+}
+
+// Strip WEBVTT framing, inline timing tags, and consecutive-duplicate lines.
+// YouTube auto-sub format has each caption line appear twice (progressing +
+// finalized) with word-level timing markers inside; we dedupe and clean to plain prose.
+function cleanVttToText(vtt: string): string {
+	const lines = vtt.split(/\r?\n/)
+	const out: string[] = []
+	let prev = ''
+	for (const line of lines) {
+		if (/^WEBVTT/.test(line)) continue
+		if (/^Kind:/.test(line)) continue
+		if (/^Language:/.test(line)) continue
+		if (/^\d\d:\d\d:\d\d/.test(line)) continue
+		if (!line.trim()) continue
+		const clean = line.replace(/<[^>]*>/g, '').trim()
+		if (!clean) continue
+		if (clean == prev) continue
+		out.push(clean)
+		prev = clean
+	}
+	return out.join(' ').replace(/\s+/g, ' ').trim()
 }
 
 // ─── Video pipeline internals ───────────────────────────────────────────────
@@ -575,14 +663,16 @@ async function uploadAndTranscribeSegment(
 	for (let attempt = 0; attempt <= MAX_TRANSCRIPT_RETRIES; attempt++) {
 		cutSegment(videoPath, seg.start, seg.end - seg.start, segPath)
 		const uri = await uploadAndWaitForFile(segPath, SEGMENT_UPLOAD_TIMEOUT_MS)
-		const text = await transcribeWithGemini('video/mp4', uri, seg.start)
+		const { text, model } = await transcribeWithGemini('video/mp4', uri, seg.start)
 
 		const charsPerMin = text.length / durationMinutes
 		if (charsPerMin >= MIN_CHARS_PER_MINUTE) {
 			// Save segment file temporarily, then stitch
-			dlog('seg', 'saving-segment', { videoId, segIndex, bytes: text.length, charsPerMin: Math.round(charsPerMin) })
+			dlog('seg', 'saving-segment', { videoId, segIndex, bytes: text.length, charsPerMin: Math.round(charsPerMin), model })
 			saveCachedTranscript(`${videoId}_seg${segIndex}`, text)
 			seg.status = 'ok'
+			if (!manifest.source)
+				manifest.source = `gemini:${model}`
 			saveManifest(manifest)
 			dlog('seg', 'calling-stitch', { videoId, segIndex })
 			stitchTranscript(videoId, manifest)
@@ -992,7 +1082,7 @@ server.registerTool(
 
 				await sendProgress(0, 1, `Transcribing ${videoId} via direct YouTube URL`)
 
-				const text = await transcribeWithGemini(
+				const { text } = await transcribeWithGemini(
 					'video/*',
 					`https://www.youtube.com/watch?v=${videoId}`,
 					startSeconds ?? 0
@@ -1022,6 +1112,18 @@ server.registerTool(
 			}
 			else {
 				dlog('transcribe', 'loaded-manifest', { videoId, segCount: manifest.segments.length, statuses: manifest.segments.map(s => s.status) })
+			}
+
+			// yt-dlp fallback short-circuit: if a prior run already fell back to yt-dlp
+			// captions, return the cached whole-video text without re-trying Gemini.
+			// Use delete_transcript to force a fresh attempt if Gemini has recovered.
+			if (manifest.source == 'yt-dlp' && !startSeconds && !endSeconds) {
+				const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
+				if (fs.existsSync(fullPath)) {
+					const text = fs.readFileSync(fullPath, 'utf-8')
+					dlog('transcribe', 'ytdlp-cache-hit', { videoId, bytes: text.length })
+					return { content: [{ type: 'text' as const, text }] }
+				}
 			}
 
 			// Check for full cache hit via stitched file
@@ -1181,6 +1283,29 @@ server.registerTool(
 
 			cleanVideoCache()
 
+			// yt-dlp last-resort fallback: if every Gemini model in the chain returned
+			// UNAVAILABLE for every segment (zero successful transcriptions), fall back
+			// to YouTube auto-captions for the whole video. Records source='yt-dlp' in
+			// the manifest so subsequent calls short-circuit via the cache.
+			const okSegs = manifest.segments.filter(s => s.status == 'ok').length
+			if (okSegs == 0 && failures.length > 0 && !startSeconds && !endSeconds) {
+				await sendProgress(totalWork, totalWork, 'All Gemini models unavailable — falling back to yt-dlp captions')
+				dlog('transcribe', 'ytdlp-fallback-start', { videoId, failureCount: failures.length })
+				try {
+					const ytdlpText = await transcribeWithYtDlp(videoId)
+					saveCachedTranscript(videoId, ytdlpText)
+					manifest.source = 'yt-dlp'
+					saveManifest(manifest)
+					dlog('transcribe', 'ytdlp-fallback-done', { videoId, bytes: ytdlpText.length })
+					return { content: [{ type: 'text' as const, text: ytdlpText }] }
+				}
+				catch (err) {
+					const msg = err instanceof Error ? err.message : String(err)
+					dlog('transcribe', 'ytdlp-fallback-failed', { videoId, msg: msg.slice(0, 200) })
+					failures.push(`yt-dlp fallback also failed: ${msg}`)
+				}
+			}
+
 			// Read the final transcript from stitched files
 			const finalText = getFullTranscript(videoId, manifest)
 
@@ -1285,6 +1410,7 @@ server.registerTool(
 			const manifests = loadAllManifests()
 			if (manifests.length > 0) {
 				for (const manifest of manifests) {
+					const meta = loadMeta(manifest.videoId)
 					const videoPath = path.join(VIDEO_CACHE_DIR, `${manifest.videoId}.mp4`)
 					const hasVideo = fs.existsSync(videoPath)
 					const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
@@ -1294,19 +1420,33 @@ server.registerTool(
 					const total = manifest.segments.length
 					const complete = isTranscriptComplete(manifest.videoId, manifest)
 
-					lines.push(`${manifest.videoId} (${Math.round(manifest.duration / 60)}min, ${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''})`)
+					// Line 1: Title (or video id if no meta)
+					lines.push(meta?.title ?? manifest.videoId)
 
-					if (hasVideo)
-						lines.push(`  Video: cached (${videoSize}MB)`)
+					// Line 2: channel · date · length · videoId (skip empty parts gracefully)
+					const parts2: string[] = []
+					if (meta?.channel) parts2.push(meta.channel)
+					const dateStr = formatUploadDate(meta?.uploadDate)
+					if (dateStr) parts2.push(dateStr)
+					parts2.push(`${Math.round(manifest.duration / 60)}min`)
+					parts2.push(manifest.videoId)
+					lines.push(`  ${parts2.join(' · ')}`)
 
-					// List stitched transcript files
+					// Line 3: source · segments status · video cache
+					const parts3: string[] = []
+					if (manifest.source) parts3.push(manifest.source)
+					parts3.push(`${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''}`)
+					if (hasVideo) parts3.push(`video: ${videoSize}MB`)
+					lines.push(`  ${parts3.join(' · ')}`)
+
+					// Transcript files (indented, with sizes)
 					const runs = findContiguousRuns(manifest)
 					for (const run of runs) {
 						const p = getStitchedPath(manifest.videoId, run.start, run.end, manifest.duration)
 						if (fs.existsSync(p)) {
 							const size = Math.round(fs.statSync(p).size / 1024)
 							const name = path.basename(p)
-							lines.push(`  ${name} (${size}KB)`)
+							lines.push(`  └─ ${name} (${size}KB)`)
 						}
 					}
 
@@ -1329,11 +1469,48 @@ server.registerTool(
 					if (lines.length > 0)
 						lines.push('───')
 					lines.push('Standalone transcripts:')
+					lines.push('')
+
+					// Group files by the leading video ID (first 11 chars — YouTube video IDs are 11)
+					const byVideoId = new Map<string, string[]>()
 					for (const f of standaloneFiles) {
-						const fullPath = path.join(TRANSCRIPT_CACHE_DIR, f)
-						const size = Math.round(fs.statSync(fullPath).size / 1024)
-						const name = f.replace('.txt', '')
-						lines.push(`  ${name} (${size}KB)`)
+						const stem = f.replace(/\.txt$/, '')
+						const videoId = stem.slice(0, 11)
+						const list = byVideoId.get(videoId) ?? []
+						list.push(f)
+						byVideoId.set(videoId, list)
+					}
+
+					for (const [videoId, files] of byVideoId) {
+						const meta = loadMeta(videoId)
+
+						// Line 1: Title (or video id if no meta)
+						lines.push(meta?.title ?? videoId)
+
+						// Line 2: channel · date · length · videoId — only push if we have
+						// something beyond the videoId itself, so a metaless entry doesn't
+						// repeat the videoId on two consecutive lines.
+						const parts2: string[] = []
+						if (meta?.channel) parts2.push(meta.channel)
+						const dateStr = formatUploadDate(meta?.uploadDate)
+						if (dateStr) parts2.push(dateStr)
+						if (meta?.duration) parts2.push(`${Math.round(meta.duration / 60)}min`)
+						if (parts2.length > 0 || meta?.title) {
+							parts2.push(videoId)
+							lines.push(`  ${parts2.join(' · ')}`)
+						}
+
+						// Line 3: (direct path, no segments or source available for legacy standalone)
+						lines.push(`  direct-path · standalone`)
+
+						// Transcript files
+						for (const f of files) {
+							const fullPath = path.join(TRANSCRIPT_CACHE_DIR, f)
+							const size = Math.round(fs.statSync(fullPath).size / 1024)
+							lines.push(`  └─ ${f} (${size}KB)`)
+						}
+
+						lines.push('')
 					}
 				}
 			}

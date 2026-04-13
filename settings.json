@@ -121,7 +121,8 @@
       "mcp__skills__command_list",
       "mcp__skills__command_read",
       "mcp__google-ai-mcp__transcribe_video",
-      "mcp__google-ai-mcp__delete_transcript"
+      "mcp__google-ai-mcp__delete_transcript",
+      "Bash(ps -eo pid,ppid,lstart,cmd)"
     ],
     "deny": [
       "Bash(git revert*)",

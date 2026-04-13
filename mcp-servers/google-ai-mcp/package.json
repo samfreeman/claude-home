@@ -5,13 +5,21 @@
 	"type": "module",
 	"license": "MIT",
 	"author": "Sam Freeman",
-	"keywords": ["mcp", "gemini", "image-generation", "video-transcription"],
-	"files": ["dist/"],
+	"keywords": [
+		"mcp",
+		"gemini",
+		"image-generation",
+		"video-transcription"
+	],
+	"files": [
+		"dist/"
+	],
 	"bin": {
 		"google-ai-mcp": "./dist/index.js"
 	},
 	"scripts": {
-		"build": "tsc && shx chmod +x dist/*.js"
+		"build": "tsc && shx chmod +x dist/*.js",
+		"test": "npm run build && vitest run"
 	},
 	"dependencies": {
 		"@google/genai": "^1.0.0",
@@ -22,6 +30,7 @@
 	"devDependencies": {
 		"@types/node": "^25.3.2",
 		"shx": "^0.3.4",
-		"typescript": "^5.7.0"
+		"typescript": "^5.7.0",
+		"vitest": "^4.1.4"
 	}
 }
