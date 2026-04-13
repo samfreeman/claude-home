@@ -47,10 +47,10 @@
 				"KWIKI_ROOT": "/mnt/c/Users/samfr/Dropbox/Claude/kwiki"
 			}
 		},
-		"skills": {
+		"sidecar": {
 			"command": "node",
 			"args": [
-				"/home/samfr/.claude/mcp-servers/skills-mcp/dist/index.js"
+				"/home/samfr/.claude/mcp-servers/sidecar-mcp/dist/index.js"
 			]
 		}
 	}
