@@ -119,7 +119,9 @@
       "mcp__skills__skill_list",
       "mcp__skills__skill_read",
       "mcp__skills__command_list",
-      "mcp__skills__command_read"
+      "mcp__skills__command_read",
+      "mcp__google-ai-mcp__transcribe_video",
+      "mcp__google-ai-mcp__delete_transcript"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -133,7 +135,8 @@
     "additionalDirectories": [
       "/home/samfr/source/cs-bounce/.wag/adr/active",
       "/home/samfr/source/coin-bounce/.wag",
-      "/home/samfr/.claude/context"
+      "/home/samfr/.claude/context",
+      "/tmp"
     ]
   },
   "enableAllProjectMcpServers": true,

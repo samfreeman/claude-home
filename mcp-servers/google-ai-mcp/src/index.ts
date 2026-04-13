@@ -30,6 +30,19 @@ const ai = new GoogleGenAI({ apiKey })
 const VIDEO_CACHE_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'google-ai-mcp', 'cache')
 const TRANSCRIPT_CACHE_DIR = path.join(VIDEO_CACHE_DIR, 'transcripts')
 
+// ─── Debug logging ───────────────────────────────────────────────────
+// Instrumentation for diagnosing the stitch-on-write pipeline. Writes
+// to /tmp/google-ai-stitch-debug.log. Silent no-op on I/O error.
+const DEBUG_LOG_FILE = '/tmp/google-ai-stitch-debug.log'
+function dlog(tag: string, msg: string, ctx?: Record<string, unknown>): void {
+	try {
+		const stamp = new Date().toISOString()
+		const ctxStr = ctx ? ' ' + JSON.stringify(ctx) : ''
+		fs.appendFileSync(DEBUG_LOG_FILE, `${stamp} [${tag}] ${msg}${ctxStr}\n`)
+	}
+	catch {}
+}
+
 // Max video cache size in bytes — videos beyond this get evicted oldest-first
 const VIDEO_CACHE_MAX_BYTES = 500 * 1024 * 1024
 
@@ -162,8 +175,27 @@ function findContiguousRuns(manifest: VideoManifest): { start: number, end: numb
 // Reads individual _segN.txt files, writes stitched files, removes segment files.
 function stitchTranscript(videoId: string, manifest: VideoManifest): void {
 	const runs = findContiguousRuns(manifest)
+	dlog('stitch', 'ENTER', { videoId, runCount: runs.length, runs: runs.map(r => ({ start: r.start, end: r.end, segIndices: r.segIndices })) })
+
+	// List all transcript-cache files for this video at entry, to see full state
+	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+		const entryFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+			.filter(f => f.startsWith(videoId))
+			.map(f => {
+				const p = path.join(TRANSCRIPT_CACHE_DIR, f)
+				try {
+					const size = fs.statSync(p).size
+					return { name: f, size }
+				}
+				catch {
+					return { name: f, size: -1 }
+				}
+			})
+		dlog('stitch', 'entry-state', { videoId, files: entryFiles })
+	}
 
 	// Remove any old stitched files for this video before writing new ones
+	const deletedStitched: string[] = []
 	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
 		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
 		for (const f of files) {
@@ -172,30 +204,67 @@ function stitchTranscript(videoId: string, manifest: VideoManifest): void {
 			// Skip segment files — we'll clean those up after stitching
 			if (f.match(/_seg\d+\.txt$/)) continue
 			fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
+			deletedStitched.push(f)
 		}
 	}
+	dlog('stitch', 'deleted-old-stitched', { videoId, deleted: deletedStitched })
 
 	for (const run of runs) {
 		const parts: string[] = []
+		const segsFound: string[] = []
+		const segsMissing: string[] = []
 		for (const segIdx of run.segIndices) {
 			const segPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_seg${segIdx}.txt`)
-			if (fs.existsSync(segPath))
-				parts.push(fs.readFileSync(segPath, 'utf-8'))
+			if (fs.existsSync(segPath)) {
+				const txt = fs.readFileSync(segPath, 'utf-8')
+				parts.push(txt)
+				segsFound.push(`seg${segIdx}(${txt.length}b)`)
+			}
+			else {
+				segsMissing.push(`seg${segIdx}`)
+			}
 		}
+		dlog('stitch', 'run-scan', { videoId, runStart: run.start, runEnd: run.end, segsFound, segsMissing, partsCount: parts.length })
 
 		if (parts.length > 0) {
 			const stitchedPath = getStitchedPath(videoId, run.start, run.end, manifest.duration)
-			fs.writeFileSync(stitchedPath, parts.join('\n\n'), 'utf-8')
+			const joined = parts.join('\n\n')
+			fs.writeFileSync(stitchedPath, joined, 'utf-8')
+			dlog('stitch', 'wrote-stitched', { videoId, path: path.basename(stitchedPath), bytes: joined.length, segCount: parts.length })
+		}
+		else {
+			dlog('stitch', 'skipped-run-empty', { videoId, runStart: run.start, runEnd: run.end })
 		}
 	}
 
 	// Clean up individual segment files now that they're stitched
+	const cleanedSegs: string[] = []
 	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
 		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
 		for (const f of files) {
-			if (f.startsWith(videoId) && f.match(/_seg\d+\.txt$/))
+			if (f.startsWith(videoId) && f.match(/_seg\d+\.txt$/)) {
 				fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
+				cleanedSegs.push(f)
+			}
 		}
+	}
+	dlog('stitch', 'cleaned-segs', { videoId, cleaned: cleanedSegs })
+
+	// Final state for comparison
+	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
+		const exitFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
+			.filter(f => f.startsWith(videoId))
+			.map(f => {
+				const p = path.join(TRANSCRIPT_CACHE_DIR, f)
+				try {
+					const size = fs.statSync(p).size
+					return { name: f, size }
+				}
+				catch {
+					return { name: f, size: -1 }
+				}
+			})
+		dlog('stitch', 'EXIT', { videoId, files: exitFiles })
 	}
 }
 
@@ -274,7 +343,9 @@ function getCachedTranscript(cacheKey: string): string | null {
 
 function saveCachedTranscript(cacheKey: string, text: string): void {
 	fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
-	fs.writeFileSync(path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`), text, 'utf-8')
+	const outPath = path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`)
+	fs.writeFileSync(outPath, text, 'utf-8')
+	dlog('save', 'wrote', { path: path.basename(outPath), bytes: text.length })
 }
 
 function cleanVideoCache(): void {
@@ -509,10 +580,13 @@ async function uploadAndTranscribeSegment(
 		const charsPerMin = text.length / durationMinutes
 		if (charsPerMin >= MIN_CHARS_PER_MINUTE) {
 			// Save segment file temporarily, then stitch
+			dlog('seg', 'saving-segment', { videoId, segIndex, bytes: text.length, charsPerMin: Math.round(charsPerMin) })
 			saveCachedTranscript(`${videoId}_seg${segIndex}`, text)
 			seg.status = 'ok'
 			saveManifest(manifest)
+			dlog('seg', 'calling-stitch', { videoId, segIndex })
 			stitchTranscript(videoId, manifest)
+			dlog('seg', 'stitch-returned', { videoId, segIndex })
 			// Clean up segment video file
 			if (fs.existsSync(segPath))
 				fs.unlinkSync(segPath)
@@ -933,6 +1007,7 @@ server.registerTool(
 			const duration = getVideoDuration(videoPath)
 			const rangeStart = startSeconds ?? 0
 			const rangeEnd = endSeconds ?? Math.round(duration)
+			dlog('transcribe', 'segmented-path-entry', { videoId, duration, rangeStart, rangeEnd })
 
 			// Load or create manifest
 			let manifest = loadManifest(videoId)
@@ -943,11 +1018,17 @@ server.registerTool(
 					segments: planSegments(0, Math.round(duration))
 				}
 				saveManifest(manifest)
+				dlog('transcribe', 'created-manifest', { videoId, segCount: manifest.segments.length })
+			}
+			else {
+				dlog('transcribe', 'loaded-manifest', { videoId, segCount: manifest.segments.length, statuses: manifest.segments.map(s => s.status) })
 			}
 
 			// Check for full cache hit via stitched file
 			if (!startSeconds && !endSeconds && isTranscriptComplete(videoId, manifest)) {
-				const text = fs.readFileSync(path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`), 'utf-8')
+				const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
+				const text = fs.readFileSync(fullPath, 'utf-8')
+				dlog('transcribe', 'full-cache-hit', { videoId, bytes: text.length, path: fullPath })
 				return { content: [{ type: 'text' as const, text }] }
 			}
 
@@ -974,10 +1055,12 @@ server.registerTool(
 				}
 				return true
 			})
+			dlog('transcribe', 'uncached-segments', { videoId, totalNeeded: neededSegments.length, uncachedCount: uncachedSegments.length, uncachedIdxs: uncachedSegments.map(s => s.index) })
 
 			// All segments already cached in stitched files — just return the transcript
 			if (uncachedSegments.length == 0) {
 				const text = getFullTranscript(videoId, manifest)
+				dlog('transcribe', 'all-cached-branch', { videoId, bytesReturned: text ? text.length : 0 })
 				if (text)
 					return { content: [{ type: 'text' as const, text }] }
 			}
