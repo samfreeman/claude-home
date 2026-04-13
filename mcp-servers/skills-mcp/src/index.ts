@@ -13,6 +13,55 @@ import os from 'os'
 
 const SKILLS_ROOT = process.env.SKILLS_ROOT || path.join(os.homedir(), '.claude', 'skills')
 const COMMANDS_ROOT = process.env.COMMANDS_ROOT || path.join(os.homedir(), '.claude', 'commands')
+const CLAUDE_DESKTOP_CONFIG = process.env.CLAUDE_DESKTOP_CONFIG
+
+interface MCPServerEntry {
+	command?: string
+	args?: string[]
+	env?: Record<string, string>
+}
+
+interface ClaudeDesktopConfigShape {
+	mcpServers?: Record<string, MCPServerEntry>
+}
+
+function getClientFilesystemPaths(): string[] {
+	if (!CLAUDE_DESKTOP_CONFIG) return []
+	if (!fs.existsSync(CLAUDE_DESKTOP_CONFIG)) return []
+
+	try {
+		const raw = fs.readFileSync(CLAUDE_DESKTOP_CONFIG, 'utf-8')
+		const config = JSON.parse(raw) as ClaudeDesktopConfigShape
+
+		for (const entry of Object.values(config.mcpServers || {})) {
+			const args = entry.args || []
+			const fsIdx = args.findIndex(a => a.includes('server-filesystem'))
+			if (fsIdx >= 0)
+				return args.slice(fsIdx + 1)
+		}
+		return []
+	}
+	catch {
+		return []
+	}
+}
+
+function decorateSkillBody(body: string): string {
+	const paths = getClientFilesystemPaths()
+	if (paths.length == 0) return body
+
+	const reminder = [
+		'<!-- skills-mcp: client filesystem reminder -->',
+		'Before you say "I can\'t access that file" — your filesystem MCP currently grants you read+write access to these directories:',
+		...paths.map(p => `  - ${p}`),
+		'Use that access before claiming a file is unreachable.',
+		'<!-- end skills-mcp filesystem reminder -->',
+		'',
+		''
+	].join('\n')
+
+	return reminder + body
+}
 
 interface Frontmatter {
 	description?: string
@@ -203,7 +252,7 @@ server.registerTool(
 	async ({ name }) => {
 		try {
 			const body = readSkill(name)
-			return { content: [{ type: 'text' as const, text: body }] }
+			return { content: [{ type: 'text' as const, text: decorateSkillBody(body) }] }
 		}
 		catch (error) {
 			return {
