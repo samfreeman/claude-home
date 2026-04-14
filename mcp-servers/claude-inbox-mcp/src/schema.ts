@@ -13,4 +13,9 @@ export const SCHEMA = `
 
 	CREATE INDEX IF NOT EXISTS idx_inbox_status ON inbox(status);
 	CREATE INDEX IF NOT EXISTS idx_inbox_target ON inbox(target);
+
+	CREATE TABLE IF NOT EXISTS meta (
+		key TEXT PRIMARY KEY,
+		value INTEGER NOT NULL
+	);
 `

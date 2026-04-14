@@ -42,28 +42,24 @@ export function execute(sql: string, args: unknown[] = []): { lastInsertRowid: n
 	}
 }
 
-export function pruneAndRenumber(maxItems = 100): void {
-	const [{ cnt }] = db.prepare('SELECT COUNT(*) as cnt FROM inbox').all() as [{ cnt: number }]
-	if (cnt <= maxItems) return
+export const MAX_ITEMS = 100
 
-	// Delete oldest rows beyond the limit
-	db.exec(`
-		DELETE FROM inbox WHERE id NOT IN (
-			SELECT id FROM inbox ORDER BY created DESC LIMIT ${maxItems}
-		)
-	`)
+export function takeNextId(): number {
+	const [row] = db.prepare("SELECT value FROM meta WHERE key = 'next_id'").all() as { value: number }[]
 
-	// Renumber remaining rows starting from 1
-	const rows = db.prepare('SELECT id FROM inbox ORDER BY created ASC').all() as { id: number }[]
-	for (let i = 0; i < rows.length; i++)
-		db.prepare('UPDATE inbox SET id = ? WHERE id = ?').run(-(i + 1), rows[i].id)
-	for (let i = 0; i < rows.length; i++)
-		db.prepare('UPDATE inbox SET id = ? WHERE id = ?').run(i + 1, -(i + 1))
+	let current: number
+	if (!row) {
+		const [maxRow] = db.prepare('SELECT MAX(id) as max FROM inbox').all() as { max: number | null }[]
+		const max = maxRow.max || 0
+		current = (max % MAX_ITEMS) + 1
+		db.prepare("INSERT INTO meta (key, value) VALUES ('next_id', ?)").run(current)
+	}
+	else
+		current = row.value
 
-	// Reset SQLite autoincrement sequence if it exists
-	const hasSeq = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'").get()
-	if (hasSeq)
-		db.exec(`DELETE FROM sqlite_sequence WHERE name = 'inbox'`)
+	const next = (current % MAX_ITEMS) + 1
+	db.prepare("UPDATE meta SET value = ? WHERE key = 'next_id'").run(next)
+	return current
 }
 
 export function close(): void {
