@@ -12,7 +12,7 @@ Never use bash commands to modify files (echo, sed, awk, etc.). Use Edit or Writ
 
 ### 3. TypeScript/JavaScript Code Style
 
-All `.ts`, `.tsx`, `.js`, `.jsx` files must follow the rules in `/home/samf/source/claude/documents/typescript-rules.md`
+All `.ts`, `.tsx`, `.js`, `.jsx` files must follow the rules in `~/.claude/documents/typescript-rules.md`
 
 Key rules (see file for full details):
 - Single quotes for strings
@@ -36,6 +36,16 @@ Always commit to `dev`. Never commit or push directly to `main`. If the working 
 Run each command as its own Bash tool call. Never combine with `&&` or `;`.
 
 Why: the permission system approves per Bash call. Chaining collapses multiple commands into one approve/deny decision, so a sensitive command (`git push`, `rm`, `curl`) can ride in behind an innocuous one (`cd`, `ls`) without separate review. It's a safety seam, not a style preference.
+
+---
+
+## Knowledge Base
+
+A personal wiki (kwiki) lives at `/mnt/c/Users/samfr/Dropbox/Claude/kwiki`. It follows the Karpathy LLM Wiki pattern — raw sources in, structured wiki pages out, with cross-references and an index.
+
+- **Search it** with `/kwiki query [question]` when a topic might already be captured
+- **Add to it** with `/kwiki ingest [source]` when we discover something worth keeping — a pattern, a decision rationale, a concept worth naming
+- The wiki compounds over time. If a conversation produces a useful insight, offer to capture it.
 
 ---
 
