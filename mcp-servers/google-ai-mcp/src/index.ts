@@ -105,9 +105,13 @@ interface SegmentInfo {
 
 interface VideoManifest {
 	videoId: string
-	duration: number   // total video duration in seconds
+	duration: number      // total video duration in seconds
 	segments: SegmentInfo[]
-	source?: string    // e.g. 'gemini:gemini-flash-latest' or 'yt-dlp' — set on first successful transcription
+	source?: string       // e.g. 'gemini:gemini-flash-latest' or 'yt-dlp' — set on first successful transcription
+	title?: string        // video title (copied from _meta.json)
+	channel?: string      // channel / author (copied from _meta.json)
+	uploadDate?: string   // 'YYYYMMDD' (copied from _meta.json)
+	url?: string          // canonical URL (copied from _meta.json)
 }
 
 function getManifestPath(videoId: string): string {
@@ -154,6 +158,18 @@ function formatUploadDate(raw: string | undefined): string | null {
 	const m = raw.match(/^(\d{4})(\d{2})(\d{2})$/)
 	if (!m) return raw
 	return `${m[1]}-${m[2]}-${m[3]}`
+}
+
+// Copy YouTube metadata fields from _meta.json into a manifest (in place, idempotent).
+// Only sets fields that are missing on the manifest — existing values are preserved.
+function enrichManifestFromMeta(manifest: VideoManifest): void {
+	const meta = loadMeta(manifest.videoId)
+	if (!meta) return
+	if (!manifest.title && meta.title) manifest.title = meta.title
+	if (!manifest.channel && meta.channel) manifest.channel = meta.channel
+	if (!manifest.uploadDate && meta.uploadDate) manifest.uploadDate = meta.uploadDate
+	if (!manifest.url && meta.url) manifest.url = meta.url
+	if (!manifest.duration && meta.duration) manifest.duration = meta.duration
 }
 
 function loadAllManifests(): VideoManifest[] {
@@ -671,8 +687,10 @@ async function uploadAndTranscribeSegment(
 			dlog('seg', 'saving-segment', { videoId, segIndex, bytes: text.length, charsPerMin: Math.round(charsPerMin), model })
 			saveCachedTranscript(`${videoId}_seg${segIndex}`, text)
 			seg.status = 'ok'
-			if (!manifest.source)
+			if (!manifest.source) {
 				manifest.source = `gemini:${model}`
+				enrichManifestFromMeta(manifest)
+			}
 			saveManifest(manifest)
 			dlog('seg', 'calling-stitch', { videoId, segIndex })
 			stitchTranscript(videoId, manifest)
@@ -1082,13 +1100,36 @@ server.registerTool(
 
 				await sendProgress(0, 1, `Transcribing ${videoId} via direct YouTube URL`)
 
-				const { text } = await transcribeWithGemini(
+				const { text, model } = await transcribeWithGemini(
 					'video/*',
 					`https://www.youtube.com/watch?v=${videoId}`,
 					startSeconds ?? 0
 				)
 
 				saveCachedTranscript(cacheKey, text)
+
+				// Create/update manifest for this direct-path capture so every transcribed
+				// video has a canonical metadata record. For full-video (no range), the
+				// manifest has one segment spanning the whole duration. For range requests,
+				// we skip manifest creation — the transcript is partial and doesn't match
+				// the manifest's "whole video" semantics.
+				if (!startSeconds && !endSeconds) {
+					let manifest = loadManifest(videoId)
+					if (!manifest) {
+						manifest = {
+							videoId,
+							duration: 0,
+							segments: [{ index: 0, start: 0, end: 0, status: 'ok' }]
+						}
+					}
+					manifest.source = `gemini:${model}`
+					enrichManifestFromMeta(manifest)
+					// Sync segment end to whatever duration ended up (from meta, or 0 if unknown)
+					if (manifest.segments.length > 0 && manifest.duration > 0)
+						manifest.segments[0].end = manifest.duration
+					saveManifest(manifest)
+				}
+
 				await sendProgress(1, 1, `Transcribed ${videoId} (${text.length} chars)`)
 				return { content: [{ type: 'text' as const, text }] }
 			}
@@ -1406,113 +1447,57 @@ server.registerTool(
 		try {
 			const lines: string[] = []
 
-			// Videos with manifests
+			// Every transcribed video has a manifest. Single loop, no separate
+			// "standalone" branch — unified model per manifest.
 			const manifests = loadAllManifests()
-			if (manifests.length > 0) {
-				for (const manifest of manifests) {
-					const meta = loadMeta(manifest.videoId)
-					const videoPath = path.join(VIDEO_CACHE_DIR, `${manifest.videoId}.mp4`)
-					const hasVideo = fs.existsSync(videoPath)
-					const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
+			for (const manifest of manifests) {
+				const videoPath = path.join(VIDEO_CACHE_DIR, `${manifest.videoId}.mp4`)
+				const hasVideo = fs.existsSync(videoPath)
+				const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
 
-					const okSegs = manifest.segments.filter(s => s.status == 'ok').length
-					const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
-					const total = manifest.segments.length
-					const complete = isTranscriptComplete(manifest.videoId, manifest)
+				const okSegs = manifest.segments.filter(s => s.status == 'ok').length
+				const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
+				const total = manifest.segments.length
+				const complete = isTranscriptComplete(manifest.videoId, manifest)
 
-					// Line 1: Title (or video id if no meta)
-					lines.push(meta?.title ?? manifest.videoId)
+				// Fall back to reading _meta.json on the fly for any field not yet on
+				// the manifest — backward compat for manifests written before metadata
+				// enrichment landed.
+				const title = manifest.title ?? loadMeta(manifest.videoId)?.title
+				const channel = manifest.channel ?? loadMeta(manifest.videoId)?.channel
+				const uploadDate = manifest.uploadDate ?? loadMeta(manifest.videoId)?.uploadDate
 
-					// Line 2: channel · date · length · videoId (skip empty parts gracefully)
-					const parts2: string[] = []
-					if (meta?.channel) parts2.push(meta.channel)
-					const dateStr = formatUploadDate(meta?.uploadDate)
-					if (dateStr) parts2.push(dateStr)
-					parts2.push(`${Math.round(manifest.duration / 60)}min`)
-					parts2.push(manifest.videoId)
-					lines.push(`  ${parts2.join(' · ')}`)
+				// Line 1: Title (or video id fallback)
+				lines.push(title ?? manifest.videoId)
 
-					// Line 3: source · segments status · video cache
-					const parts3: string[] = []
-					if (manifest.source) parts3.push(manifest.source)
-					parts3.push(`${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''}`)
-					if (hasVideo) parts3.push(`video: ${videoSize}MB`)
-					lines.push(`  ${parts3.join(' · ')}`)
+				// Line 2: channel · date · length · videoId
+				const parts2: string[] = []
+				if (channel) parts2.push(channel)
+				const dateStr = formatUploadDate(uploadDate)
+				if (dateStr) parts2.push(dateStr)
+				if (manifest.duration > 0) parts2.push(`${Math.round(manifest.duration / 60)}min`)
+				parts2.push(manifest.videoId)
+				lines.push(`  ${parts2.join(' · ')}`)
 
-					// Transcript files (indented, with sizes)
-					const runs = findContiguousRuns(manifest)
-					for (const run of runs) {
-						const p = getStitchedPath(manifest.videoId, run.start, run.end, manifest.duration)
-						if (fs.existsSync(p)) {
-							const size = Math.round(fs.statSync(p).size / 1024)
-							const name = path.basename(p)
-							lines.push(`  └─ ${name} (${size}KB)`)
-						}
-					}
+				// Line 3: source · segments status · video cache
+				const parts3: string[] = []
+				if (manifest.source) parts3.push(manifest.source)
+				parts3.push(`${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''}`)
+				if (hasVideo) parts3.push(`video: ${videoSize}MB`)
+				lines.push(`  ${parts3.join(' · ')}`)
 
-					lines.push('')
-				}
-			}
-
-			// Standalone transcripts (no manifest — direct/short video transcriptions)
-			if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
-				const allFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
-				const manifestVideoIds = new Set(manifests.map(m => m.videoId))
-				const standaloneFiles = allFiles.filter(f => {
-					if (!f.endsWith('.txt')) return false
-					for (const id of manifestVideoIds)
-						if (f.startsWith(id)) return false
-					return true
-				})
-
-				if (standaloneFiles.length > 0) {
-					if (lines.length > 0)
-						lines.push('───')
-					lines.push('Standalone transcripts:')
-					lines.push('')
-
-					// Group files by the leading video ID (first 11 chars — YouTube video IDs are 11)
-					const byVideoId = new Map<string, string[]>()
-					for (const f of standaloneFiles) {
-						const stem = f.replace(/\.txt$/, '')
-						const videoId = stem.slice(0, 11)
-						const list = byVideoId.get(videoId) ?? []
-						list.push(f)
-						byVideoId.set(videoId, list)
-					}
-
-					for (const [videoId, files] of byVideoId) {
-						const meta = loadMeta(videoId)
-
-						// Line 1: Title (or video id if no meta)
-						lines.push(meta?.title ?? videoId)
-
-						// Line 2: channel · date · length · videoId — only push if we have
-						// something beyond the videoId itself, so a metaless entry doesn't
-						// repeat the videoId on two consecutive lines.
-						const parts2: string[] = []
-						if (meta?.channel) parts2.push(meta.channel)
-						const dateStr = formatUploadDate(meta?.uploadDate)
-						if (dateStr) parts2.push(dateStr)
-						if (meta?.duration) parts2.push(`${Math.round(meta.duration / 60)}min`)
-						if (parts2.length > 0 || meta?.title) {
-							parts2.push(videoId)
-							lines.push(`  ${parts2.join(' · ')}`)
-						}
-
-						// Line 3: (direct path, no segments or source available for legacy standalone)
-						lines.push(`  direct-path · standalone`)
-
-						// Transcript files
-						for (const f of files) {
-							const fullPath = path.join(TRANSCRIPT_CACHE_DIR, f)
-							const size = Math.round(fs.statSync(fullPath).size / 1024)
-							lines.push(`  └─ ${f} (${size}KB)`)
-						}
-
-						lines.push('')
+				// Transcript files (indented, with sizes)
+				const runs = findContiguousRuns(manifest)
+				for (const run of runs) {
+					const p = getStitchedPath(manifest.videoId, run.start, run.end, manifest.duration)
+					if (fs.existsSync(p)) {
+						const size = Math.round(fs.statSync(p).size / 1024)
+						const name = path.basename(p)
+						lines.push(`  └─ ${name} (${size}KB)`)
 					}
 				}
+
+				lines.push('')
 			}
 
 			if (lines.length == 0)
