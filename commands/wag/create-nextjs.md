@@ -59,11 +59,11 @@ These are always installed regardless of optional layer choices.
 ### Dependencies
 
 ```bash
-# UI framework
-pnpm dlx shadcn@canary init --defaults -y
+# UI framework (CLI v4 stable — supports Tailwind v4, no canary needed)
+pnpm dlx shadcn@latest init -d -f
 
 # Base ShadCN components
-pnpm dlx shadcn@canary add button card input label form \
+pnpm dlx shadcn@latest add button card input label form \
     dropdown-menu sidebar sheet avatar badge separator \
     tooltip sonner
 

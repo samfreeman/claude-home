@@ -3,5 +3,10 @@
     "name": "wag3",
     "path": "/home/samfr/source/wag3",
     "type": "other"
+  },
+  {
+    "name": "radd",
+    "path": "/home/samfr/source/radd",
+    "type": "nextjs"
   }
 ]

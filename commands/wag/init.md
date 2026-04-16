@@ -20,16 +20,27 @@ Run these in order. **The user must approve each phase before you advance.**
 
 | Phase | What | Workflow | Output |
 |-------|------|----------|--------|
-| A | Intake | questioning.md reference | `.wag/docs/VISION.md` |
-| B | Research | workflows/research.md | `.wag/docs/RESEARCH.md` |
-| C | Requirements | (inline in init workflow) | `.wag/docs/REQUIREMENTS.md` |
-| D | Scaffold | (inline in init workflow) | `.wag/` infrastructure |
+| A | Intake | questioning.md reference | `.wag/docs/PRD.md` (seeded) |
+| B | Research | workflows/research.md | `.wag/docs/RESEARCH.md` + `.wag/docs/Architecture.md` (seeded) |
+| C | Backlog | (inline in init workflow) | `.wag/backlog/` (epics/PBIs) |
+| D | Scaffold | (inline in init workflow) | `.wag/` infrastructure (state.json, adr/, snags/) |
+
+## WAG docs structure
+
+The `.wag/docs/` output is four things:
+
+- **PRD.md** — product requirements document. Seeded from intake (Phase A).
+- **RESEARCH.md** — research provenance. "We evaluated X, Y, Z — here's what we found." Queryable when revisiting decisions. Seeded from research (Phase B).
+- **Architecture.md** — technical architecture decisions derived from research. Seeded from research (Phase B).
+- **backlog/** — epics and PBIs. Derived from requirements discussion (Phase C).
+
+PRD is the living product document. RESEARCH.md preserves evaluation context. Architecture.md captures the decisions.
 
 ## Key rules
 
 - **No app scaffolding.** You create `.wag/` planning infrastructure only. No code, no framework installs, no project boilerplate.
 - **No auto-advancing.** Each phase ends with user approval before the next begins.
-- **Documents are seeded, not empty.** PRD and Architecture are populated from earlier phases, not blank templates.
+- **Documents are seeded, not empty.** PRD and Architecture are populated from their respective phases, not blank templates.
 - **Research grounds decisions.** Don't guess at tech stack or architecture — let Phase B inform Phase D.
 - **Use sub-agents for research.** Spawn `wag-researcher` agents in parallel for Phase B (one per axis). Fall back to sequential if agents aren't available.
 
