@@ -73,7 +73,12 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
    - Review PBI granularity — are they the right size?
 4. Iterate until the user approves.
 
-**Output:** `.wag/backlog/` (epic/PBI files)
+**Backlog structure:**
+- Epic folders at `.wag/backlog/epic-NNN-slug/` each contain an `epic.md` and the PBI files belonging to that epic (`PBI-NNN-slug.md`).
+- Standalone PBIs (bug fixes, one-offs, work that doesn't belong to an epic) live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`, not inside any epic folder.
+- Not every PBI belongs to an epic. The backlog can mix both shapes.
+
+**Output:** `.wag/backlog/` (epic folders and/or standalone PBI files)
 
 **Transition:** User approves the backlog. Do not proceed without approval.
 
@@ -93,7 +98,10 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
    │   ├── RESEARCH.md        (from Phase B)
    │   └── Architecture.md    (from Phase B)
    ├── backlog/
-   │   └── (epic/PBI files from Phase C)
+   │   ├── epic-NNN-slug/     (optional — epic folders)
+   │   │   ├── epic.md
+   │   │   └── PBI-NNN-slug.md
+   │   └── PBI-NNN-slug.md    (optional — standalone PBIs)
    ├── adr/
    │   └── active/
    └── snags/
@@ -105,9 +113,12 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
    {
      "app_name": "{{PROJECT_NAME}}",
      "current_mode": null,
+     "active_epic": null,
      "active_pbi": null
    }
    ```
+   - `active_epic` is a string like `"epic-001-slug"` when the user is working within an epic, or `null` for standalone PBI work or when no epic is currently active.
+   - `active_pbi` is a string like `"PBI-NNN-slug"` when a PBI is in flight, or `null` when between PBIs.
 4. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents.

@@ -29,9 +29,49 @@ Upstream truth must be correct before starting new work. The user resolves or ex
 
 If `adr/active/` already contains an ADR, previous work is in progress. Present it to the user and discuss — are they resuming, or starting fresh?
 
+### Determine working context
+
+Read `.wag/state.json` to check the `active_epic` field, then examine `.wag/backlog/`.
+
+**Backlog shape:**
+- **Epic folders** (`epic-NNN-slug/`) each contain an `epic.md` and zero or more PBI files (`PBI-NNN-slug.md`).
+- **Standalone PBIs** live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`, not inside any epic folder.
+
+Not every PBI belongs to an epic. Bug fixes, one-offs, and small refactors may be standalone. The backlog can mix both shapes.
+
 ### Pick a PBI
 
-List PBIs from `.wag/backlog/`. The user picks one, or specifies one directly. Read the PBI file for requirements and acceptance criteria.
+Branch based on state:
+
+**Case A — `active_epic` is set** (e.g., `"epic-001-scaffold"`):
+
+1. List the PBI files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's title, priority, and status.
+2. Also show a one-line reminder of the current epic (read `epic.md`'s title and goal).
+3. Present the default path: pick a PBI from the current epic.
+4. Offer two alternatives:
+   - **Switch to a different epic** — list all epic folders in `.wag/backlog/` with titles from each `epic.md`. If user picks one, update `active_epic` in state.json, then re-enter Case A with the new epic.
+   - **Work on a standalone PBI this time** — list standalone `PBI-NNN-slug.md` files at `.wag/backlog/` root. Do *not* change `active_epic` in state.json — the user is temporarily stepping out, not abandoning the epic. (If the user explicitly says they're done with the epic, set `active_epic` to `null`.)
+
+**Case B — `active_epic` is null:**
+
+1. List everything in the backlog:
+   - All epic folders (with title + goal excerpt from each `epic.md`)
+   - All standalone PBI files at the backlog root
+2. User picks one:
+   - **An epic** — set `active_epic` in state.json, then enter Case A. If the epic folder contains no PBI files yet, offer to define them together before writing an ADR. (Writing PBIs for an epic is a backlog-authoring activity; the ADR workflow resumes after PBIs exist.)
+   - **A standalone PBI** — proceed with that PBI. Leave `active_epic` as `null`.
+
+**Case C — the backlog is empty** (no epic folders and no standalone PBIs):
+
+Offer the user two paths:
+1. **Propose a new epic** — work with the user to define an epic (name, goal, deliverables, dependencies), create the `epic-NNN-slug/` folder, write `epic.md`, then decompose into initial PBIs.
+2. **Propose a standalone PBI** — work with the user to define a single PBI for an isolated piece of work.
+
+Either way, this is a backlog-authoring step. The ADR workflow stops at this point and resumes once the user confirms the new items exist on disk.
+
+### Read the selected PBI
+
+Once a PBI is selected (via any case above), read the PBI file for requirements and acceptance criteria. Proceed to Phase 2.
 
 ## Phase 2: Design
 
@@ -40,7 +80,8 @@ List PBIs from `.wag/backlog/`. The user picks one, or specifies one directly. R
 1. Read the selected PBI.
 2. Read `.wag/docs/Architecture.md` — the current architecture.
 3. Read `.wag/docs/PRD.md` — the product requirements.
-4. Read `~/.claude/wag/learnings/` for standards relevant to this PBI's domain. Filter by the `Applies to` field. Surface relevant learnings to the user:
+4. If `active_epic` is set, also read `.wag/backlog/<active_epic>/epic.md` — the epic provides context the PBI may assume without restating.
+5. Read `~/.claude/wag/learnings/` for standards relevant to this PBI's domain. Filter by the `Applies to` field. Surface relevant learnings to the user:
 
 > "These learnings apply to this work:"
 > - LEARNING-001: [title] — [standard summary]
@@ -77,6 +118,7 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 # PBI-XXX ADR: [title]
 
 **PBI:** [link to PBI file]
+**Epic:** [link to epic.md if the PBI belongs to an epic, else "None (standalone)"]
 **Status:** draft | approved
 **Feature branch:** feature/PBI-XXX
 
@@ -157,3 +199,4 @@ git push -u origin feature/PBI-XXX
 4. **Learnings are standards.** The design must comply with existing learnings or explicitly justify why not.
 5. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
 6. **No implementation.** ADR mode designs. `/wag:dev` implements.
+7. **Respect the active epic.** If one is set, default to PBIs within it. Switching or escaping to standalone work is an explicit user action, not an automatic fallback.
