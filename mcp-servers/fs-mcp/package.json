@@ -1,0 +1,32 @@
+{
+	"name": "fs-mcp",
+	"version": "0.1.0",
+	"description": "Filesystem MCP for Claude Desktop — bash-parity file operations",
+	"type": "module",
+	"license": "MIT",
+	"author": "Sam Freeman",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/samfreeman/fs-mcp.git"
+	},
+	"keywords": ["mcp", "filesystem"],
+	"files": ["dist/"],
+	"bin": {
+		"fs-mcp": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsc && shx chmod +x dist/*.js",
+		"test": "npm run build && vitest run"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.9.0",
+		"fast-glob": "^3.3.2",
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.3.2",
+		"shx": "^0.3.4",
+		"typescript": "^5.7.0",
+		"vitest": "^4.1.4"
+	}
+}
