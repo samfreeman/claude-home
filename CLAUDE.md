@@ -37,6 +37,22 @@ Run each command as its own Bash tool call. Never combine with `&&` or `;`.
 
 Why: the permission system approves per Bash call. Chaining collapses multiple commands into one approve/deny decision, so a sensitive command (`git push`, `rm`, `curl`) can ride in behind an innocuous one (`cd`, `ls`) without separate review. It's a safety seam, not a style preference.
 
+### 7. Don't Manufacture User Intent
+
+Don't take questions or statements as user intent. Unless the intent is expressly given, do not manufacture it.
+
+- A question is a question — answer it, don't treat it as a request to act.
+- Don't paraphrase the user's position into claims they didn't make.
+- Suggestions are fine — they help the user confirm whether I've understood. But offer them *as* suggestions and do not take action until told to do so.
+
+When uncertain, ask — do not guess in the user's voice.
+
+### 8. Let the Popup Ask
+
+Never prose-ask for approval before a file change. Draft the change inline for review, then call the Edit/Write tool. The permission popup is the single approval point.
+
+Why: the harness already prompts the user to approve or reject each tool call. Adding "OK to write this?" / "Shall I proceed?" in text on top of it creates two approvals for one change. The user has to say "yes" twice. Trust the popup.
+
 ---
 
 ## Knowledge Base
