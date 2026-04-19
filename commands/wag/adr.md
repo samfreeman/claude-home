@@ -116,7 +116,7 @@ Sometimes the grill dissolves the PBI's scope entirely — deliverables turn out
 
 1. Add a closure note at the top of the PBI file: `**Status:** Closed <date> — <short reason>` plus a `> **Closure note.**` block summarising what actually happened and citing any SNAGs / LEARNINGs produced during the grill.
 2. `mv` the PBI into the pre-created `.wag/backlog/_completed/<epic-slug>/` mirror (or `.wag/backlog/_completed/` flat for standalones).
-3. Check for epic drain — if the active epic folder now contains only `epic.md`, follow the epic-close ceremony from the reference doc (rename `epic.md` to `<slug>.md`, `rmdir` the active folder, clear `state.json.active_epic`).
+3. Check for epic drain — if the active epic folder now contains only `epic.md`, follow the epic-close ceremony from the reference doc (`git mv` `epic.md` to `_completed/<slug>/epic.md`, `rmdir` the active folder, clear `state.json.active_epic`).
 4. Commit the closure inline — don't defer to a Phase 4 ADR commit that isn't going to happen.
 
 After closure, return to the pre-flight step to pick the next PBI, or end the command if the user is done.

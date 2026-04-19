@@ -54,7 +54,7 @@ Procedure:
 1. Prompt the user: *"All PBIs in `<slug>` are complete. Mark the epic done?"* The prompt is a safety check — the user may want to add more PBIs later; draining doesn't always mean finished.
 2. On yes:
    - Update `epic.md`: change header `**Status:**` to `Completed <date>`. Optionally add a `> **Closure note.**` block summarising each PBI's outcome (one line each).
-   - `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/<slug>.md`  — rename to the folder slug so the filename is self-identifying when the file is viewed in isolation.
+   - `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/epic.md` — same filename; the folder path already encodes the epic identity.
    - `rmdir backlog/<slug>/` — the active folder is now empty.
    - If `state.json.active_epic == <slug>`, set `active_epic: null`.
 3. On no: leave as-is. The user will add more PBIs or explicitly close the epic later.

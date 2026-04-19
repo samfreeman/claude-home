@@ -97,7 +97,7 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
    - **Standalone PBI** (`backlog/PBI-NNN.md`): `mv` to `backlog/_completed/PBI-NNN.md` (flat).
 4. **Check for epic drain.** If the PBI came from an epic folder and the active folder now contains only `epic.md`:
    - Prompt: *"All PBIs in `<slug>` are complete. Mark the epic done?"*
-   - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/<slug>.md` (rename to folder slug); `rmdir backlog/<slug>/`; clear `active_epic` in `state.json` (set to `null`).
+   - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/epic.md`; `rmdir backlog/<slug>/`; clear `active_epic` in `state.json` (set to `null`).
    - **If no:** leave the epic active with only its `epic.md`; don't change `active_epic`. The user may add more PBIs later.
 5. **Update `state.json`:**
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
