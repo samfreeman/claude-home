@@ -92,17 +92,16 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
 
 1. Create PR from `feature/PBI-XXX` to `dev`.
 2. Move ADR from `adr/active/` to `adr/completed/`.
-3. Move PBI to `backlog/_completed/`, preserving epic membership:
-   - **If the PBI came from an epic folder** (`backlog/epic-NNN-slug/PBI-NNN.md`): move to `backlog/_completed/epic-NNN-slug/PBI-NNN.md`. Create the nested `_completed/epic-NNN-slug/` directory if it doesn't exist.
-   - **If the PBI is standalone** (`backlog/PBI-NNN.md` at the backlog root): move to `backlog/_completed/PBI-NNN.md` (flat, current behavior).
-4. **Check for epic completion.** If the PBI moved from an epic folder, check whether that epic folder now contains only `epic.md` (no remaining PBI files). If so:
-   - Prompt the user: "All PBIs in `epic-NNN-slug` are complete. Mark this epic as done?"
-   - **If yes:** move the entire `backlog/epic-NNN-slug/` folder (including `epic.md`) into `backlog/_completed/epic-NNN-slug/` alongside the already-moved PBIs. Clear `active_epic` in `state.json` (set to `null`).
-   - **If no:** leave the epic folder with only its `epic.md` and don't change `active_epic`. The user may add more PBIs to the epic later.
+3. Close the PBI per the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`:
+   - **Epic PBI** (`backlog/epic-NNN-slug/PBI-NNN.md`): `mv` to `backlog/_completed/epic-NNN-slug/PBI-NNN.md`. The mirror folder was pre-created when the epic was authored; remove the mirror's `.gitkeep` if this is the first PBI closed there.
+   - **Standalone PBI** (`backlog/PBI-NNN.md`): `mv` to `backlog/_completed/PBI-NNN.md` (flat).
+4. **Check for epic drain.** If the PBI came from an epic folder and the active folder now contains only `epic.md`:
+   - Prompt: *"All PBIs in `<slug>` are complete. Mark the epic done?"*
+   - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/<slug>.md` (rename to folder slug); `rmdir backlog/<slug>/`; clear `active_epic` in `state.json` (set to `null`).
+   - **If no:** leave the epic active with only its `epic.md`; don't change `active_epic`. The user may add more PBIs later.
 5. **Update `state.json`:**
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
    - Clear `active_epic` only if the user confirmed epic completion in step 4.
-   - Append the completed PBI's ID to `completed_pbis` array if the field is used.
 6. User reviews and approves the PR.
 7. Squash merge to `dev`.
 
@@ -140,4 +139,4 @@ git commit
 6. **Snags escalate to user via Architect** when no prior resolution exists.
 7. **Advisory findings during active work.** Dev/Tester can acknowledge known issues that will resolve with later work. At the final gate, everything must pass.
 8. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
-9. **Preserve epic membership when completing.** Completed PBIs that came from an epic folder go to `_completed/epic-NNN-slug/`, not flat `_completed/`. Epic completion is confirmed by the user, not inferred automatically.
+9. **Preserve epic membership when completing.** Completed PBIs that came from an epic folder go to `_completed/epic-NNN-slug/` (pre-created at epic authoring), not flat `_completed/`. Epic drain is detected automatically, but closure is confirmed by the user — don't auto-close an epic without the prompt.

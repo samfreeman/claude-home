@@ -110,6 +110,17 @@ If during design you discover the Architecture or PRD is wrong — an assumption
 
 Don't make the user leave the command. Handle it inline.
 
+### Closing a PBI without writing an ADR
+
+Sometimes the grill dissolves the PBI's scope entirely — deliverables turn out to be already done, unachievable on the chosen platform tier, or deliberately out of scope given other decisions. In those cases, close the PBI without producing an ADR. Follow the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`:
+
+1. Add a closure note at the top of the PBI file: `**Status:** Closed <date> — <short reason>` plus a `> **Closure note.**` block summarising what actually happened and citing any SNAGs / LEARNINGs produced during the grill.
+2. `mv` the PBI into the pre-created `.wag/backlog/_completed/<epic-slug>/` mirror (or `.wag/backlog/_completed/` flat for standalones).
+3. Check for epic drain — if the active epic folder now contains only `epic.md`, follow the epic-close ceremony from the reference doc (rename `epic.md` to `<slug>.md`, `rmdir` the active folder, clear `state.json.active_epic`).
+4. Commit the closure inline — don't defer to a Phase 4 ADR commit that isn't going to happen.
+
+After closure, return to the pre-flight step to pick the next PBI, or end the command if the user is done.
+
 ## Phase 3: Write the ADR
 
 Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:

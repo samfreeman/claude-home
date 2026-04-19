@@ -97,7 +97,8 @@ Before creating a new epic or PBI, scan `.wag/backlog/` (including `_completed/`
 
 1. Discuss the epic's scope with the user: name, goal, deliverables, dependencies on other epics, what it explicitly does *not* cover.
 2. Create the folder: `.wag/backlog/epic-NNN-slug/` where `slug` is a short kebab-case descriptor.
-3. Write `epic.md` using this template:
+3. **Pre-create the completed mirror:** `mkdir -p .wag/backlog/_completed/epic-NNN-slug/ && touch .wag/backlog/_completed/epic-NNN-slug/.gitkeep`. The mirror always exists so downstream PBI closures are simple moves. See `~/.claude/wag/references/close-pbi-and-epic.md`.
+4. Write `epic.md` using this template:
 
 ```markdown
 # Epic N: [Title]
@@ -123,7 +124,7 @@ Before creating a new epic or PBI, scan `.wag/backlog/` (including `_completed/`
 [What this epic explicitly does NOT cover, to prevent scope creep.]
 ```
 
-4. Offer to decompose the epic into PBIs now. If the user wants to, follow the PBI authoring guidance below, creating each PBI inside the epic folder.
+5. Offer to decompose the epic into PBIs now. If the user wants to, follow the PBI authoring guidance below, creating each PBI inside the epic folder.
 
 ### Authoring a PBI
 
