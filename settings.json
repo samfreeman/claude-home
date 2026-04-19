@@ -128,7 +128,12 @@
       "Bash(ps -eo pid,ppid,lstart,cmd)",
       "Bash(git config *)",
       "Bash(~/.bun/bin/bun --version)",
-      "Bash(bun --version)"
+      "Bash(bun --version)",
+      "Bash(~/.bun/bin/bun x *)",
+      "Bash(grep -E '^\\(bun\\\\.lock|\\\\.gitignore\\)$')",
+      "Bash(~/.bun/bin/bun run *)",
+      "Skill(wag:snag)",
+      "Skill(wag:snag:*)"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -143,7 +148,8 @@
       "/home/samfr/source/cs-bounce/.wag/adr/active",
       "/home/samfr/source/coin-bounce/.wag",
       "/home/samfr/.claude/context",
-      "/tmp"
+      "/tmp",
+      "/home/samfr/source/chatr/.wag/adr"
     ]
   },
   "enableAllProjectMcpServers": true,
