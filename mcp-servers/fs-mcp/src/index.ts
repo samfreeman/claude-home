@@ -6,141 +6,59 @@ import { z } from 'zod'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { execSync, spawnSync } from 'child_process'
 import fg from 'fast-glob'
+import { PathTranslator, detectMode, type WslConfig } from './path-translator.js'
+import { ok, err, requireExists, MIME_MAP } from './utils.js'
 
-// ─── Path allowlist ─────────────────────────────────────────────────────────
+// ─── Config (env + argv) ───────────────────────────────────────────────────
+
+const WSL_DISTRO = process.env.FS_MCP_WSL_DISTRO || ''
+const WSL_USER = process.env.FS_MCP_WSL_USER || ''
+const WSL_PREFIXES = (process.env.FS_MCP_WSL_PREFIXES || '')
+	.split(',')
+	.map(s => s.trim())
+	.filter(Boolean)
+
+const wslConfig: WslConfig | undefined = (WSL_DISTRO && WSL_USER)
+	? { distro: WSL_DISTRO, user: WSL_USER, prefixes: WSL_PREFIXES }
+	: undefined
+
+const MODE = detectMode()
+const HOME = os.homedir()
+
+const translator = new PathTranslator({
+	mode: MODE,
+	home: HOME,
+	wsl: wslConfig
+})
+
+// ─── Allowlist ─────────────────────────────────────────────────────────────
 //
-// Every tool funnels through resolveAllowed() before touching the filesystem —
-// that's the hard seam. Tool descriptions tell the model to ask before
-// destructive ops; this layer is the only thing the client can't bypass.
-//
-// Allowed roots come from positional argv, matching the pattern of the stock
-// @modelcontextprotocol/server-filesystem that fs-mcp replaces. CD config
-// registers the MCP with a list of paths as arguments, each of which may use
-// `~` — the one expression that resolves portably across users and platforms.
-// No in-code defaults: if argv is empty the server errors, same as stock.
-
-// Detect WSL once. fs-mcp may be running in a Linux process hosted for a
-// Windows Claude Desktop — in which case os.homedir() returns the Linux home
-// but the *user's* real files live under the Windows profile, reachable via
-// /mnt/c/Users/<name>/ from here.
-const IS_WSL = (() => {
-	if (process.platform != 'linux')
-		return false
-	try {
-		return /microsoft|wsl/i.test(fs.readFileSync('/proc/version', 'utf8'))
-	}
-	catch {
-		return false
-	}
-})()
-
-// `~` in fs-mcp means "the CD user's home" — where their real files live from
-// Claude Desktop's perspective. In WSL thaaamt's the Windows profile, translated
-// to its /mnt mount. Everywhere else, os.homedir() already returns the right
-// thing (Mac: /Users/<name>, native Windows: C:\Users\<name>).
-function detectHome(): string {
-	if (IS_WSL) {
-		try {
-			const profile = execSync('cmd.exe /c echo %USERPROFILE%', { encoding: 'utf8' })
-				.trim().replace(/\r$/, '')
-			if (profile) {
-				const wslPath = execSync(
-					`wslpath ${JSON.stringify(profile)}`,
-					{ encoding: 'utf8' }
-				).trim()
-				if (wslPath)
-					return wslPath
-			}
-		}
-		catch {}
-	}
-	return os.homedir()
-}
-
-const HOME = detectHome()
-
-// translatePath takes any path expression a CD config or tool call might
-// reasonably produce and returns what the current platform's node runtime can
-// actually open. Throws if the path isn't reachable from here — e.g. a Windows
-// drive path on a Mac process.
-//
-// Accepts:
-//   ~ / ~/...              — CD user's home (see detectHome)
-//   C:\... / D:\...        — Windows drive path
-//   /mnt/<drive>/...       — WSL mount of a Windows drive
-//   /foo/...               — Unix absolute path
-//   relative               — resolved against cwd
-function translatePath(raw: string): string {
-	// 1. Tilde
-	let p = raw
-	if (p == '~')
-		p = HOME
-	else if (p.startsWith('~/') || p.startsWith('~\\'))
-		p = path.join(HOME, p.slice(2))
-
-	// 2. Windows drive path (C:\foo or C:/foo)
-	if (/^[A-Za-z]:[\\/]/.test(p)) {
-		if (process.platform == 'win32')
-			return path.normalize(p)
-		if (IS_WSL) {
-			const out = execSync(`wslpath ${JSON.stringify(p)}`, { encoding: 'utf8' }).trim()
-			return out
-		}
-		throw new Error(`Windows drive path not reachable on ${process.platform}: ${p}`)
-	}
-
-	// 3. WSL mount path (/mnt/c/foo)
-	if (/^\/mnt\/[a-z]\//i.test(p)) {
-		if (IS_WSL || process.platform == 'linux')
-			return p
-		if (process.platform == 'win32') {
-			const out = execSync(`wsl.exe wslpath -w ${JSON.stringify(p)}`, { encoding: 'utf8' })
-				.trim().replace(/\r$/, '')
-			return out
-		}
-		throw new Error(`WSL mount path not reachable on ${process.platform}: ${p}`)
-	}
-
-	// 4. Unix absolute — works everywhere except native Windows
-	if (p.startsWith('/')) {
-		if (process.platform == 'win32')
-			throw new Error(`Unix-style absolute path not reachable on win32: ${p}`)
-		return p
-	}
-
-	// 5. Relative — resolve against cwd
-	return path.resolve(p)
-}
+// Every tool funnels through resolveAllowed() before touching the filesystem.
+// Allowed roots come from positional argv.
 
 function collectRoots(): string[] {
 	const argv = process.argv.slice(2).map(s => s.trim()).filter(Boolean)
 	if (argv.length == 0)
 		throw new Error('fs-mcp requires at least one allowed path as an argument')
-	return argv.map(translatePath).map(p => path.resolve(p))
+	return argv.map(p => path.resolve(translator.translate(p)))
 }
 
-// Windows filesystems are case-insensitive. Mac's default APFS is too (though
-// can be case-sensitive). Linux is case-sensitive. For the allowlist check,
-// lower-case both sides on win32/darwin; preserve case for ops.
 function cmpKey(p: string): string {
-	if (process.platform == 'win32' || process.platform == 'darwin')
-		return p.toLowerCase()
-	return p
+	return MODE == 'windows' ? p.toLowerCase() : p
 }
 
 const ALLOWED_ROOTS = collectRoots()
 const ALLOWED_CMP = ALLOWED_ROOTS.map(cmpKey)
 
 function resolveAllowed(p: string): string {
-	const abs = path.resolve(translatePath(p))
+	const abs = path.resolve(translator.translate(p))
 	let canonical: string
 	try {
 		canonical = fs.realpathSync(abs)
 	}
 	catch {
-		// target may not exist yet (writes, mkdir). Canonicalise the parent
+		// Target may not exist yet (writes, mkdir). Canonicalise the parent
 		// to prevent symlink escape via a non-existent leaf.
 		const parent = path.dirname(abs)
 		try {
@@ -151,49 +69,35 @@ function resolveAllowed(p: string): string {
 		}
 	}
 	const cmp = cmpKey(canonical)
-	const allowed = ALLOWED_CMP.some(r => cmp == r || cmp.startsWith(r + path.sep))
-	if (!allowed)
+	if (!ALLOWED_CMP.some(r => cmp == r || cmp.startsWith(r + path.sep)))
 		throw new Error(`Path outside allowlist: ${canonical}`)
 	return canonical
 }
 
-// ─── Response helpers ───────────────────────────────────────────────────────
-
-function ok(text: string) {
-	return { content: [{ type: 'text' as const, text }] }
-}
-function err(e: unknown) {
-	const msg = e instanceof Error ? e.message : String(e)
-	return { content: [{ type: 'text' as const, text: `Error: ${msg}` }], isError: true }
-}
-
-// ─── Server ─────────────────────────────────────────────────────────────────
+// ─── Server ────────────────────────────────────────────────────────────────
 
 const server = new McpServer({
 	name: 'fs-mcp',
-	version: '0.1.0'
+	version: '0.2.0'
 })
 
-// ─── fs_read ────────────────────────────────────────────────────────────────
+// ─── fs_read ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_read',
 	{
-		description: [
-			'Read a file from disk. Returns full content by default.',
-			'Use offset + limit to read a slice of a large file (line-based, 1-indexed).',
-			'Read-only.'
-		].join(' '),
+		description: 'Read a text file. Use offset + limit to slice large files (line-based, 1-indexed). Read-only.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to the file'),
-			offset: z.number().int().min(1).optional().describe('1-indexed line to start reading from'),
-			limit: z.number().int().min(1).optional().describe('Max lines to read')
+			path: z.string().describe('Path to the file'),
+			offset: z.number().int().min(1).optional().describe('1-indexed start line'),
+			limit: z.number().int().min(1).optional().describe('Max lines to return')
 		},
 		annotations: { readOnlyHint: true }
 	},
 	async ({ path: p, offset, limit }) => {
 		try {
 			const safe = resolveAllowed(p)
+			requireExists(safe, 'file')
 			const content = fs.readFileSync(safe, 'utf8')
 			if (offset == undefined && limit == undefined)
 				return ok(content)
@@ -208,18 +112,14 @@ server.registerTool(
 	}
 )
 
-// ─── fs_read_many ───────────────────────────────────────────────────────────
+// ─── fs_read_many ──────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_read_many',
 	{
-		description: [
-			'Read multiple files in one call. Returns each file with a header and its content.',
-			'Errors on individual files are reported inline and do not abort the batch.',
-			'Read-only.'
-		].join(' '),
+		description: 'Read multiple text files in one call. Errors on individual files are reported inline. Read-only.',
 		inputSchema: {
-			paths: z.array(z.string()).min(1).describe('Absolute paths to read')
+			paths: z.array(z.string()).min(1).describe('Paths to read')
 		},
 		annotations: { readOnlyHint: true }
 	},
@@ -228,6 +128,7 @@ server.registerTool(
 		for (const p of paths) {
 			try {
 				const safe = resolveAllowed(p)
+				requireExists(safe, 'file')
 				const content = fs.readFileSync(safe, 'utf8')
 				parts.push(`=== ${safe} ===\n${content}`)
 			}
@@ -240,18 +141,46 @@ server.registerTool(
 	}
 )
 
-// ─── fs_list ────────────────────────────────────────────────────────────────
+// ─── fs_read_media ─────────────────────────────────────────────────────────
+
+server.registerTool(
+	'fs_read_media',
+	{
+		description: 'Read a binary/image file as base64. Returns data and MIME type. Read-only.',
+		inputSchema: {
+			path: z.string().describe('Path to the file')
+		},
+		annotations: { readOnlyHint: true }
+	},
+	async ({ path: p }) => {
+		try {
+			const safe = resolveAllowed(p)
+			requireExists(safe, 'file')
+			const ext = path.extname(safe).toLowerCase()
+			const mime = MIME_MAP[ext] || 'application/octet-stream'
+			const buf = fs.readFileSync(safe)
+			const b64 = buf.toString('base64')
+			return ok(JSON.stringify({
+				path: safe,
+				mime,
+				size: buf.length,
+				data: b64
+			}, null, 2))
+		}
+		catch (e) {
+			return err(e)
+		}
+	}
+)
+
+// ─── fs_list ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_list',
 	{
-		description: [
-			'List entries in a directory. Returns JSON array of {name, type, size?}.',
-			'Type is "file", "dir", or "other" (symlink, socket, etc.).',
-			'Read-only.'
-		].join(' '),
+		description: 'List entries in a directory. Returns JSON array of {name, type, size?}. Read-only.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to the directory'),
+			path: z.string().describe('Path to the directory'),
 			with_sizes: z.boolean().optional().default(false).describe('Include file sizes in bytes')
 		},
 		annotations: { readOnlyHint: true }
@@ -259,6 +188,7 @@ server.registerTool(
 	async ({ path: p, with_sizes }) => {
 		try {
 			const safe = resolveAllowed(p)
+			requireExists(safe, 'dir')
 			const entries = fs.readdirSync(safe, { withFileTypes: true })
 			const out = entries.map(e => {
 				const type = e.isFile() ? 'file' : e.isDirectory() ? 'dir' : 'other'
@@ -279,18 +209,14 @@ server.registerTool(
 	}
 )
 
-// ─── fs_tree ────────────────────────────────────────────────────────────────
+// ─── fs_tree ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_tree',
 	{
-		description: [
-			'Print a directory tree to the given depth.',
-			'Default depth is 3. Hidden files (leading dot) are included.',
-			'Read-only.'
-		].join(' '),
+		description: 'Print a directory tree to the given depth. Default depth 3. Read-only.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to the root directory'),
+			path: z.string().describe('Path to the root directory'),
 			depth: z.number().int().min(1).max(10).optional().default(3).describe('Max depth (default 3)')
 		},
 		annotations: { readOnlyHint: true }
@@ -298,6 +224,7 @@ server.registerTool(
 	async ({ path: p, depth }) => {
 		try {
 			const safe = resolveAllowed(p)
+			requireExists(safe, 'dir')
 			const lines: string[] = [safe]
 			const walk = (dir: string, prefix: string, remaining: number) => {
 				if (remaining <= 0)
@@ -313,10 +240,14 @@ server.registerTool(
 				entries.forEach((e, i) => {
 					const last = i == entries.length - 1
 					const branch = last ? '└── ' : '├── '
-					const suffix = e.isDirectory() ? '/' : ''
+					const suffix = e.isDirectory() ? path.sep : ''
 					lines.push(prefix + branch + e.name + suffix)
-					if (e.isDirectory())
-						walk(path.join(dir, e.name), prefix + (last ? '    ' : '│   '), remaining - 1)
+					if (e.isDirectory()) {
+						walk(
+							path.join(dir, e.name),
+							prefix + (last ? '    ' : '│   '),
+							remaining - 1)
+					}
 				})
 			}
 			walk(safe, '', depth)
@@ -328,18 +259,14 @@ server.registerTool(
 	}
 )
 
-// ─── fs_info ────────────────────────────────────────────────────────────────
+// ─── fs_info ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_info',
 	{
-		description: [
-			'Stat a path. Returns JSON with existence, type, size, and mtime.',
-			'Does not throw if the path is missing — returns {exists: false}.',
-			'Read-only.'
-		].join(' '),
+		description: 'Stat a path. Returns JSON with existence, type, size, mtime. Returns {exists: false} if missing (the "does this exist" tool; other tools error on missing paths). Read-only.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to stat')
+			path: z.string().describe('Path to stat')
 		},
 		annotations: { readOnlyHint: true }
 	},
@@ -369,20 +296,15 @@ server.registerTool(
 	}
 )
 
-// ─── fs_find ────────────────────────────────────────────────────────────────
+// ─── fs_find ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_find',
 	{
-		description: [
-			'Find files by name pattern (glob). Recurses from the given path.',
-			'Pattern examples: "**/*.md", "src/**/*.ts", "*.json".',
-			'Returns newline-separated absolute paths.',
-			'Read-only.'
-		].join(' '),
+		description: 'Find files by glob pattern, recursing from the given path. Read-only.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to search from'),
-			pattern: z.string().describe('Glob pattern to match (e.g. "**/*.md")'),
+			path: z.string().describe('Path to search from'),
+			pattern: z.string().describe('Glob pattern (e.g. "**/*.md")'),
 			exclude: z.array(z.string()).optional().describe('Glob patterns to exclude'),
 			type: z.enum(['file', 'dir']).optional().describe('Limit to files or directories'),
 			max_results: z.number().int().min(1).max(1000).optional().default(250).describe('Cap on results (default 250)')
@@ -392,6 +314,7 @@ server.registerTool(
 	async ({ path: p, pattern, exclude, type, max_results }) => {
 		try {
 			const safe = resolveAllowed(p)
+			requireExists(safe, 'dir')
 			const results = await fg(pattern, {
 				cwd: safe,
 				absolute: true,
@@ -402,10 +325,10 @@ server.registerTool(
 				suppressErrors: true
 			})
 			const capped = results.slice(0, max_results)
-			const truncated = results.length > max_results
-				? `\Yn(truncated: ${results.length} total, showing ${max_results})`
+			const suffix = results.length > max_results
+				? `\n(truncated: ${results.length} total, showing ${max_results})`
 				: ''
-			return ok(capped.join('\n') + truncated)
+			return ok(capped.join('\n') + suffix)
 		}
 		catch (e) {
 			return err(e)
@@ -413,73 +336,147 @@ server.registerTool(
 	}
 )
 
-// ─── fs_grep ────────────────────────────────────────────────────────────────
+// ─── fs_grep ───────────────────────────────────────────────────────────────
+//
+// Pure-JS (no ripgrep dependency): glob files, read each, match line by line.
+
+const DEFAULT_GREP_EXCLUDES = [
+	'**/node_modules/**',
+	'**/.git/**',
+	'**/dist/**',
+	'**/build/**',
+	'**/.next/**',
+	'**/.cache/**'
+]
 
 server.registerTool(
 	'fs_grep',
 	{
-		description: [
-			'Search file contents with ripgrep. Mirrors Claude Code\'s Grep tool.',
-			'Output modes: "content" shows matching lines with optional context,',
-			'"files_with_matches" shows only file paths (default),',
-			'"count" shows match counts per file.',
-			'Use fixed_string: true to search for a literal string instead of regex.',
-			'Requires ripgrep (rg) on PATH.',
-			'Read-only.'
-		].join(' '),
+		description: 'Search file contents with a regex. Output modes: "content" (matching lines with line numbers), "files_with_matches" (paths, default), "count" (per-file counts). Noisy directories (node_modules, .git, dist, build, .next, .cache) are excluded by default; pass exclude to override. Read-only.',
 		inputSchema: {
 			pattern: z.string().describe('Regex pattern (or literal if fixed_string: true)'),
-			path: z.string().describe('Absolute path to search (file or directory)'),
-			glob: z.string().optional().describe('File glob filter (e.g. "*.ts")'),
-			type: z.string().optional().describe('rg file type filter (e.g. "js", "py")'),
+			path: z.string().describe('Path to search (file or directory)'),
+			glob: z.string().optional().describe('File glob filter (e.g. "**/*.ts"). Defaults to all files if path is a directory.'),
+			exclude: z.array(z.string()).optional().describe(`Glob patterns to exclude (overrides defaults: ${DEFAULT_GREP_EXCLUDES.join(', ')})`),
 			output_mode: z.enum(['content', 'files_with_matches', 'count']).optional()
 				.default('files_with_matches').describe('Output format (default: files_with_matches)'),
 			case_insensitive: z.boolean().optional().default(false).describe('Case-insensitive match'),
-			context: z.number().int().min(0).max(20).optional().describe('Lines of symmetric context (content mode only)'),
-			multiline: z.boolean().optional().default(false).describe('Pattern can match across lines'),
+			context: z.number().int().min(0).max(20).optional().default(0).describe('Lines of context (content mode only)'),
 			fixed_string: z.boolean().optional().default(false).describe('Treat pattern as literal string'),
-			head_limit: z.number().int().min(1).max(1000).optional().default(250).describe('Cap on output lines (default 250)')
+			head_limit: z.number().int().min(1).max(1000).optional().default(250).describe('Cap on output lines/files (default 250)'),
+			max_files: z.number().int().min(1).max(50000).optional().default(5000).describe('Max files to scan (default 5000)')
 		},
 		annotations: { readOnlyHint: true }
 	},
-	async ({ pattern, path: p, glob, type, output_mode, case_insensitive, context, multiline, fixed_string, head_limit }) => {
+	async ({ pattern, path: p, glob, exclude, output_mode, case_insensitive, context, fixed_string, head_limit, max_files }) => {
 		try {
 			const safe = resolveAllowed(p)
-			const args: string[] = []
-			if (output_mode == 'files_with_matches')
-				args.push('-l')
-			else if (output_mode == 'count')
-				args.push('-c')
+			const st = requireExists(safe)
+
+			const escaped = fixed_string
+				? pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+				: pattern
+			let regex: RegExp
+			try {
+				regex = new RegExp(escaped, case_insensitive ? 'i' : '')
+			}
+			catch (e) {
+				throw new Error(`Invalid regex: ${e instanceof Error ? e.message : String(e)}`)
+			}
+
+			const targets: string[] = []
+			let scanCappedAt: number | null = null
+			if (st.isFile())
+				targets.push(safe)
 			else {
-				args.push('-n')
-				if (context != undefined)
-					args.push('-C', String(context))
+				const found = await fg(glob || '**/*', {
+					cwd: safe,
+					absolute: true,
+					onlyFiles: true,
+					dot: true,
+					suppressErrors: true,
+					ignore: exclude ?? DEFAULT_GREP_EXCLUDES
+				})
+				if (found.length > max_files)
+					scanCappedAt = found.length
+				targets.push(...found.slice(0, max_files))
 			}
-			if (case_insensitive)
-				args.push('-i')
-			if (multiline)
-				args.push('-U', '--multiline-dotall')
-			if (fixed_string)
-				args.push('-F')
-			if (glob)
-				args.push('--glob', glob)
-			if (type)
-				args.push('--type', type)
-			args.push('--', pattern, safe)
-			const res = spawnSync('rg', args, { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
-			// rg exit 0 = match, 1 = no match, 2 = error
-			if (res.status == 1)
-				return ok('(no matches)')
-			if (res.status != 0) {
-				const stderr = res.stderr || '(no stderr)'
-				return err(new Error(`rg failed (exit ${res.status}): ${stderr.trim()}`))
+
+			const contentLines: string[] = []
+			const matchedFiles: string[] = []
+			const counts: Array<{ file: string; count: number }> = []
+
+			for (const file of targets) {
+				let text: string
+				try {
+					text = fs.readFileSync(file, 'utf8')
+				}
+				catch {
+					continue
+				}
+				const lines = text.split('\n')
+				let fileCount = 0
+				const fileHits: number[] = []
+				for (let i = 0; i < lines.length; i++) {
+					if (regex.test(lines[i])) {
+						fileCount++
+						fileHits.push(i)
+					}
+				}
+				if (fileCount == 0)
+					continue
+
+				if (output_mode == 'files_with_matches') {
+					matchedFiles.push(file)
+				}
+				else if (output_mode == 'count') {
+					counts.push({ file, count: fileCount })
+				}
+				else {
+					const printed = new Set<number>()
+					for (const hit of fileHits) {
+						const start = Math.max(0, hit - context)
+						const end = Math.min(lines.length - 1, hit + context)
+						for (let i = start; i <= end; i++) {
+							if (printed.has(i))
+								continue
+							printed.add(i)
+							const sep = i == hit ? ':' : '-'
+							contentLines.push(`${file}${sep}${i + 1}${sep}${lines[i]}`)
+						}
+					}
+				}
 			}
-			const lines = (res.stdout || '').split('\n')
-			const capped = lines.slice(0, head_limit).join('\n')
-			const truncated = lines.length > head_limit
-				? `\n(truncated: ${lines.length} total lines, showing ${head_limit})`
-				: ''
-			return ok(capped + truncated)
+
+			let out: string
+			if (output_mode == 'files_with_matches') {
+				const capped = matchedFiles.slice(0, head_limit)
+				const suffix = matchedFiles.length > head_limit
+					? `\n(truncated: ${matchedFiles.length} total, showing ${head_limit})`
+					: ''
+				out = capped.length == 0 ? '(no matches)' : capped.join('\n') + suffix
+			}
+			else if (output_mode == 'count') {
+				const capped = counts.slice(0, head_limit)
+				const suffix = counts.length > head_limit
+					? `\n(truncated: ${counts.length} total, showing ${head_limit})`
+					: ''
+				out = capped.length == 0
+					? '(no matches)'
+					: capped.map(c => `${c.file}:${c.count}`).join('\n') + suffix
+			}
+			else {
+				const capped = contentLines.slice(0, head_limit)
+				const suffix = contentLines.length > head_limit
+					? `\n(truncated: ${contentLines.length} total lines, showing ${head_limit})`
+					: ''
+				out = capped.length == 0 ? '(no matches)' : capped.join('\n') + suffix
+			}
+
+			if (scanCappedAt != null)
+				out = `(scan capped: ${scanCappedAt} files matched, scanned first ${max_files} — raise max_files or narrow glob/exclude)\n${out}`
+
+			return ok(out)
 		}
 		catch (e) {
 			return err(e)
@@ -487,19 +484,14 @@ server.registerTool(
 	}
 )
 
-// ─── fs_write ───────────────────────────────────────────────────────────────
+// ─── fs_write ──────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_write',
 	{
-		description: [
-			'Write content to a file. Destructive: overwrites existing files.',
-			'Auto-creates parent directories.',
-			'Ask the user before calling this on an existing file unless they just told you to write.',
-			'Returns bytes written and whether the file existed before.'
-		].join(' '),
+		description: 'Write content to a file. Overwrites by default. Auto-creates parent directories. Ask the user before calling on an existing file unless they just requested the write.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to the file'),
+			path: z.string().describe('Path to the file'),
 			content: z.string().describe('Content to write'),
 			append: z.boolean().optional().default(false).describe('Append instead of overwrite')
 		},
@@ -528,43 +520,49 @@ server.registerTool(
 	}
 )
 
-// ─── fs_edit ────────────────────────────────────────────────────────────────
+// ─── fs_edit ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_edit',
 	{
-		description: [
-			'Edit a file by replacing old_string with new_string. Destructive.',
-			'old_string must match exactly once unless replace_all is true.',
-			'If old_string is not unique (and replace_all is false), the tool fails — expand',
-			'old_string with surrounding context until it is unique.',
-			'Ask the user before calling this unless they just asked for the change.'
-		].join(' '),
+		description: 'Find-and-replace in a file. old_string must match exactly once unless replace_all is true. Expand old_string with surrounding context if not unique. Pass dry_run: true to preview the change as a diff without writing.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to the file'),
-			old_string: z.string().min(1).describe('Text to replace (must be unique in the file)'),
+			path: z.string().describe('Path to the file'),
+			old_string: z.string().min(1).describe('Text to replace (must be unique)'),
 			new_string: z.string().describe('Replacement text'),
-			replace_all: z.boolean().optional().default(false).describe('Replace every occurrence')
+			replace_all: z.boolean().optional().default(false).describe('Replace every occurrence'),
+			dry_run: z.boolean().optional().default(false).describe('Preview the change as a diff without writing')
 		},
 		annotations: { destructiveHint: true }
 	},
-	async ({ path: p, old_string, new_string, replace_all }) => {
+	async ({ path: p, old_string, new_string, replace_all, dry_run }) => {
 		try {
 			const safe = resolveAllowed(p)
+			requireExists(safe, 'file')
 			const content = fs.readFileSync(safe, 'utf8')
-			const occurrences = content.split(old_string).length - 1
-			if (occurrences == 0)
+			const count = content.split(old_string).length - 1
+			if (count == 0)
 				throw new Error('old_string not found in file')
-			if (occurrences > 1 && !replace_all)
-				throw new Error(`old_string matches ${occurrences} times — expand it with surrounding context to make it unique, or pass replace_all: true`)
+			if (count > 1 && !replace_all)
+				throw new Error(`old_string matches ${count} times — expand with surrounding context or pass replace_all: true`)
+			const replacements = replace_all ? count : 1
+
+			if (dry_run) {
+				const minusLines = old_string.split('\n').map(l => `- ${l}`)
+				const plusLines = new_string.split('\n').map(l => `+ ${l}`)
+				const diff = [
+					`--- ${safe} (${replacements} replacement${replacements == 1 ? '' : 's'})`,
+					...minusLines,
+					...plusLines
+				].join('\n')
+				return ok(diff)
+			}
+
 			const updated = replace_all
 				? content.split(old_string).join(new_string)
 				: content.replace(old_string, new_string)
 			fs.writeFileSync(safe, updated)
-			return ok(JSON.stringify({
-				path: safe,
-				replacements: replace_all ? occurrences : 1
-			}, null, 2))
+			return ok(JSON.stringify({ path: safe, replacements }, null, 2))
 		}
 		catch (e) {
 			return err(e)
@@ -572,17 +570,14 @@ server.registerTool(
 	}
 )
 
-// ─── fs_mkdir ───────────────────────────────────────────────────────────────
+// ─── fs_mkdir ──────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_mkdir',
 	{
-		description: [
-			'Create a directory. Recursive by default (parent directories auto-created).',
-			'Returns whether the directory already existed.'
-		].join(' '),
+		description: 'Create a directory. Recursive by default (parents auto-created).',
 		inputSchema: {
-			path: z.string().describe('Absolute path to create'),
+			path: z.string().describe('Path to create'),
 			recursive: z.boolean().optional().default(true).describe('Create parent directories (default true)')
 		},
 		annotations: { idempotentHint: true }
@@ -600,33 +595,32 @@ server.registerTool(
 	}
 )
 
-// ─── fs_copy ────────────────────────────────────────────────────────────────
+// ─── fs_copy ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_copy',
 	{
-		description: [
-			'Copy a file or directory. Auto-creates parent directories of dst.',
-			'For directories, recursive must be true.',
-			'Overwrites dst if it exists — destructive.'
-		].join(' '),
+		description: 'Copy a file or directory. For directories, recursive must be true. Fails if dst exists unless overwrite is true.',
 		inputSchema: {
-			src: z.string().describe('Absolute source path'),
-			dst: z.string().describe('Absolute destination path'),
-			recursive: z.boolean().optional().default(false).describe('Required for directories')
+			src: z.string().describe('Source path'),
+			dst: z.string().describe('Destination path'),
+			recursive: z.boolean().optional().default(false).describe('Required for directories'),
+			overwrite: z.boolean().optional().default(false).describe('Allow overwriting dst if it exists')
 		},
 		annotations: { destructiveHint: true }
 	},
-	async ({ src, dst, recursive }) => {
+	async ({ src, dst, recursive, overwrite }) => {
 		try {
 			const safeSrc = resolveAllowed(src)
 			const safeDst = resolveAllowed(dst)
-			const srcStat = fs.statSync(safeSrc)
+			const srcStat = requireExists(safeSrc)
 			if (srcStat.isDirectory() && !recursive)
 				throw new Error('src is a directory — pass recursive: true')
+			if (!overwrite && fs.existsSync(safeDst))
+				throw new Error(`dst already exists: ${safeDst} — pass overwrite: true to replace`)
 			fs.mkdirSync(path.dirname(safeDst), { recursive: true })
-			fs.cpSync(safeSrc, safeDst, { recursive, force: true })
-			return ok(JSON.stringify({ src: safeSrc, dst: safeDst }, null, 2))
+			fs.cpSync(safeSrc, safeDst, { recursive, force: overwrite })
+			return ok(JSON.stringify({ src: safeSrc, dst: safeDst, overwritten: overwrite }, null, 2))
 		}
 		catch (e) {
 			return err(e)
@@ -634,19 +628,15 @@ server.registerTool(
 	}
 )
 
-// ─── fs_move ────────────────────────────────────────────────────────────────
+// ─── fs_move ───────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_move',
 	{
-		description: [
-			'Move or rename a file or directory. Auto-creates parent directories of dst.',
-			'Fails if dst already exists.',
-			'Destructive: removes src from its original location.'
-		].join(' '),
+		description: 'Move or rename a file or directory. Fails if dst exists. Auto-creates parent dirs.',
 		inputSchema: {
-			src: z.string().describe('Absolute source path'),
-			dst: z.string().describe('Absolute destination path')
+			src: z.string().describe('Source path'),
+			dst: z.string().describe('Destination path')
 		},
 		annotations: { destructiveHint: true }
 	},
@@ -654,6 +644,7 @@ server.registerTool(
 		try {
 			const safeSrc = resolveAllowed(src)
 			const safeDst = resolveAllowed(dst)
+			requireExists(safeSrc)
 			if (fs.existsSync(safeDst))
 				throw new Error(`dst already exists: ${safeDst}`)
 			fs.mkdirSync(path.dirname(safeDst), { recursive: true })
@@ -666,27 +657,22 @@ server.registerTool(
 	}
 )
 
-// ─── fs_delete ──────────────────────────────────────────────────────────────
+// ─── fs_delete ─────────────────────────────────────────────────────────────
 
 server.registerTool(
 	'fs_delete',
 	{
-		description: [
-			'Delete a file or directory. Destructive and irreversible.',
-			'For directories, recursive must be true — the opt-in is the hard seam.',
-			'ALWAYS ask the user before calling this tool unless they just asked for the deletion.',
-			'Returns what was deleted.'
-		].join(' '),
+		description: 'Delete a file or directory. For directories, recursive must be true. ALWAYS ask the user before calling unless they requested the deletion.',
 		inputSchema: {
-			path: z.string().describe('Absolute path to delete'),
-			recursive: z.boolean().optional().default(false).describe('Required for directories')
+			path: z.string().describe('Path to delete'),
+			recursive: z.boolean().optional().default(false).describe('Required for non-empty directories')
 		},
 		annotations: { destructiveHint: true }
 	},
 	async ({ path: p, recursive }) => {
 		try {
 			const safe = resolveAllowed(p)
-			const st = fs.statSync(safe)
+			const st = requireExists(safe)
 			const type = st.isDirectory() ? 'dir' : 'file'
 			if (type == 'dir' && !recursive)
 				throw new Error('path is a directory — pass recursive: true')
@@ -699,7 +685,105 @@ server.registerTool(
 	}
 )
 
-// ─── Main ───────────────────────────────────────────────────────────────────
+// ─── fs_path ───────────────────────────────────────────────────────────────
+//
+// Pure path translation. Does not touch the filesystem and does not apply
+// the allowlist — callers use it to discover what a path expression resolves
+// to in the native form for the current OS.
+
+server.registerTool(
+	'fs_path',
+	{
+		description: 'Translate one or more path expressions to native form for the current OS and report existence/type. Handles ~/ expansion, %VAR% expansion, and WSL/Windows path conversion. Returns {input, path, allowed, exists, type} for a single input, or an array of such objects for an array input. Read-only.',
+		inputSchema: {
+			path: z.union([z.string(), z.array(z.string()).min(1)]).describe('Path expression, or array of path expressions')
+		},
+		annotations: { readOnlyHint: true }
+	},
+	async ({ path: p }: { path: string | string[] }) => {
+		const resolveOne = (input: string) => {
+			let resolved = path.resolve(translator.translate(input))
+			let allowed = false
+			try {
+				resolved = resolveAllowed(input)
+				allowed = true
+			}
+			catch {}
+			let exists = false
+			let type: string | null = null
+			if (allowed) {
+				try {
+					const st = fs.statSync(resolved)
+					exists = true
+					type = st.isFile() ? 'file' : st.isDirectory() ? 'dir' : 'other'
+				}
+				catch {}
+			}
+			return { input, path: resolved, allowed, exists, type }
+		}
+
+		try {
+			if (Array.isArray(p)) {
+				const results = p.map(input => {
+					try {
+						return resolveOne(input)
+					}
+					catch (e) {
+						return {
+							input,
+							error: e instanceof Error ? e.message : String(e)
+						}
+					}
+				})
+				return ok(JSON.stringify(results, null, 2))
+			}
+			return ok(JSON.stringify(resolveOne(p), null, 2))
+		}
+		catch (e) {
+			return err(e)
+		}
+	}
+)
+
+// ─── fs_config ─────────────────────────────────────────────────────────────
+
+server.registerTool(
+	'fs_config',
+	{
+		description: 'Show current fs-mcp configuration: mode, home, WSL settings, allowed roots, and example path resolutions. Read-only.',
+		inputSchema: {},
+		annotations: { readOnlyHint: true }
+	},
+	async () => {
+		const examples: Record<string, string> = {}
+		const tryResolve = (label: string, raw: string) => {
+			try {
+				examples[label] = translator.translate(raw)
+			}
+			catch (e) {
+				examples[label] = `(error: ${e instanceof Error ? e.message : String(e)})`
+			}
+		}
+		tryResolve('~', '~')
+		tryResolve('~/Dropbox', '~/Dropbox')
+		tryResolve('~/.claude', '~/.claude')
+		tryResolve('%APPDATA%', '%APPDATA%')
+		tryResolve('C:\\Code\\Unity', 'C:\\Code\\Unity')
+		tryResolve('/home/samfr', '/home/samfr')
+		tryResolve('/mnt/c/foo', '/mnt/c/foo')
+
+		return ok(JSON.stringify({
+			mode: MODE,
+			platform: process.platform,
+			home: HOME,
+			wsl: wslConfig ?? null,
+			allowed_roots: ALLOWED_ROOTS,
+			example_resolutions: examples
+		}, null, 2))
+	}
+)
+
+// ─── Main ──────────────────────────────────────────────────────────────────
 
 async function main() {
 	const transport = new StdioServerTransport()
