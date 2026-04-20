@@ -1,5 +1,5 @@
 ---
-description: Create an Architecture Decision Record for a PBI — design the solution with snag awareness and learning compliance
+description: Create an Architecture Decision Record for a PBI — design the solution with snag awareness, template conformance, and learning compliance
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 
@@ -11,115 +11,123 @@ Design the solution for a PBI. This is a conversation — a grill session with t
 
 1. Read `wag/references/questioning.md` for conversational style guidance.
 2. Confirm `.wag/` exists. If not, tell the user to run `/wag:init` first.
-3. Read `.wag/docs/Architecture.md` and `.wag/docs/PRD.md` for project context.
+3. Read the current templates the ADR will need to understand:
+   - `wag/templates/architecture.md` — shape of `Architecture.md`
+   - `wag/templates/prd.md` — shape of `PRD.md`
+   - `wag/templates/backlog-epic.md` — shape of `epic.md`
+   - `wag/templates/backlog-pbi.md` — shape of each PBI file
+4. Read `.wag/docs/Architecture.md` and `.wag/docs/PRD.md` for project context.
 
-## Phase 1: Pre-flight checks
+## Phase 1: Pre-flight — halt on unresolved snags and template drift
 
-### Check for open snags
+### Halt on open snags
 
-Read `.wag/snags/` for any open snag files (status: open). If any exist, present them:
+Scan `.wag/snags/` for any file with `**Status:** open`. **If any exist, halt immediately.**
 
-> "There are open snags that may affect this work:"
-> - SNAG-001: [title] — targets [doc section]
-> - SNAG-002: [title] — targets [doc section]
+- Do not present a menu of options.
+- Do not let the user "acknowledge and proceed" past the snag.
+- Do not attempt to resolve the snag by guessing at its default fix.
 
-Upstream truth must be correct before starting new work. The user resolves or explicitly acknowledges each snag before continuing.
+Surface the halt to the user:
+
+> "An open snag blocks this work:
+> - SNAG-NNN — [title]. Target: [target field]. Default recommendation: [from the snag's Fix options, if present].
+>
+> How do you want to proceed? I can drive the snag-resolution protocol (`wag/workflows/snag-resolution.md`) with you, or you can direct a different disposition."
+
+Proceed only on explicit user direction. If the user says "resolve," enter the snag-resolution protocol inline — the full 4-step flow runs in this session, not in a separate command.
+
+Open snags block ALL workflow commands, not only those that touch the snag's target. An open snag signals the WAG system has an unpatched defect.
+
+### Halt on template drift
+
+Compare the project's docs against the current templates:
+
+- `.wag/docs/PRD.md` vs `wag/templates/prd.md`
+- `.wag/docs/Architecture.md` vs `wag/templates/architecture.md`
+- Each `epic.md` in `.wag/backlog/` vs `wag/templates/backlog-epic.md`
+- Each PBI file in `.wag/backlog/` vs `wag/templates/backlog-pbi.md`
+
+If any doc is missing a required section or diverges from the template shape, **halt**. Surface the drift:
+
+> "Template drift detected:
+> - [file]: [what's missing or different]
+>
+> How do you want to proceed? I can capture a snag and drive the resolution protocol (likely a migration to the current template), or you can direct."
+
+Proceed only on explicit user direction.
 
 ### Check for active ADR
 
-If `adr/active/` already contains an ADR, previous work is in progress. Present it to the user and discuss — are they resuming, or starting fresh?
+If `adr/active/` already contains an ADR, previous work is in progress. Present it and ask whether the user is resuming or starting fresh.
 
 ### Determine working context
 
-Read `.wag/state.json` to check the `active_epic` field, then examine `.wag/backlog/`.
+Read `.wag/state.json` to check `active_epic`, then examine `.wag/backlog/`.
 
 **Backlog shape:**
-- **Epic folders** (`epic-NNN-slug/`) each contain an `epic.md` and zero or more PBI files (`PBI-NNN-slug.md`).
-- **Standalone PBIs** live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`, not inside any epic folder.
-
-Not every PBI belongs to an epic. Bug fixes, one-offs, and small refactors may be standalone. The backlog can mix both shapes.
+- **Epic folders** (`epic-NNN-slug/`) each contain an `epic.md` and zero or more PBI files.
+- **Standalone PBIs** live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`.
 
 ### Pick a PBI
 
 Branch based on state:
 
-**Case A — `active_epic` is set** (e.g., `"epic-001-scaffold"`):
+**Case A — `active_epic` is set:**
 
-1. List the PBI files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's title, priority, and status.
-2. Also show a one-line reminder of the current epic (read `epic.md`'s title and goal).
-3. Present the default path: pick a PBI from the current epic.
-4. Offer two alternatives:
-   - **Switch to a different epic** — list all epic folders in `.wag/backlog/` with titles from each `epic.md`. If user picks one, update `active_epic` in state.json, then re-enter Case A with the new epic.
-   - **Work on a standalone PBI this time** — list standalone `PBI-NNN-slug.md` files at `.wag/backlog/` root. Do *not* change `active_epic` in state.json — the user is temporarily stepping out, not abandoning the epic. (If the user explicitly says they're done with the epic, set `active_epic` to `null`.)
+1. List PBI files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's title, priority, and status.
+2. Show a one-line reminder of the epic (title + goal from `epic.md`).
+3. Default path: pick a PBI from the current epic.
+4. Alternatives offered only if the user asks:
+   - Switch to a different epic — update `active_epic` in `state.json`.
+   - Work on a standalone PBI this session without changing `active_epic`.
 
 **Case B — `active_epic` is null:**
 
-1. List everything in the backlog:
-   - All epic folders (with title + goal excerpt from each `epic.md`)
-   - All standalone PBI files at the backlog root
-2. User picks one:
-   - **An epic** — set `active_epic` in state.json, then enter Case A. If the epic folder contains no PBI files yet, offer to define them together before writing an ADR. (Writing PBIs for an epic is a backlog-authoring activity; the ADR workflow resumes after PBIs exist.)
-   - **A standalone PBI** — proceed with that PBI. Leave `active_epic` as `null`.
+1. List epic folders (with title + goal from each `epic.md`) and standalone PBI files at the backlog root.
+2. User picks. If an epic, set `active_epic` in `state.json` and enter Case A. If standalone, proceed with that PBI.
 
-**Case C — the backlog is empty** (no epic folders and no standalone PBIs):
+**Case C — the backlog is empty:**
 
-Offer the user two paths:
-1. **Propose a new epic** — work with the user to define an epic (name, goal, deliverables, dependencies), create the `epic-NNN-slug/` folder, write `epic.md`, then decompose into initial PBIs.
-2. **Propose a standalone PBI** — work with the user to define a single PBI for an isolated piece of work.
-
-Either way, this is a backlog-authoring step. The ADR workflow stops at this point and resumes once the user confirms the new items exist on disk.
+Propose authoring a new epic or a standalone PBI. This is a backlog-authoring step; the ADR workflow resumes after the new items exist on disk. (Run `/wag:docs` if the user prefers the dedicated authoring command.)
 
 ### Read the selected PBI
 
-Once a PBI is selected (via any case above), read the PBI file for requirements and acceptance criteria. Proceed to Phase 2.
+Read the PBI file for requirements and acceptance criteria. Proceed to Phase 2.
 
 ## Phase 2: Design
 
 ### Load context
 
-1. Read the selected PBI.
-2. Read `.wag/docs/Architecture.md` — the current architecture.
-3. Read `.wag/docs/PRD.md` — the product requirements.
-4. If `active_epic` is set, also read `.wag/backlog/<active_epic>/epic.md` — the epic provides context the PBI may assume without restating.
-5. Read `~/.claude/wag/learnings/` for standards relevant to this PBI's domain. Filter by the `Applies to` field. Surface relevant learnings to the user:
+Read only what's needed:
 
-> "These learnings apply to this work:"
-> - LEARNING-001: [title] — [standard summary]
-> - LEARNING-003: [title] — [standard summary]
+1. The selected PBI.
+2. `.wag/docs/Architecture.md`.
+3. `.wag/docs/PRD.md`.
+4. If `active_epic` is set, `.wag/backlog/<active_epic>/epic.md`.
+5. `~/.claude/wag/learnings/` — filter by the `Applies to` field; surface learnings that match this PBI's domain.
 
-The ADR should reference and comply with these learnings.
+Do not pre-load the full backlog or every learning. Phase 1 has already verified template conformance; trust it.
 
 ### Grill session
 
-Design the solution with the user. This is iterative:
+Design the solution with the user. Iterative:
 
 - Propose approaches, discuss trade-offs
 - Challenge assumptions — yours and theirs
-- Reference the Architecture doc and learnings
-- If multiple approaches exist, lay them out with pros/cons
+- Reference Architecture.md and applicable learnings
 - Push for specificity — vague designs produce vague implementations
+- Resolve one decision at a time — surface the list of open decisions once, then work through them
 
 ### Inline snag capture
 
-If during design you discover the Architecture or PRD is wrong — an assumption doesn't hold, a section contradicts reality — capture a snag on the spot:
-
-1. Create `.wag/snags/SNAG-NNN.md` (same format as `/wag:snag`)
-2. Guide the user through resolving it — fix the impacted doc section
-3. Ask about promotion to a learning
-4. Continue designing with the corrected context
-
-Don't make the user leave the command. Handle it inline.
+If during design you discover the Architecture or PRD is wrong — an assumption doesn't hold, a section contradicts reality — capture a snag on the spot using `wag/templates/snag.md`. Then halt and drive the snag-resolution protocol (`wag/workflows/snag-resolution.md`) with the user. The resolution happens in this session, not deferred.
 
 ### Closing a PBI without writing an ADR
 
-Sometimes the grill dissolves the PBI's scope entirely — deliverables turn out to be already done, unachievable on the chosen platform tier, or deliberately out of scope given other decisions. In those cases, close the PBI without producing an ADR. Follow the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`:
+Sometimes the grill dissolves the PBI's scope entirely — deliverables already done, unachievable on the chosen tier, or out of scope given other decisions. Close the PBI per the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`. Commit the closure inline — no deferred ADR commit is coming.
 
-1. Add a closure note at the top of the PBI file: `**Status:** Closed <date> — <short reason>` plus a `> **Closure note.**` block summarising what actually happened and citing any SNAGs / LEARNINGs produced during the grill.
-2. `mv` the PBI into the pre-created `.wag/backlog/_completed/<epic-slug>/` mirror (or `.wag/backlog/_completed/` flat for standalones).
-3. Check for epic drain — if the active epic folder now contains only `epic.md`, follow the epic-close ceremony from the reference doc (`git mv` `epic.md` to `_completed/<slug>/epic.md`, `rmdir` the active folder, clear `state.json.active_epic`).
-4. Commit the closure inline — don't defer to a Phase 4 ADR commit that isn't going to happen.
-
-After closure, return to the pre-flight step to pick the next PBI, or end the command if the user is done.
+After closure, return to Phase 1 to pick the next PBI, or end the command.
 
 ## Phase 3: Write the ADR
 
@@ -163,7 +171,6 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 [List learnings from ~/.claude/wag/learnings/ that apply, and how the design complies]
 
 ## Implementation Plan
-[Specific files to create/modify, in order, with what changes]
 
 | # | File | Action | What |
 |---|------|--------|------|
@@ -180,7 +187,7 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 
 ## Team Shape
 **Devs:** 1 | 2
-**Rationale:** [why — e.g. "two independent modules with no shared files" or "sequential dependencies, one Dev"]
+**Rationale:** [why]
 
 ## What NOT to do
 [Explicitly list anti-patterns and wrong approaches for this PBI]
@@ -189,13 +196,13 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 ## Phase 4: Approve and branch
 
 1. Present the ADR to the user for review.
-2. User approves (or requests changes — iterate).
+2. Iterate on changes until approved.
 3. On approval, set status to `approved`.
-4. Create feature branch and commit:
+4. Create feature branch and commit the ADR and any `state.json` changes together:
 
 ```bash
 git checkout -b feature/PBI-XXX dev
-git add .wag/adr/active/PBI-XXX-ADR.md
+git add .wag/adr/active/PBI-XXX-ADR.md .wag/state.json
 git commit -m "ADR: PBI-XXX — [title]"
 git push -u origin feature/PBI-XXX
 ```
@@ -204,10 +211,13 @@ git push -u origin feature/PBI-XXX
 
 ## Key rules
 
-1. **User approves every phase.** Don't auto-advance.
-2. **ADR quality is non-negotiable.** If it's not specific enough for a developer to implement without questions, it's not done.
-3. **Snags before new work.** Open snags must be addressed before designing.
-4. **Learnings are standards.** The design must comply with existing learnings or explicitly justify why not.
-5. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
-6. **No implementation.** ADR mode designs. `/wag:dev` implements.
-7. **Respect the active epic.** If one is set, default to PBIs within it. Switching or escaping to standalone work is an explicit user action, not an automatic fallback.
+1. **Halt on open snags.** No menu, no acknowledgment path. User directs the resolution. Protocol lives in `wag/workflows/snag-resolution.md`.
+2. **Halt on template drift.** Project docs must conform to the current templates. Drift is a defect; surface it, let the user direct.
+3. **Templates are authoritative.** ADR follows the current templates for every doc it reads or modifies. Deviation requires a snag.
+4. **User approves every phase.** Don't auto-advance.
+5. **ADR quality is non-negotiable.** If it's not specific enough for a developer to implement without questions, it's not done.
+6. **Learnings are standards.** The design must comply with applicable learnings or explicitly justify why not.
+7. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
+8. **No implementation.** `/wag:adr` designs; `/wag:dev` implements.
+9. **Respect the active epic.** Default to PBIs within it. Switching or going standalone is an explicit user action.
+10. **One decision at a time.** In grill phases, surface the list once and resolve each decision before moving on.
