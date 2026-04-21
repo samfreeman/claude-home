@@ -114,11 +114,13 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
      "app_name": "{{PROJECT_NAME}}",
      "current_mode": null,
      "active_epic": null,
-     "active_pbi": null
+     "active_pbi": null,
+     "feature_branch": null
    }
    ```
    - `active_epic` is a string like `"epic-001-slug"` when the user is working within an epic, or `null` for standalone PBI work or when no epic is currently active.
    - `active_pbi` is a string like `"PBI-NNN-slug"` when a PBI is in flight, or `null` when between PBIs.
+   - `feature_branch` is a string like `"feature/PBI-NNN"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
 4. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents.

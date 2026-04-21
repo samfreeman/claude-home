@@ -201,10 +201,15 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 1. Present the ADR to the user for review.
 2. Iterate on changes until approved.
 3. On approval, set status to `approved`.
-4. Create feature branch and commit the ADR and any `state.json` changes together:
+4. Create the feature branch, write its name to `state.json`, and commit the ADR together with state:
 
 ```bash
 git checkout -b feature/PBI-XXX dev
+```
+
+Then update `.wag/state.json` to set `feature_branch` to the exact branch name just created (e.g. `"feature/PBI-XXX"`). `state.json` is an ADR artifact — `/wag:dev` reads `feature_branch` verbatim to check out the right branch, so don't rely on naming conventions.
+
+```bash
 git add .wag/adr/active/PBI-XXX-ADR.md .wag/state.json
 git commit -m "ADR: PBI-XXX — [title]"
 git push -u origin feature/PBI-XXX

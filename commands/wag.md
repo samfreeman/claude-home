@@ -34,7 +34,7 @@ dev branch
 
 ```
 .wag/
-├── state.json              # { app_name, current_mode, active_pbi }
+├── state.json              # { app_name, current_mode, active_epic, active_pbi, feature_branch }
 ├── Status.md
 ├── docs/
 │   ├── PRD.md

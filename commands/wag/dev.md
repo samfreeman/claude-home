@@ -10,10 +10,19 @@ Implement the approved ADR using a coordinated Agent Team. Four roles, strict fi
 ## Before you start
 
 1. Confirm `.wag/` exists. If not, tell the user to run `/wag:init` first.
-2. Check `adr/active/` for an approved ADR (status: approved). If none exists, tell the user to run `/wag:adr` first.
-3. Read the ADR — this is the spec. Everything flows from it.
-4. Read `.wag/docs/Architecture.md` for project context.
-5. Read `~/.claude/wag/learnings/` for standards relevant to this ADR's domain. Filter by the `Applies to` field.
+2. Read `.wag/state.json` and get `feature_branch`. If the field is missing or null, tell the user to run `/wag:adr` first — no ADR has been approved.
+3. Check out the feature branch:
+
+```bash
+git checkout <feature_branch>
+```
+
+If the branch doesn't exist, something went wrong during ADR approval. Stop and tell the user. `/wag:dev` never assumes it's already on the right branch — the checkout is explicit every session.
+
+4. Check `adr/active/` for an approved ADR (status: approved). If none exists, tell the user to run `/wag:adr` first.
+5. Read the ADR — this is the spec. Everything flows from it.
+6. Read `.wag/docs/Architecture.md` for project context.
+7. Read `~/.claude/wag/learnings/` for standards relevant to this ADR's domain. Filter by the `Applies to` field.
 
 ## Phase 1: Pre-flight — halt on unresolved snags
 
@@ -35,17 +44,7 @@ The snag-resolution protocol runs inline. Steps 1–3 (fix + doc propagation + P
 
 Open snags block ALL workflow commands, not only those that touch the snag's target. An open snag signals the WAG system has an unpatched defect.
 
-## Phase 2: Check out feature branch
-
-The ADR specifies a feature branch (`feature/PBI-XXX`). Verify it exists and check it out:
-
-```bash
-git checkout feature/PBI-XXX
-```
-
-If the branch doesn't exist, something went wrong during ADR approval. Stop and tell the user.
-
-## Phase 3: Spawn Agent Team
+## Phase 2: Spawn Agent Team
 
 Read the **Team Shape** section from the ADR to determine how many Devs to spawn (1 or 2). Stand up the team. Each teammate loads their agent definition from `agents/wag/`.
 
@@ -87,7 +86,7 @@ Two read-only evaluators:
 - **Architect** — planning docs only (`.wag/`), no `src/` or `tests/`
 - **CQ Engineer** — reporting, no file writes
 
-## Phase 4: Work
+## Phase 3: Work
 
 1. **Architect** publishes the task list with assignments and dependencies.
 2. **Devs** claim tasks and implement. Each Dev works on independent tasks.
@@ -104,7 +103,7 @@ If any team role during implementation discovers a defect in the ADR, Architectu
 
 **Snags originate in docs, propagate to backlog.** A bug in the code itself isn't a snag — Dev just fixes it. A PBI with an unachievable acceptance criterion traces upstream to a doc defect and is a snag.
 
-## Phase 5: Final gate (all tasks complete)
+## Phase 4: Final gate (all tasks complete)
 
 CQ runs the full gate. Everything must pass — no advisory findings allowed.
 
@@ -114,7 +113,7 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
 4. Repeat until all clear.
 5. **Architect** reports to user: implementation complete, all gates passed.
 
-## Phase 6: PR
+## Phase 5: PR
 
 1. Create PR from `feature/PBI-XXX` to `dev`.
 2. Move ADR from `adr/active/` to `adr/completed/`.
@@ -127,6 +126,7 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
    - **If no:** leave the epic active with only its `epic.md`; don't change `active_epic`. The user may add more PBIs later.
 5. **Update `state.json`:**
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
+   - Clear `feature_branch` (set to `null`) — the feature branch is merged.
    - Clear `active_epic` only if the user confirmed epic completion in step 4.
 6. User reviews and approves the PR.
 7. Squash merge to `dev`.
@@ -150,7 +150,7 @@ git merge --squash feature/PBI-XXX
 git commit
 ```
 
-## Phase 7: Team shutdown
+## Phase 6: Team shutdown
 
 1. Shut down all teammates.
 2. Clean up team resources.
