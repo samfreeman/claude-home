@@ -30,18 +30,24 @@ Run all four in one session. **Atomic.** No walking away with partial state.
 
 **No resolution, no progression.** Steps 2–4 do not run until step 1 succeeds.
 
-### Step 2 — Update docs
+### Step 2 — Propagate to docs
 
-1. The fix from step 1 may have implications beyond the immediate target. Scan the docs (`PRD.md`, `Architecture.md`, `RESEARCH.md`) for related sections that now need updating.
-2. For each affected doc, discuss the change with the user, update the file, bump the version number and append a changelog entry per the doc's convention.
-3. If the fix invalidates an active ADR, flag it — the ADR may need revisiting or its own snag.
+**Scan-read-edit protocol.** Never discover a file mid-edit. The scan is always step 1. Serial read-then-edit-then-find-another-file is what burns hours on otherwise-trivial propagations.
 
-### Step 3 — Redo PBIs
+1. **Scan.** `grep -rn` the affected term, pattern, or section name across `.wag/` (skip `.wag/snags/_resolved/`) and project source. Collect ALL `file:line` hits — do not stop at the first few.
+2. **Read.** Open every hit file in full. Understand the context of each occurrence before proposing changes.
+3. **Present.** Show the user the complete edit set upfront in one message: "Here are N files and the specific change in each." Full list, no trickle.
+4. **Apply.** After user approval, execute all edits in one pass. For each affected doc (`PRD.md`, `Architecture.md`, `RESEARCH.md`), bump the version number and append a changelog entry — the changelog entry is a **one-line pointer to the SNAG Resolution section**, not a re-narration of the change.
+5. If the fix invalidates an active ADR, flag it — the ADR may need revisiting or its own snag.
 
-1. The fix may have invalidated existing PBIs — scope changed, dependencies shifted, deliverables moved.
-2. Scan `.wag/backlog/` (including the active epic, if any) for PBIs that reference affected doc sections or decisions.
-3. For each affected PBI, discuss with the user: update in place, close and replace, or leave alone. Apply the agreed change.
-4. If the fix affects PBI numbering or dependency order (e.g. LEARNING-005), renumber per the forward-dependency rule.
+### Step 3 — Propagate to backlog
+
+**Scan-read-edit protocol** (same shape as Step 2 — scan first, read all, present the full edit set, then apply).
+
+1. **Scan.** `grep -rn` the affected term or pattern across `.wag/backlog/` (including the active epic, if any). Collect ALL `file:line` hits.
+2. **Read.** Open every hit PBI or epic file in full.
+3. **Present.** Show the user the complete edit set upfront — every affected PBI, the disposition for each (update in place / close and replace / leave alone), and the specific change if updating.
+4. **Apply.** After approval, apply all changes in one pass. If the fix affects PBI numbering or dependency order (e.g. a new forward dependency), renumber per the forward-dependency rule.
 
 ### Step 4 — Promote (if portable)
 
@@ -55,6 +61,7 @@ Run all four in one session. **Atomic.** No walking away with partial state.
    - **Commands** — does the learning produce a mechanical `Check` the halting command (e.g. `/wag:docs`) should run at end-of-authoring? If so, update the command.
    - **Templates** — does the learning change the shape of a PRD/Architecture/Backlog doc? If so, update the template.
    - **Learnings** — the learning file itself is the portable record for future projects. Always.
+5. **Scan for pending embeddings.** After writing LEARNING-NNN, `grep -l 'pending' ~/.claude/wag/learnings/LEARNING-*.md` to find any prior learning with a `pending` entry in its **Embedded into** section. Surface the list to the user. Each pending entry either gets embedded now (while context is warm) or stays flagged for the next resolution cycle — the metadata is only worth keeping if it gets checked every time.
 
 ## Closure
 
@@ -73,4 +80,5 @@ Commit the full resolution in one commit — snag move, doc updates, PBI changes
 3. **All four steps run in one session.** No walking away partway through. If the user must stop, capture state in the snag's Resolution section so the next session resumes cleanly.
 4. **User + Claude together.** Every step is collaborative. Claude proposes, user approves. No unilateral moves, no menus of options — the snag file's default fix is the starting point; the user redirects if they want something else.
 5. **Failed attempts loop, don't abandon.** If step 1 fails, start again. Unresolvable snags are a big problem that must be addressed — not quietly dropped.
-6. **Open snags halt all work — no exceptions.** While any `**Status:** open` file exists in `.wag/snags/`, every WAG command (`/wag:init`, `/wag:docs`, `/wag:adr`, `/wag:dev`) halts at pre-flight. No "different disposition," no "acknowledge and proceed." The blocking is global (not scoped to the snag's target) because an open snag signals the system has an unpatched defect. Resolution is atomic: Steps 1–3 (fix + doc propagation + PBI propagation) plus Step 4 assessment and LEARNING file creation (if the rule is portable) complete fully before the halted command resumes. Only embedding the learning into commands/templates may be deferred (see rule #2). Until the snag moves to `.wag/snags/_resolved/`, no forward progress.
+6. **One authoritative narrative.** The snag's `## Resolution` section is the single source of truth for the fix. Changelog entries (in `Architecture.md`, `PRD.md`), commit messages, and any inbox messages about this snag are **one-line summaries that point to the snag file** — never re-narrations. Stop writing the same change four ways.
+7. **Open snags halt all work — no exceptions.** While any `**Status:** open` file exists in `.wag/snags/`, every WAG command (`/wag:init`, `/wag:docs`, `/wag:adr`, `/wag:dev`) halts at pre-flight. No "different disposition," no "acknowledge and proceed." The blocking is global (not scoped to the snag's target) because an open snag signals the system has an unpatched defect. Resolution is atomic: Steps 1–3 (fix + doc propagation + PBI propagation) plus Step 4 assessment and LEARNING file creation (if the rule is portable) complete fully before the halted command resumes. Only embedding the learning into commands/templates may be deferred (see rule #2). Until the snag moves to `.wag/snags/_resolved/`, no forward progress.
