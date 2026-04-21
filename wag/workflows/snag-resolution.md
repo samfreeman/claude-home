@@ -4,6 +4,10 @@ The canonical 4-step flow for resolving a snag. Every halting command (`/wag:doc
 
 **A snag is not a joke.** It marks a defect in the WAG system — the commands or templates let something wrong through. Resolution is mandatory before downstream work proceeds.
 
+**Snags originate in docs, propagate to backlog.** A snag is always a defect in an upstream doc (PRD, Architecture, or a decision therein) whose consequences have leaked into the backlog. Resolution fixes the doc (Step 1), then propagates downhill to affected backlog items (Steps 2+3). A PBI that just needs authoring cleanup without a doc defect upstream is authoring work for `/wag:docs`, not a snag.
+
+**There is no `/wag:snag` command.** Snags are captured inline by the active command (`/wag:docs`, `/wag:adr`, `/wag:dev`) whenever a defect is discovered, and this protocol runs inline in the same session.
+
 ## When to enter this flow
 
 A command enters this flow when:
@@ -69,4 +73,4 @@ Commit the full resolution in one commit — snag move, doc updates, PBI changes
 3. **All four steps run in one session.** No walking away partway through. If the user must stop, capture state in the snag's Resolution section so the next session resumes cleanly.
 4. **User + Claude together.** Every step is collaborative. Claude proposes, user approves. No unilateral moves, no menus of options — the snag file's default fix is the starting point; the user redirects if they want something else.
 5. **Failed attempts loop, don't abandon.** If step 1 fails, start again. Unresolvable snags are a big problem that must be addressed — not quietly dropped.
-6. **Open snags block workflow commands.** While a snag is open, `/wag:init`, `/wag:docs`, `/wag:adr`, `/wag:dev` halt on encountering it. The blocking is global (not just on commands that touch the snag's target) because an open snag signals the system has an unpatched defect.
+6. **Open snags halt all work — no exceptions.** While any `**Status:** open` file exists in `.wag/snags/`, every WAG command (`/wag:init`, `/wag:docs`, `/wag:adr`, `/wag:dev`) halts at pre-flight. No "different disposition," no "acknowledge and proceed." The blocking is global (not scoped to the snag's target) because an open snag signals the system has an unpatched defect. Resolution is atomic: Steps 1–3 (fix + doc propagation + PBI propagation) plus Step 4 assessment and LEARNING file creation (if the rule is portable) complete fully before the halted command resumes. Only embedding the learning into commands/templates may be deferred (see rule #2). Until the snag moves to `.wag/snags/_resolved/`, no forward progress.

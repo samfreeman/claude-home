@@ -19,7 +19,6 @@ Show available WAG commands and their usage.
 | `/wag:init` | Add planning infrastructure (intake → research → requirements → scaffold) |
 | `/wag:adr` | Design a PBI — Architecture Decision Record with snag and learning awareness |
 | `/wag:dev` | Implement the ADR — spawn an Agent Team (Architect, Dev, CQ, Tester) |
-| `/wag:snag` | Capture a plan defect, resolve it, optionally promote to a learning |
 | `/wag:audit` | Scan all projects against promoted learnings — compliance matrix |
 | `/wag:apply` | Walk through audit gaps and apply fixes with user approval |
 
@@ -35,13 +34,7 @@ cd myapp
 
 ## During development
 
-When you discover an upstream assumption is wrong:
-
-```
-/wag:snag                    # capture and resolve the plan defect
-```
-
-Snag resolution updates the impacted doc. If the learning applies across projects, promote it.
+When you discover an upstream assumption is wrong, the active command (`/wag:docs`, `/wag:adr`, or `/wag:dev`) captures a snag inline and halts. The snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) runs in-session — fix the doc, propagate updates to affected PBIs — before the halted command resumes. No separate snag command.
 
 ## Cross-project intelligence
 

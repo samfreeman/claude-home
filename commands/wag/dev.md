@@ -15,7 +15,27 @@ Implement the approved ADR using a coordinated Agent Team. Four roles, strict fi
 4. Read `.wag/docs/Architecture.md` for project context.
 5. Read `~/.claude/wag/learnings/` for standards relevant to this ADR's domain. Filter by the `Applies to` field.
 
-## Phase 1: Check out feature branch
+## Phase 1: Pre-flight — halt on unresolved snags
+
+Scan `.wag/snags/` for any file with `**Status:** open`. **If any exist, halt immediately.** Open snags halt all work — no exceptions.
+
+- Do not present a menu of options.
+- Do not ask the user for a "different disposition."
+- Do not let the user "acknowledge and proceed" past the snag.
+- Do not attempt to resolve the snag by guessing at its default fix.
+
+Surface the halt to the user:
+
+> "An open snag blocks all work:
+> - SNAG-NNN — [title]. Target: [target field].
+>
+> Until this snag is resolved, no WAG work proceeds. Resolution is atomic: fix the defect in the doc, propagate the change to every affected backlog item, and close the snag — all in this session. Driving the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) now — confirm to proceed."
+
+The snag-resolution protocol runs inline. Steps 1–3 (fix + doc propagation + PBI propagation) complete fully before this command resumes. Step 4 (promote): the assessment and LEARNING-NNN file creation — if the rule is portable — also happen in this session, mandatory. Only the embedding of that learning into commands/templates may be deferred per protocol rule #2. Once the snag moves to `.wag/snags/_resolved/`, the halted command resumes.
+
+Open snags block ALL workflow commands, not only those that touch the snag's target. An open snag signals the WAG system has an unpatched defect.
+
+## Phase 2: Check out feature branch
 
 The ADR specifies a feature branch (`feature/PBI-XXX`). Verify it exists and check it out:
 
@@ -25,7 +45,7 @@ git checkout feature/PBI-XXX
 
 If the branch doesn't exist, something went wrong during ADR approval. Stop and tell the user.
 
-## Phase 2: Spawn Agent Team
+## Phase 3: Spawn Agent Team
 
 Read the **Team Shape** section from the ADR to determine how many Devs to spawn (1 or 2). Stand up the team. Each teammate loads their agent definition from `agents/wag/`.
 
@@ -67,7 +87,7 @@ Two read-only evaluators:
 - **Architect** — planning docs only (`.wag/`), no `src/` or `tests/`
 - **CQ Engineer** — reporting, no file writes
 
-## Phase 3: Work
+## Phase 4: Work
 
 1. **Architect** publishes the task list with assignments and dependencies.
 2. **Devs** claim tasks and implement. Each Dev works on independent tasks.
@@ -78,7 +98,13 @@ Two read-only evaluators:
 5. CQ findings during active work are **advisory**. Dev/Tester can acknowledge: "known, resolves when X is done."
 6. If Dev or Tester hits a snag → message Architect → Architect resolves or escalates to user.
 
-## Phase 4: Final gate (all tasks complete)
+### Inline snag capture
+
+If any team role during implementation discovers a defect in the ADR, Architecture, or upstream docs — a design assumption doesn't hold, an acceptance criterion is unachievable, a decision contradicts reality — the finding escalates to Architect. Architect captures the snag using `~/.claude/wag/templates/snag.md` and halts the team. All work stops. Architect drives the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) with the user inline. Steps 1–3 (fix + doc propagation + PBI propagation) plus Step 4 assessment and LEARNING file creation (if the rule is portable) complete fully in this session before implementation resumes.
+
+**Snags originate in docs, propagate to backlog.** A bug in the code itself isn't a snag — Dev just fixes it. A PBI with an unachievable acceptance criterion traces upstream to a doc defect and is a snag.
+
+## Phase 5: Final gate (all tasks complete)
 
 CQ runs the full gate. Everything must pass — no advisory findings allowed.
 
@@ -88,7 +114,7 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
 4. Repeat until all clear.
 5. **Architect** reports to user: implementation complete, all gates passed.
 
-## Phase 5: PR
+## Phase 6: PR
 
 1. Create PR from `feature/PBI-XXX` to `dev`.
 2. Move ADR from `adr/active/` to `adr/completed/`.
@@ -124,7 +150,7 @@ git merge --squash feature/PBI-XXX
 git commit
 ```
 
-## Phase 6: Team shutdown
+## Phase 7: Team shutdown
 
 1. Shut down all teammates.
 2. Clean up team resources.

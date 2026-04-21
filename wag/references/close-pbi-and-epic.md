@@ -27,7 +27,7 @@ downstream close operations are simple moves with no create-if-missing logic.
 Triggers:
 - `/wag:dev` Phase 5 — implementation complete, PBI done.
 - `/wag:adr` closed-without-ADR path — the grill dissolves the PBI's scope to trivial or zero.
-- Rare: `/wag:snag` resolution eliminates the PBI entirely.
+- Rare: inline snag resolution (per `~/.claude/wag/workflows/snag-resolution.md`) eliminates the PBI entirely.
 
 Procedure (PBI that belongs to an epic):
 

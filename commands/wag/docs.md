@@ -31,18 +31,30 @@ This is a conversational command — a working session with the user, not a one-
 **Not covered by this command:**
 - Picking a PBI to work on → `/wag:adr`
 - Implementing a PBI → `/wag:dev`
-- Reporting a problem with upstream docs → `/wag:snag`
+
+Snags are not a separate command. If a defect in the docs is discovered mid-session, the inline snag capture flow (below) runs — halt, resolve, propagate, resume.
 
 ## Phase 1: Pre-flight
 
-### Check for open snags
+### Halt on open snags
 
-Read `.wag/snags/` for any open snag files (status: open). If any exist, present them. Snags are often docs-layer issues — resolving them may be the natural first task in this session:
+Scan `.wag/snags/` for any file with `**Status:** open`. **If any exist, halt immediately.** Open snags halt all work — no exceptions.
 
-> "There are open snags that may affect the docs:"
-> - SNAG-001: [title] — targets [doc section]
+- Do not present a menu of options.
+- Do not ask the user for a "different disposition."
+- Do not let the user "acknowledge and proceed" past the snag.
+- Do not attempt to resolve the snag by guessing at its default fix.
 
-Ask the user whether to resolve snags first or defer.
+Surface the halt to the user:
+
+> "An open snag blocks all work:
+> - SNAG-NNN — [title]. Target: [target field].
+>
+> Until this snag is resolved, no WAG work proceeds. Resolution is atomic: fix the defect in the doc, propagate the change to every affected backlog item, and close the snag — all in this session. Driving the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) now — confirm to proceed."
+
+The snag-resolution protocol runs inline. Steps 1–3 (fix + doc propagation + PBI propagation) complete fully before this command resumes. Step 4 (promote): the assessment and LEARNING-NNN file creation — if the rule is portable — also happen in this session, mandatory. Only the embedding of that learning into commands/templates may be deferred per protocol rule #2. Once the snag moves to `.wag/snags/_resolved/`, the halted command resumes.
+
+Open snags block ALL workflow commands, not only those that touch the snag's target. An open snag signals the WAG system has an unpatched defect.
 
 ### Check for active ADR
 
@@ -72,6 +84,12 @@ For PRD or Architecture edits, follow the standard pattern:
 4. **Consistency check.** After a PRD change, scan Architecture for contradictions. After an Architecture change, scan the backlog — PBIs or epics may be affected. Surface anything that should become a snag.
 
 If a change invalidates an active ADR or an approved PBI's acceptance criteria, **capture a snag** via `.wag/snags/SNAG-NNN.md` and flag it to the user.
+
+### Inline snag capture
+
+If during authoring you discover a defect in an upstream doc (PRD, Architecture, or a decision therein) — an assumption doesn't hold, a section contradicts reality, a decision was under-reasoned — capture a snag on the spot using `~/.claude/wag/templates/snag.md`. Halt, then drive the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) with the user. Resolution (Steps 1–3: fix + doc propagation + PBI propagation) completes fully in this session before authoring resumes.
+
+**Snags originate in docs, propagate to backlog.** A snag is a defect in an upstream doc whose consequences have leaked into the backlog. If a PBI just needs editing and no doc is wrong, that's plain authoring work for this command — no snag needed.
 
 ## Phase 3: Authoring the backlog
 
