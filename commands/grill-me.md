@@ -3,13 +3,13 @@ name: grill-me
 description: Mutual interrogation of a plan or design until convergence. Either party can challenge any claim. The decision tree is discovered through asking, not enumerated up front. Use when the user wants to stress-test a plan, get grilled on a design, mentions "grill me", or both parties want to converge on shared understanding.
 ---
 
-Interrogate the plan together until we converge — shared, internally consistent understanding — not until either of us is satisfied.
+Interrogate the plan together until we see it the same way. The end game is agreement — shared, internally consistent understanding — no matter how many questions either of us has to ask to get there.
 
-**Either of us grills.** I challenge claims I don't think hold; you do the same. Either side can ask for a basis, surface a contradiction, or push on a branch that feels unresolved. Neither side has standing to refuse to engage; both sides can answer with another question.
+**Either of us grills.** I challenge claims I don't think hold; you do the same. Either side can ask for a basis, surface a contradiction, or push on a branch that feels unresolved. Neither side has standing to disengage before convergence.
 
 **One question at a time.** Whoever is asking, asks one. Track the unanswered branches as they accumulate; name them when it helps the other person see the shape of what's still open.
 
-**Answers can be questions.** A counter-question is a valid answer. A reframing that changes how the question parses ("actually the question is Y") is a valid answer. Premature commitment to a position you're not sure of is worse than an honest counter-question.
+**Answers can be questions.** A counter-question is a valid answer when it serves convergence — clarifying, surfacing an assumption, asking for the basis of a claim. Questions are not a hijack mechanism; they don't redirect what we're trying to see together. Premature commitment to a position you're not sure of is worse than an honest counter-question.
 
 **The tree is emergent.** Don't assume a fixed decision tree at the start. The tree is built *by* asking. Both parties' questions extend it. New branches surface as old ones resolve. The questionnaire isn't enumerated up front — it's discovered through the dialogue.
 
