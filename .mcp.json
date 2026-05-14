@@ -43,6 +43,17 @@
 			"args": [
 				"/home/samfr/.claude/mcp-servers/sidecar-mcp/dist/index.js"
 			]
+		},
+		"fs": {
+			"command": "node",
+			"args": [
+				"/home/samfr/.claude/mcp-servers/fs-mcp/dist/index.js",
+				"~/.claude",
+				"~/source",
+				"/mnt/c/Code/Unity",
+				"/mnt/c/Users/${USER}/AppData/Roaming/Claude",
+				"/mnt/c/Users/${USER}/Dropbox/Claude"
+			]
 		}
 	}
 }

@@ -484,6 +484,100 @@ server.registerTool(
 	}
 )
 
+// ─── fs_count ──────────────────────────────────────────────────────────────
+
+server.registerTool(
+	'fs_count',
+	{
+		description: 'Count lines, words, bytes, and/or chars in a file or array of files. Similar to `wc`. If no flags are set, defaults to lines + words + bytes (bare `wc` behavior). Directories are rejected — compose with fs_find for trees. Read-only.',
+		inputSchema: {
+			path: z.union([z.string(), z.array(z.string()).min(1)]).describe('File path, or array of file paths'),
+			lines: z.boolean().optional().describe('Count newline-terminated lines (like `wc -l`)'),
+			words: z.boolean().optional().describe('Count whitespace-separated words (like `wc -w`)'),
+			bytes: z.boolean().optional().describe('Count bytes (like `wc -c`)'),
+			chars: z.boolean().optional().describe('Count characters / codepoints (like `wc -m`)')
+		},
+		annotations: { readOnlyHint: true }
+	},
+	async ({ path: p, lines, words, bytes, chars }: {
+		path: string | string[]
+		lines?: boolean
+		words?: boolean
+		bytes?: boolean
+		chars?: boolean
+	}) => {
+		const anyFlag = lines || words || bytes || chars
+		const want = {
+			lines: anyFlag ? !!lines : true,
+			words: anyFlag ? !!words : true,
+			bytes: anyFlag ? !!bytes : true,
+			chars: anyFlag ? !!chars : false
+		}
+
+		const countOne = (input: string) => {
+			const safe = resolveAllowed(input)
+			requireExists(safe, 'file')
+			const row: { path: string; lines?: number; words?: number; bytes?: number; chars?: number } = { path: safe }
+			if (want.bytes)
+				row.bytes = fs.statSync(safe).size
+			if (want.lines || want.words || want.chars) {
+				const text = fs.readFileSync(safe, 'utf8')
+				if (want.lines) {
+					let n = 0
+					for (let i = 0; i < text.length; i++)
+						if (text.charCodeAt(i) == 10)
+							n++
+					row.lines = n
+				}
+				if (want.words)
+					row.words = text.trim() == '' ? 0 : text.trim().split(/\s+/).length
+				if (want.chars)
+					row.chars = [...text].length
+			}
+			return row
+		}
+
+		try {
+			if (Array.isArray(p)) {
+				const results = p.map(input => {
+					try {
+						return countOne(input)
+					}
+					catch (e) {
+						return { path: input, error: e instanceof Error ? e.message : String(e) }
+					}
+				})
+				const total: { lines?: number; words?: number; bytes?: number; chars?: number } = {}
+				if (want.lines)
+					total.lines = 0
+				if (want.words)
+					total.words = 0
+				if (want.bytes)
+					total.bytes = 0
+				if (want.chars)
+					total.chars = 0
+				for (const r of results) {
+					if ('error' in r)
+						continue
+					if (want.lines)
+						total.lines! += r.lines!
+					if (want.words)
+						total.words! += r.words!
+					if (want.bytes)
+						total.bytes! += r.bytes!
+					if (want.chars)
+						total.chars! += r.chars!
+				}
+				return ok(JSON.stringify({ results, total }, null, 2))
+			}
+			return ok(JSON.stringify(countOne(p), null, 2))
+		}
+		catch (e) {
+			return err(e)
+		}
+	}
+)
+
 // ─── fs_write ──────────────────────────────────────────────────────────────
 
 server.registerTool(
