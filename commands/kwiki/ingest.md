@@ -9,7 +9,7 @@ Ingest a source into the kwiki knowledge base. This is the primary operation —
 
 ## Tooling
 
-**Pure filesystem. No MCP.** Use `cat`, `find`, `grep`, `cp`, `ls` via bash and direct file read/write. Do NOT use any kwiki MCP server tools. This wiki is entirely file-based.
+**Pure filesystem.** Use `cat`, `find`, `grep`, `cp`, `ls` via bash and direct file read/write. This wiki is entirely file-based.
 
 ## Wiki root
 

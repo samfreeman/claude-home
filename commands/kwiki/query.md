@@ -9,7 +9,7 @@ Ask questions against the kwiki knowledge base. The wiki is the primary source â
 
 ## Tooling
 
-**Pure filesystem. No MCP.** Use `cat`, `find`, `grep` via bash and direct file read/write. Do NOT use any kwiki MCP server tools. This wiki is entirely file-based.
+**Pure filesystem.** Use `cat`, `find`, `grep` via bash and direct file read/write. This wiki is entirely file-based.
 
 ## Wiki root
 

@@ -9,7 +9,7 @@ Show the current state of the kwiki knowledge base.
 
 ## Tooling
 
-**Pure filesystem. No MCP.** Use `cat`, `find`, `grep`, `wc` via bash. Do NOT use any kwiki MCP server tools. This wiki is entirely file-based.
+**Pure filesystem.** Use `cat`, `find`, `grep`, `wc` via bash. This wiki is entirely file-based.
 
 ## Wiki root
 
