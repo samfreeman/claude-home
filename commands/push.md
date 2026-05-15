@@ -1,46 +1,39 @@
 ---
-description: Commit and push changes to dev
+description: Commit and push changes (case-aware)
 ---
 
-# Push — Commit & Push to Dev
+# Push — Commit & Push (case-aware)
 
-## Step 1: Guard — Must Be on Dev
+Goal: push what we have. The path depends on state.
 
-Run `git branch --show-current`. If the result is not `dev`, tell the user:
+## Step 1: Detect the case
 
-> "You're on `[branch]`, not `dev`. Refusing to push."
+Run in parallel:
+- `git rev-parse --is-inside-work-tree 2>&1`
+- `git branch --show-current`
+- `git status -sb`
+- `git remote get-url origin 2>&1 || true`
 
-Stop. Do nothing else.
+Decide:
+- **Case 1 — Already on `dev`.** Commit (with permission) and push dev.
+- **Case 2 — No repo / no origin.** Bootstrap: `git init` if needed, create `main` + `dev`, create remote (`gh repo create`), push both.
+- **Case 3 — On any other branch with a repo.** Commit on the current branch, push the branch, open a PR to dev.
 
-## Step 2: Check for Uncommitted Changes
+## Step 2: Commit (Cases 1 & 3)
+1. `git diff`, `git diff --staged`, `git status -u`, `git log --oneline -5` in parallel.
+2. Summarize the changes and propose a commit message.
+3. Stage relevant files by name (never `-A` / `.`).
+4. Commit with the standard authorship trailer.
 
-Run `git status`. If there are no uncommitted changes (nothing modified, deleted, or untracked):
+## Step 3: Push (case-specific)
+- **Case 1:** `git push origin dev`.
+- **Case 2:** `git push -u origin main` then `git push -u origin dev`.
+- **Case 3:**
+  - `git push -u origin <current-branch>`.
+  - `gh pr create --base dev --head <current-branch>` with a title/body summarizing the commits since the merge-base with dev. Return the PR URL.
 
-- Check if the local branch is ahead of `origin/dev` with `git status -sb`.
-- If ahead, run `git push` and confirm success.
-- If not ahead, tell the user: "Nothing to commit or push."
-- Stop.
-
-## Step 3: Analyze Changes
-
-Run these in parallel:
-- `git diff` — unstaged changes
-- `git diff --staged` — staged changes
-- `git status -u` — full file list including untracked
-- `git log --oneline -5` — recent commit style
-
-Review every change. Understand what was added, modified, and deleted. Build a clear picture of what this commit represents.
-
-## Step 4: Commit & Push
-
-1. Present a summary of what changed and the proposed commit message.
-2. Stage all relevant files by name (not `git add -A` or `git add .`).
-3. Commit with the proposed message. Always end the message with:
-   ```
-   🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-   Co-Authored-By: Claude <noreply@anthropic.com>
-   Co-Authored-By: Sam Freeman <sam.freeman.55@gmail.com>
-   ```
-4. Run `git push`.
-5. Confirm success.
+## Rules
+- Never push to `main` or `qa` directly (Case 2 bootstrap is the only exception, and only on empty branches).
+- Never `--force`, never skip hooks.
+- Always confirm uncommitted state with user before committing.
+- Never merge a PR automatically — the human controls the merge button.

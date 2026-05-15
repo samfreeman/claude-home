@@ -8,5 +8,10 @@
     "name": "radd",
     "path": "/home/samfr/source/radd",
     "type": "nextjs"
+  },
+  {
+    "name": "cmn-payonward-portal",
+    "path": "/home/samfr/source/cmn-payonward-portal",
+    "type": "nextjs"
   }
 ]
