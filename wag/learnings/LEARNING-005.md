@@ -5,44 +5,56 @@
 
 ## Standard
 
-A PBI with filename number `N` must not list any PBI with filename number `M > N` in its `Dependencies:` line. Dependencies flow forward: each PBI's prerequisites are always lower-numbered than itself. A reader scanning the backlog in number order encounters each PBI before its dependents, not after.
+Within a single epic, a PBI with local number `P` must not list any PBI with local number `Q > P` (in the same epic) in its `Dependencies:` line. Dependencies flow forward: each PBI's prerequisites within the same epic are always lower-numbered than itself. A reader scanning the epic's PBIs in number order encounters each PBI before its dependents, not after.
 
-The rule applies to both the explicit `Dependencies:` field and any prose `PBI-\d+` references inside the PBI body that describe prerequisite relationships.
+The rule applies to both the explicit `Dependencies:` field and any prose `PBI <epic>.<pbi>` references inside the PBI body that describe prerequisite relationships within the same epic.
+
+**Cross-epic dependencies** are exempt — they're named with the full `PBI EEE.PPP` form (different epic number on the left side of the dot), and the linear-scan rule doesn't extend across folders.
 
 ## Check
 
 Linear scan of each PBI file in an epic:
 
 1. Read the `Dependencies:` line.
-2. For each `PBI-\d+` reference on that line, compare the referenced number to the current file's number.
-3. If any referenced number is higher, that's the violation.
+2. For each `PBI EEE.PPP` reference on that line, if `EEE` matches the current epic's number, compare `PPP` to the current file's local number.
+3. If any referenced same-epic `PPP` is higher than the current file's number, that's the violation.
 
-Additional pass: grep each PBI body for `PBI-\d+` references and flag any that name a higher-numbered PBI as a prerequisite.
+Additional pass: grep each PBI body for `PBI EEE.PPP` references and flag any same-epic refs that name a higher-numbered PBI as a prerequisite.
 
 No project-specific knowledge required. Seconds per PBI.
 
 ## Violations look like
 
-```markdown
-# PBI-004: Service Foundation
+Inside `epic-001-services/PBI-004.md`:
 
-**Dependencies:** PBI-001 (monorepo scaffold), PBI-005 (events package)
-                                                ^^^^^^^
-                                                higher than 004 — defect
+```markdown
+# PBI 001.004: Service Foundation
+
+**Dependencies:** PBI 001.001 (monorepo scaffold), PBI 001.005 (events package)
+                                                  ^^^^^^^^^^^
+                                                  same epic, higher local number — defect
 ```
 
-A reader scanning the epic in number order hits PBI-004 first, learns it depends on PBI-005, but PBI-005 hasn't been read yet. Reading order doesn't match build order.
+A reader scanning the epic in number order hits PBI 001.004 first, learns it depends on PBI 001.005, but PBI 001.005 hasn't been read yet. Reading order doesn't match build order.
 
 ## Fix pattern
 
-1. **List prerequisites for each PBI.** Build the dependency graph.
+1. **List prerequisites for each PBI in the epic.** Build the dependency graph (intra-epic edges only).
 2. **Topologically sort.** Order PBIs so every prerequisite appears before its dependents.
-3. **Renumber the files** via `git mv` to match the sort.
+3. **Renumber the open PBI files** via `git mv` to match the sort.
+   - Closed PBIs in `_completed/<epic-slug>/` keep their existing numbers — they are immutable in steady state. Build the sort around their fixed positions.
 4. **Update cross-references** in PBI bodies and in `epic.md` if it cites PBI numbers.
-5. **Update `.wag/state.json`** if `active_pbi` references a renumbered file.
-6. **Update any open snags** that cite the renumbered files by their old names.
+5. **If an active ADR exists for a renumbered PBI**, rename it (`ADR-EEE.OLD.md` → `ADR-EEE.NEW.md`) and update its header. The feature branch may be renamed in parallel (`git branch -m feature/PBI-EEE.OLD feature/PBI-EEE.NEW`).
+6. **Update `.wag/state.json`** if `active_pbi` or `feature_branch` references a renumbered file.
+7. **Update any open snags** that cite the renumbered files by their old IDs.
 
-If renumbering is undesirable (e.g. PBIs already referenced in external docs / PRs), the alternative is to re-scope — fold the higher-numbered dependency into the lower-numbered PBI so the dependency disappears. Renumbering is the default fix.
+If renumbering an open PBI is undesirable (e.g. already heavily referenced in external docs / PRs), the alternative is to re-scope — fold the higher-numbered dependency into the lower-numbered PBI so the dependency disappears. Renumbering is the default fix.
+
+## Immutability of completed PBIs
+
+In steady state, **only open PBIs can be renumbered**. Once a PBI is moved into `_completed/<epic-slug>/`, its number and epic membership are frozen. If a violation involves a completed PBI as a prerequisite, the violation is resolved by renumbering the *open* PBI that points at it, not the closed one.
+
+The one exception is `/wag:migrate-backlog`, which performs a one-time renumbering of an entire project's pre-existing backlog (open and closed) as it adopts the per-epic numbering scheme.
 
 ## Authoring-time prevention
 

@@ -58,43 +58,37 @@ If any doc is missing a required section or diverges from the template shape, **
 
 Proceed only on explicit user direction.
 
+If the project's backlog still uses the legacy scheme (global PBI numbering, standalone PBIs at the backlog root, descriptive slugs in filenames), template drift will flag it. Resolution is `/wag:migrate-backlog` — run that first, then return to `/wag:adr`.
+
 ### Check for active ADR
 
 If `adr/active/` already contains an ADR, previous work is in progress. Present it and ask whether the user is resuming or starting fresh.
 
 ### Determine working context
 
-Read `.wag/state.json` to check `active_epic`, then examine `.wag/backlog/`.
+Read `.wag/state.json`. `active_epic` is always set — it defaults to `"epic-000-general"` and points to whichever epic the user is working within.
 
 **Backlog shape:**
-- **Epic folders** (`epic-NNN-slug/`) each contain an `epic.md` and zero or more PBI files.
-- **Standalone PBIs** live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`.
+- Every epic folder (`epic-NNN-word/`) contains an `epic.md` and zero or more `PBI-PPP.md` files.
+- `epic-000-general/` is the bucket for ungrouped PBIs and always exists.
 
 ### Pick a PBI
 
-Branch based on state:
-
-**Case A — `active_epic` is set:**
-
-1. List PBI files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's title, priority, and status.
-2. Show a one-line reminder of the epic (title + goal from `epic.md`).
-3. Default path: pick a PBI from the current epic.
+1. List `PBI-PPP.md` files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's full canonical ID (`PBI <epic>.<pbi>`), title, priority, and status.
+2. Show a one-line reminder of the active epic (title + goal from `epic.md`).
+3. Default path: pick a PBI from the active epic.
 4. Alternatives offered only if the user asks:
    - Switch to a different epic — update `active_epic` in `state.json`.
-   - Work on a standalone PBI this session without changing `active_epic`.
+   - The active epic is empty: either pick from another epic, or propose authoring new PBIs (run `/wag:docs` for the dedicated authoring command).
 
-**Case B — `active_epic` is null:**
-
-1. List epic folders (with title + goal from each `epic.md`) and standalone PBI files at the backlog root.
-2. User picks. If an epic, set `active_epic` in `state.json` and enter Case A. If standalone, proceed with that PBI.
-
-**Case C — the backlog is empty:**
-
-Propose authoring a new epic or a standalone PBI. This is a backlog-authoring step; the ADR workflow resumes after the new items exist on disk. (Run `/wag:docs` if the user prefers the dedicated authoring command.)
+**Empty backlog (rare — only possible right after init with no Phase C content):**
+Propose authoring an epic and PBIs. Run `/wag:docs` if the user prefers the dedicated command.
 
 ### Read the selected PBI
 
-Read the PBI file for requirements and acceptance criteria. Proceed to Phase 2.
+Read the PBI file for requirements and acceptance criteria. Note the canonical ID (`PBI EEE.PPP`) — you'll use it throughout the rest of this session for filenames, branch names, and headers.
+
+Proceed to Phase 2.
 
 ## Phase 2: Design
 
@@ -102,10 +96,10 @@ Read the PBI file for requirements and acceptance criteria. Proceed to Phase 2.
 
 Read only what's needed:
 
-1. The selected PBI.
+1. The selected PBI: `.wag/backlog/<active_epic>/PBI-PPP.md`.
 2. `.wag/docs/Architecture.md`.
 3. `.wag/docs/PRD.md`.
-4. If `active_epic` is set, `.wag/backlog/<active_epic>/epic.md`.
+4. `.wag/backlog/<active_epic>/epic.md`.
 5. `~/.claude/wag/learnings/` — filter by the `Applies to` field; surface learnings that match this PBI's domain.
 
 Do not pre-load the full backlog or every learning. Phase 1 has already verified template conformance; trust it.
@@ -134,15 +128,15 @@ After closure, return to Phase 1 to pick the next PBI, or end the command.
 
 ## Phase 3: Write the ADR
 
-Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
+Write the ADR to `.wag/adr/active/ADR-EEE.PPP.md` where `EEE.PPP` is the canonical PBI ID. It must include:
 
 ```markdown
-# PBI-XXX ADR: [title]
+# ADR EEE.PPP: [title]
 
-**PBI:** [link to PBI file]
-**Epic:** [link to epic.md if the PBI belongs to an epic, else "None (standalone)"]
+**PBI:** [link to .wag/backlog/<active_epic>/PBI-PPP.md] — PBI EEE.PPP
+**Epic:** [link to .wag/backlog/<active_epic>/epic.md] — Epic EEE
 **Status:** draft | approved
-**Feature branch:** feature/PBI-XXX
+**Feature branch:** feature/PBI-EEE.PPP
 
 ## Issue Summary
 - **Type:** feature | bug | refactor | chore
@@ -204,28 +198,31 @@ Write the ADR to `.wag/adr/active/PBI-XXX-ADR.md`. It must include:
 4. Create the feature branch, write its name to `state.json`, and commit the ADR together with state:
 
 ```bash
-git checkout -b feature/PBI-XXX dev
+git checkout -b feature/PBI-EEE.PPP dev
 ```
 
-Then update `.wag/state.json` to set `feature_branch` to the exact branch name just created (e.g. `"feature/PBI-XXX"`). `state.json` is an ADR artifact — `/wag:dev` reads `feature_branch` verbatim to check out the right branch, so don't rely on naming conventions.
+Then update `.wag/state.json`:
+- Set `active_pbi` to the local PBI number (e.g., `"003"`).
+- Set `feature_branch` to the exact branch name just created (e.g., `"feature/PBI-001.003"`). `state.json` is an ADR artifact — `/wag:dev` reads `feature_branch` verbatim to check out the right branch, so don't rely on naming conventions.
 
 ```bash
-git add .wag/adr/active/PBI-XXX-ADR.md .wag/state.json
-git commit -m "ADR: PBI-XXX — [title]"
-git push -u origin feature/PBI-XXX
+git add .wag/adr/active/ADR-EEE.PPP.md .wag/state.json
+git commit -m "ADR: PBI EEE.PPP — [title]"
+git push -u origin feature/PBI-EEE.PPP
 ```
 
-5. Tell the user: "ADR approved on `feature/PBI-XXX`. Run `/wag:dev` when ready to implement."
+5. Tell the user: "ADR approved on `feature/PBI-EEE.PPP`. Run `/wag:dev` when ready to implement."
 
 ## Key rules
 
 1. **Halt on open snags.** No menu, no acknowledgment path. User directs the resolution. Protocol lives in `wag/workflows/snag-resolution.md`.
-2. **Halt on template drift.** Project docs must conform to the current templates. Drift is a defect; surface it, let the user direct.
+2. **Halt on template drift.** Project docs must conform to the current templates. Drift is a defect; surface it, let the user direct. Legacy-scheme backlogs are resolved via `/wag:migrate-backlog`.
 3. **Templates are authoritative.** ADR follows the current templates for every doc it reads or modifies. Deviation requires a snag.
 4. **User approves every phase.** Don't auto-advance.
 5. **ADR quality is non-negotiable.** If it's not specific enough for a developer to implement without questions, it's not done.
 6. **Learnings are standards.** The design must comply with applicable learnings or explicitly justify why not.
-7. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
+7. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
 8. **No implementation.** `/wag:adr` designs; `/wag:dev` implements.
-9. **Respect the active epic.** Default to PBIs within it. Switching or going standalone is an explicit user action.
+9. **Respect the active epic.** Default to PBIs within it. Switching is an explicit user action.
 10. **One decision at a time.** In grill phases, surface the list once and resolve each decision before moving on.
+11. **Canonical PBI ID everywhere.** Use `PBI EEE.PPP` in display, prose, ADR titles, commit messages, snag references. The dot-separated filename-safe form (`EEE.PPP`) appears in filenames and branch names; the colon form is not used.

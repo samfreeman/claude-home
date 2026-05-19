@@ -1,8 +1,8 @@
-# Epic N: [Title]
+# Epic 001: [Title]
 
 **Priority:** P1 | P2 | P3
 **Status:** Ready | Blocked — waiting on [X] | In progress | Done
-**Depends on:** [other epics, PBIs, or "None"]
+**Depends on:** [other epics (e.g., Epic 002), PBIs (e.g., PBI 002.003), or "None"]
 
 ## Goal
 

@@ -19,7 +19,7 @@ git checkout <feature_branch>
 
 If the branch doesn't exist, something went wrong during ADR approval. Stop and tell the user. `/wag:dev` never assumes it's already on the right branch — the checkout is explicit every session.
 
-4. Check `adr/active/` for an approved ADR (status: approved). If none exists, tell the user to run `/wag:adr` first.
+4. Check `adr/active/` for an approved ADR (status: approved). If none exists, tell the user to run `/wag:adr` first. The ADR filename follows `ADR-EEE.PPP.md` (canonical PBI ID).
 5. Read the ADR — this is the spec. Everything flows from it.
 6. Read `.wag/docs/Architecture.md` for project context.
 7. Read `~/.claude/wag/learnings/` for standards relevant to this ADR's domain. Filter by the `Applies to` field.
@@ -115,24 +115,24 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
 
 ## Phase 5: PR
 
-1. Create PR from `feature/PBI-XXX` to `dev`.
-2. Move ADR from `adr/active/` to `adr/completed/`.
+1. Create PR from `feature/PBI-EEE.PPP` to `dev`.
+2. Move ADR from `adr/active/ADR-EEE.PPP.md` to `adr/completed/ADR-EEE.PPP.md`.
 3. Close the PBI per the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`:
-   - **Epic PBI** (`backlog/epic-NNN-slug/PBI-NNN.md`): `mv` to `backlog/_completed/epic-NNN-slug/PBI-NNN.md`. The mirror folder was pre-created when the epic was authored; remove the mirror's `.gitkeep` if this is the first PBI closed there.
-   - **Standalone PBI** (`backlog/PBI-NNN.md`): `mv` to `backlog/_completed/PBI-NNN.md` (flat).
-4. **Check for epic drain.** If the PBI came from an epic folder and the active folder now contains only `epic.md`:
-   - Prompt: *"All PBIs in `<slug>` are complete. Mark the epic done?"*
-   - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/epic.md`; `rmdir backlog/<slug>/`; clear `active_epic` in `state.json` (set to `null`).
+   - `git mv backlog/<active_epic>/PBI-PPP.md backlog/_completed/<active_epic>/PBI-PPP.md`. The mirror folder was pre-created when the epic was authored; remove the mirror's `.gitkeep` if this is the first PBI closed there.
+4. **Check for epic drain.** If `<active_epic>` is not `epic-000-general` and the active folder now contains only `epic.md`:
+   - Prompt: *"All PBIs in `<active_epic>` are complete. Mark the epic done?"*
+   - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<active_epic>/epic.md backlog/_completed/<active_epic>/epic.md`; `rmdir backlog/<active_epic>/`; set `active_epic` in `state.json` back to `"epic-000-general"`.
    - **If no:** leave the epic active with only its `epic.md`; don't change `active_epic`. The user may add more PBIs later.
+   - **Skip this check entirely for `epic-000-general`** — it's a permanent bucket and never drains.
 5. **Update `state.json`:**
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
    - Clear `feature_branch` (set to `null`) — the feature branch is merged.
-   - Clear `active_epic` only if the user confirmed epic completion in step 4.
+   - Update `active_epic` only if the user confirmed epic completion in step 4 (set to `"epic-000-general"`).
 6. User reviews and approves the PR.
 7. Squash merge to `dev`.
 
 ```bash
-gh pr create --base dev --head feature/PBI-XXX --title "PBI-XXX: [title]" --body "$(cat <<'EOF'
+gh pr create --base dev --head feature/PBI-EEE.PPP --title "PBI EEE.PPP: [title]" --body "$(cat <<'EOF'
 ## Summary
 [From ADR]
 
@@ -146,7 +146,7 @@ EOF
 
 # After user approves:
 git checkout dev
-git merge --squash feature/PBI-XXX
+git merge --squash feature/PBI-EEE.PPP
 git commit
 ```
 
@@ -164,5 +164,5 @@ git commit
 5. **User can intervene at any time.** Any role can be redirected.
 6. **Snags escalate to user via Architect** when no prior resolution exists.
 7. **Advisory findings during active work.** Dev/Tester can acknowledge known issues that will resolve with later work. At the final gate, everything must pass.
-8. **Feature branches.** Work happens on `feature/PBI-XXX`, not directly on dev.
-9. **Preserve epic membership when completing.** Completed PBIs that came from an epic folder go to `_completed/epic-NNN-slug/` (pre-created at epic authoring), not flat `_completed/`. Epic drain is detected automatically, but closure is confirmed by the user — don't auto-close an epic without the prompt.
+8. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
+9. **Preserve epic membership when completing.** Completed PBIs go to `_completed/<active_epic>/PBI-PPP.md` (mirror pre-created at epic authoring). Epic drain is detected automatically except for `epic-000-general`, which never drains. Closure of a real epic is confirmed by the user — don't auto-close without the prompt.

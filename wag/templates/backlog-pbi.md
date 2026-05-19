@@ -1,11 +1,11 @@
-# PBI-NNN: [Title]
+# PBI 001.003: [Title]
 
 **Priority:** P1 | P2 | P3
-**Dependencies:** [other PBIs, or "None"]
+**Dependencies:** [other PBIs (e.g., PBI 001.001), or "None"]
 
 ## Description
 
-[What and why. Reference the epic (if this PBI belongs to one), PRD sections, Architecture decisions, or previous PBIs as relevant. Be specific — this is the input an ADR is designed against.]
+[What and why. Reference the epic, PRD sections, Architecture decisions, or previous PBIs as relevant. Be specific — this is the input an ADR is designed against.]
 
 ## Deliverables
 
@@ -29,7 +29,8 @@
 
 *These apply when `/wag:docs` creates or modifies PBI files. Failed checks halt the command and raise a snag per the snag-resolution protocol.*
 
-1. **Dependency direction.** `Dependencies:` must reference only PBIs with numbers **lower than** this PBI's own number. Forward dependencies only. (LEARNING-005)
-2. **Epic membership is file location.** A PBI inside `backlog/epic-NNN-slug/` belongs to that epic. A PBI at `backlog/` root is standalone. No in-file frontmatter for epic membership.
-3. **Numbering is sequential and never reused.** Scan `.wag/backlog/` including `_completed/` to find the next PBI number. Epic and PBI numbering sequences are independent.
-4. **Platform features name their tier.** Any deliverable that names a platform feature (GitHub, Vercel, Turso, Neon, etc.) must also name the tier it assumes, and that feature must be confirmed available on that tier. (LEARNING-003)
+1. **Dependency direction (within an epic).** Inside a single epic, `Dependencies:` must reference only PBIs with a lower local number than this PBI's own number. A reader scanning the epic's PBIs in number order encounters each PBI before its dependents, not after. Cross-epic dependencies are fine — they're named with the full `PBI EEE.PPP` form. (LEARNING-005)
+2. **Epic membership is file location.** A PBI inside `backlog/epic-NNN-word/` belongs to that epic. Loose work — bug fixes, small UI tweaks, afterthoughts — lives in `epic-000-general/`. No in-file frontmatter for epic membership.
+3. **Per-epic numbering.** Each epic numbers its PBIs starting at 001. The canonical PBI ID is `PBI EEE.PPP` where `EEE` is the epic number and `PPP` is the per-epic PBI number, both zero-padded triples. The filename inside the epic folder is `PBI-PPP.md` — the epic number comes from the folder. Scan the epic's `_completed/` mirror when picking the next number; closed PBI numbers are never reused.
+4. **Completed PBIs are immutable.** Once a PBI is moved into `_completed/`, its number and epic membership are locked forever. Open PBIs can be renumbered or moved between epics; closed ones cannot. (Migration of a project's pre-existing backlog via `/wag:migrate-backlog` is the one exception.)
+5. **Platform features name their tier.** Any deliverable that names a platform feature (GitHub, Vercel, Turso, Neon, etc.) must also name the tier it assumes, and that feature must be confirmed available on that tier. (LEARNING-003)

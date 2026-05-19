@@ -63,22 +63,22 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 **Process:**
 1. Read PRD.md and Architecture.md.
 2. Draft backlog items grounded in the PRD and architecture:
-   - v1 epics/PBIs — each traceable to a PRD requirement or architecture decision
-   - v2/future items — parked, not forgotten
+   - v1 epics / PBIs — each traceable to a PRD requirement or architecture decision
+   - v2 / future items — parked, not forgotten
    - Non-goals — explicit, with rationale
 3. Present to user. This is a conversation:
-   - Walk through each v1 epic/PBI and its rationale
+   - Walk through each v1 epic / PBI and its rationale
    - Challenge scope — is this really v1? Can it be deferred?
    - Confirm non-goals — is anything missing?
    - Review PBI granularity — are they the right size?
 4. Iterate until the user approves.
 
 **Backlog structure:**
-- Epic folders at `.wag/backlog/epic-NNN-slug/` each contain an `epic.md` and the PBI files belonging to that epic (`PBI-NNN-slug.md`).
-- Standalone PBIs (bug fixes, one-offs, work that doesn't belong to an epic) live as `PBI-NNN-slug.md` files at the root of `.wag/backlog/`, not inside any epic folder.
-- Not every PBI belongs to an epic. The backlog can mix both shapes.
+- Every PBI lives in an epic. Epic folders are named `epic-NNN-word/` (one-word kebab-style descriptor), and each contains an `epic.md` plus the PBI files belonging to that epic, named `PBI-PPP.md` (per-epic local number, zero-padded).
+- `epic-000-general/` is the permanent bucket for loose work — bug fixes, small UI tweaks, afterthoughts, anything that doesn't deserve its own epic. It is created automatically during Phase D and always exists.
+- Canonical PBI ID is `PBI EEE.PPP` (epic number dot PBI number). This is the form used in display, commits, ADR titles, snags, and prose.
 
-**Output:** `.wag/backlog/` (epic folders and/or standalone PBI files)
+**Output:** `.wag/backlog/` (epic folders, including `epic-000-general/`)
 
 **Transition:** User approves the backlog. Do not proceed without approval.
 
@@ -98,30 +98,57 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
    │   ├── RESEARCH.md        (from Phase B)
    │   └── Architecture.md    (from Phase B)
    ├── backlog/
-   │   ├── epic-NNN-slug/     (optional — epic folders)
+   │   ├── epic-000-general/
+   │   │   └── epic.md        (stub — purpose: bucket for ungrouped PBIs)
+   │   ├── epic-NNN-word/     (any v1 epics authored in Phase C)
    │   │   ├── epic.md
-   │   │   └── PBI-NNN-slug.md
-   │   └── PBI-NNN-slug.md    (optional — standalone PBIs)
+   │   │   └── PBI-PPP.md
+   │   └── _completed/
+   │       └── epic-NNN-word/ (mirror per active epic, with .gitkeep)
    ├── adr/
    │   └── active/
    └── snags/
        └── _resolved/
    ```
-2. Register the project in `~/.claude/wag/projects.json`. Read the existing file (or create it as an empty array). Add an entry: `{ "name": "[project name]", "path": "[absolute path]", "type": "[nextjs|cli|other]" }`. Don't duplicate if already registered.
-3. Initialise `state.json`:
+2. Author the `epic-000-general/epic.md` stub:
+   ```markdown
+   # Epic 000: General
+
+   **Priority:** P3
+   **Status:** Ongoing
+   **Depends on:** None
+
+   ## Goal
+
+   Permanent bucket for ungrouped PBIs — bug fixes, small UI tweaks, afterthoughts, and isolated chores that don't belong to any feature epic.
+
+   ## Deliverables
+
+   - Whatever individual PBIs in this epic deliver. Per-PBI scope lives in each PBI file.
+
+   ## Design Input Required
+
+   None at the epic level. PBIs in this epic carry their own design context.
+
+   ## Non-goals
+
+   - Not a holding pen for work that should be in a real epic. If a cluster of related PBIs emerges here, lift them into a new epic.
+   ```
+3. Register the project in `~/.claude/wag/projects.json`. Read the existing file (or create it as an empty array). Add an entry: `{ "name": "[project name]", "path": "[absolute path]", "type": "[nextjs|cli|other]" }`. Don't duplicate if already registered.
+4. Initialise `state.json`:
    ```json
    {
      "app_name": "{{PROJECT_NAME}}",
      "current_mode": null,
-     "active_epic": null,
+     "active_epic": "epic-000-general",
      "active_pbi": null,
      "feature_branch": null
    }
    ```
-   - `active_epic` is a string like `"epic-001-slug"` when the user is working within an epic, or `null` for standalone PBI work or when no epic is currently active.
-   - `active_pbi` is a string like `"PBI-NNN-slug"` when a PBI is in flight, or `null` when between PBIs.
-   - `feature_branch` is a string like `"feature/PBI-NNN"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
-4. Present the scaffolded structure to the user. Walk through each document.
+   - `active_epic` is the slug of the epic folder currently in scope. It is never null — it defaults to `"epic-000-general"` and returns to that value when no other epic is active.
+   - `active_pbi` is the local per-epic PBI number as a zero-padded string like `"003"` when a PBI is in flight, or `null` when between PBIs. The full canonical ID is `PBI <active_epic-number>.<active_pbi>` (e.g., `PBI 001.003`).
+   - `feature_branch` is a string like `"feature/PBI-001.003"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
+5. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents.
 
@@ -134,3 +161,4 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 3. **Documents are seeded, not empty.** Every document should contain real content derived from the phases that produced it.
 4. **Research grounds decisions.** Requirements and architecture should trace back to research findings, not assumptions.
 5. **The user drives scope.** You propose, they decide. Especially for v1 vs v2 and non-goals.
+6. **Every PBI lives in an epic.** `epic-000-general/` exists from Phase D onward and absorbs all ungrouped work. There is no "standalone PBI at backlog root."

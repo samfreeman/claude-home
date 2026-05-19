@@ -5,22 +5,25 @@ mirrored folder trees:
 
 ```
 .wag/backlog/
-├── <epic-slug>/                  # active epic
+├── epic-NNN-word/                # active epic
 │   ├── epic.md
-│   └── PBI-NNN-*.md              # active PBIs
-├── _completed/
-│   ├── <epic-slug>/              # mirror of the epic, pre-created at epic authoring
-│   │   ├── .gitkeep              # until the first PBI closes or the epic drains
-│   │   └── PBI-NNN-*.md          # closed PBIs
-│   └── PBI-NNN-*.md              # closed standalones (flat)
-└── PBI-NNN-*.md                  # active standalones (flat)
+│   └── PBI-PPP.md                # active PBIs (per-epic numbering)
+└── _completed/
+    └── epic-NNN-word/            # mirror of the epic, pre-created at epic authoring
+        ├── .gitkeep              # until the first PBI closes or the epic drains
+        └── PBI-PPP.md            # closed PBIs
 ```
+
+Every PBI lives in an epic. Loose work — bug fixes, small UI tweaks, afterthoughts — lives
+in `epic-000-general/`, the permanent bucket for ungrouped PBIs.
 
 ## Pre-create the mirror at epic authoring
 
-When `/wag:docs` creates a new epic at `backlog/<slug>/`, it also creates
-`backlog/_completed/<slug>/` with a `.gitkeep` placeholder. The mirror always exists;
+When `/wag:docs` creates a new epic at `backlog/epic-NNN-word/`, it also creates
+`backlog/_completed/epic-NNN-word/` with a `.gitkeep` placeholder. The mirror always exists;
 downstream close operations are simple moves with no create-if-missing logic.
+
+`epic-000-general/` and its mirror are created during `/wag:init` and exist for every project.
 
 ## Close a PBI
 
@@ -29,34 +32,28 @@ Triggers:
 - `/wag:adr` closed-without-ADR path — the grill dissolves the PBI's scope to trivial or zero.
 - Rare: inline snag resolution (per `~/.claude/wag/workflows/snag-resolution.md`) eliminates the PBI entirely.
 
-Procedure (PBI that belongs to an epic):
+Procedure:
 
 1. Add a closure note at the top of the PBI file if scope changed materially. Include:
    - A `**Status:** Closed <date> — <short reason>` line in the header.
    - A `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs or LEARNINGs produced.
-2. `mv backlog/<slug>/PBI-NNN-*.md backlog/_completed/<slug>/PBI-NNN-*.md`
+2. `git mv backlog/epic-NNN-word/PBI-PPP.md backlog/_completed/epic-NNN-word/PBI-PPP.md`
 3. Remove `.gitkeep` from the mirror if this is the first PBI closure there.
-4. Check for epic drain (see below).
-
-Procedure (standalone PBI — not in an epic):
-
-1. Same closure note.
-2. `mv backlog/PBI-NNN-*.md backlog/_completed/PBI-NNN-*.md`
-3. No epic-drain check.
+4. Check for epic drain (see below). **Skip the drain check for `epic-000-general`** — it's a permanent bucket and never drains in any meaningful sense.
 
 ## Close an epic (drain detection + ceremony)
 
-An epic is drained when its active folder `backlog/<slug>/` contains only `epic.md`
-(no remaining PBI files).
+An epic is drained when its active folder `backlog/epic-NNN-word/` contains only `epic.md`
+(no remaining PBI files). The drain check does not apply to `epic-000-general`.
 
 Procedure:
 
-1. Prompt the user: *"All PBIs in `<slug>` are complete. Mark the epic done?"* The prompt is a safety check — the user may want to add more PBIs later; draining doesn't always mean finished.
+1. Prompt the user: *"All PBIs in `epic-NNN-word` are complete. Mark the epic done?"* The prompt is a safety check — the user may want to add more PBIs later; draining doesn't always mean finished.
 2. On yes:
    - Update `epic.md`: change header `**Status:**` to `Completed <date>`. Optionally add a `> **Closure note.**` block summarising each PBI's outcome (one line each).
-   - `git mv backlog/<slug>/epic.md backlog/_completed/<slug>/epic.md` — same filename; the folder path already encodes the epic identity.
-   - `rmdir backlog/<slug>/` — the active folder is now empty.
-   - If `state.json.active_epic == <slug>`, set `active_epic: null`.
+   - `git mv backlog/epic-NNN-word/epic.md backlog/_completed/epic-NNN-word/epic.md` — same filename; the folder path already encodes the epic identity.
+   - `rmdir backlog/epic-NNN-word/` — the active folder is now empty.
+   - If `state.json.active_epic == "epic-NNN-word"`, set `active_epic` back to `"epic-000-general"` (the default bucket). `active_epic` is never null in the per-epic scheme.
 3. On no: leave as-is. The user will add more PBIs or explicitly close the epic later.
 
 ## Commit bundling
@@ -67,9 +64,4 @@ Per project convention, `state.json` never commits separately from the work it r
 
 ## Migration note
 
-This convention formalises what was done ad-hoc through SNAG-003 and the PBI-002 / PBI-003
-closures on ChatR (2026-04-18 / 2026-04-19). Projects that adopted the older flat
-`_completed/` pattern may have PBI files at `backlog/_completed/PBI-NNN-*.md` without an
-epic-mirror folder — that's fine for standalones. For epic PBIs under the old pattern,
-either leave them in place (historical) or `mv` into a reconstructed
-`backlog/_completed/<slug>/` mirror during the next `/wag:docs` refresh.
+Projects that adopted the older scheme (global PBI sequence, standalone PBIs at backlog root, descriptive slugs in filenames) migrate one at a time via `/wag:migrate-backlog` when work resumes on the project. New projects use the per-epic numbering and `epic-000-general` bucket from `/wag:init` onward.
