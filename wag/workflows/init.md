@@ -75,8 +75,11 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 
 **Backlog structure:**
 - Every PBI lives in an epic. Epic folders are named `epic-NNN-word/` (one-word kebab-style descriptor), and each contains an `epic.md` plus the PBI files belonging to that epic, named `PBI-PPP.md` (per-epic local number, zero-padded).
-- `epic-000-general/` is the permanent bucket for loose work — bug fixes, small UI tweaks, afterthoughts, anything that doesn't deserve its own epic. It is created automatically during Phase D and always exists.
+- `epic-000-general/` is the permanent bucket for loose work — bug fixes, small UI tweaks, afterthoughts, anything that doesn't deserve its own epic. It is created automatically during Phase D and always exists. PBIs in it are not pinned — when a cluster of them coheres around a shared outcome, lift them into a new feature epic.
 - Canonical PBI ID is `PBI EEE.PPP` (epic number dot PBI number). This is the form used in display, commits, ADR titles, snags, and prose.
+
+**What an epic is:**
+An epic is a **business objective** — a coherent outcome that delivers value to users or the business. Not a category of tasks. A single epic's PBIs may span backend, frontend, schema, infra, and docs; what makes them an epic together is the shared outcome they deliver. Names like `epic-NNN-database` or `epic-NNN-refactoring` or `epic-NNN-bugs` are anti-patterns — those PBIs either serve a real business epic, or live in `epic-000-general`.
 
 **Output:** `.wag/backlog/` (epic folders, including `epic-000-general/`)
 
@@ -120,7 +123,7 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 
    ## Goal
 
-   Permanent bucket for ungrouped PBIs — bug fixes, small UI tweaks, afterthoughts, and isolated chores that don't belong to any feature epic.
+   Loose collection of PBIs with no shared business outcome — bug fixes, small UI tweaks, afterthoughts, and isolated chores. Unlike feature epics, Epic 000 is not a business objective; it's a holding area. PBIs may flow into a new or existing feature epic when a coherent outcome emerges, or stay here permanently if they remain isolated.
 
    ## Deliverables
 
@@ -132,7 +135,7 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 
    ## Non-goals
 
-   - Not a holding pen for work that should be in a real epic. If a cluster of related PBIs emerges here, lift them into a new epic.
+   - Not a permanent home for work that belongs in a real epic. When PBIs here start clustering around a shared outcome, lift them out into a new feature epic.
    ```
 3. Register the project in `~/.claude/wag/projects.json`. Read the existing file (or create it as an empty array). Add an entry: `{ "name": "[project name]", "path": "[absolute path]", "type": "[nextjs|cli|other]" }`. Don't duplicate if already registered.
 4. Initialise `state.json`:

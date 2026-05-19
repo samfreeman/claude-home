@@ -97,9 +97,25 @@ If during authoring you discover a defect in an upstream doc (PRD, Architecture,
 The backlog has one shape: epics. Every PBI lives in an epic folder.
 
 - **Feature epics** — `backlog/epic-NNN-word/` folders, where `word` is a one-word kebab-style descriptor (e.g., `epic-001-auth`, `epic-002-billing`). Each contains an `epic.md` and zero or more PBI files.
-- **`epic-000-general`** — the permanent bucket for loose work: bug fixes, small UI tweaks, afterthoughts, isolated chores. Always exists. Never drains.
+- **`epic-000-general`** — the permanent bucket for loose work: bug fixes, small UI tweaks, afterthoughts, isolated chores. Always exists. Never drains. PBIs in here are not pinned — when a cluster of them starts to cohere around a shared outcome, lift them into a new (or existing) feature epic via the "Moving PBIs between epics" procedure below.
 
 There is no "standalone PBI at the backlog root." If a PBI doesn't fit any feature epic, it goes in `epic-000-general`.
+
+### What an epic is
+
+An epic is a **business objective** — a coherent outcome that delivers value to users or the business. It is not a category of tasks. A single epic's PBIs may span multiple categories (backend, frontend, schema, infra, docs); what makes them an epic together is the shared outcome they deliver.
+
+Good epics:
+- `epic-001-auth` — "Users can sign in and manage their account."
+- `epic-002-billing` — "Customers can subscribe to a paid plan and manage their subscription."
+- `epic-003-onboarding` — "New users go from sign-up to first value in under 5 minutes."
+
+Bad epics (these are categories, not objectives — don't create them):
+- `epic-NNN-database` — "Database changes." DB-touching PBIs belong to whichever business objective they serve.
+- `epic-NNN-refactoring` — "Refactoring work." A refactor either belongs to an epic that needs it, or lives in `epic-000-general`.
+- `epic-NNN-bugs` — "Bug fixes." Bug fixes live in `epic-000-general`; they don't share a business goal.
+
+`epic-000-general` is the explicit exception: it's the bucket for work without a coherent shared outcome. Don't try to give it business-objective shape — that's what feature epics are for.
 
 ### Canonical PBI ID
 

@@ -6,7 +6,7 @@
 
 ## Goal
 
-[One to three sentences describing what this epic delivers and why it exists. Trace to PRD / Architecture where possible.]
+[One to three sentences describing the business outcome this epic delivers. An epic is a business objective, not a category of work — its PBIs may span backend, frontend, schema, infra, and docs, but they share the same outcome. Trace to PRD / Architecture where possible.]
 
 ## Deliverables
 

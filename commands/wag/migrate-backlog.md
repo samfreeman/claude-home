@@ -57,13 +57,18 @@ Present the survey to the user as a plain summary:
 
 Walk through each decision with the user. Don't move files yet.
 
-### Decision 1: Epic folder renames
+### Decision 1: Epic shape and folder renames
 
-For each existing `epic-NNN-slug/` where `slug` is multi-word or undesirable:
-- Propose a one-word replacement (e.g., `epic-001-invite-only-auth-flow` → `epic-001-auth`).
-- The epic *number* stays. Renaming changes the folder slug only.
+Migration is the right moment to check that legacy epics are actually business objectives, not categories. An epic should be a coherent outcome (e.g., "users can sign in," "customers can subscribe") whose PBIs may span backend, frontend, schema, and docs — *not* a category like "database changes" or "refactoring" or "bugs."
 
-Confirm each rename with the user. They may keep some slugs as-is if already one word.
+For each existing `epic-NNN-slug/`:
+
+1. **Is it a real business objective?**
+   - If yes → continue to the rename below.
+   - If no (it's a category) → propose dissolving it. Its PBIs either get redistributed into real business epics, or drop into `epic-000-general`. The epic folder itself is removed (its `epic.md` doesn't survive).
+2. **Folder rename.** For epics that survive, propose a one-word replacement if the current slug is multi-word or undesirable (e.g., `epic-001-invite-only-auth-flow` → `epic-001-auth`). The epic *number* stays. Renaming changes the folder slug only.
+
+Confirm each decision with the user. They may keep some epics and slugs as-is.
 
 ### Decision 2: epic-000-general
 
