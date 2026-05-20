@@ -128,8 +128,9 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
    - Clear `feature_branch` (set to `null`) — the feature branch is merged.
    - Update `active_epic` only if the user confirmed epic completion in step 4 (set to `"epic-000-general"`).
-6. User reviews and approves the PR.
-7. Squash merge to `dev`.
+6. **Offer to refresh the rendered HTML.** Closing a PBI moves files inside `.wag/backlog/`, so `Backlog.html` is now stale (and `PRD.html` / `Architecture.html` may be too if this session also touched the planning docs). Ask: "Refresh the HTML renders via `/wag:html-docs`?" If yes, hand off; if no, the user runs it later when convenient.
+7. User reviews and approves the PR.
+8. Squash merge to `dev`.
 
 ```bash
 gh pr create --base dev --head feature/PBI-EEE.PPP --title "PBI EEE.PPP: [title]" --body "$(cat <<'EOF'
