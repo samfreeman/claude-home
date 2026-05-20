@@ -1,0 +1,35 @@
+/* ── WAG default theme tokens — used by /wag:html-docs when the project ── *
+ * ── has no globals.css to lift tokens from (pre-scaffold projects, etc.). ──*
+ * ── Solar-Dusk flavoured; projects override by pointing the command at ── *
+ * ── their own globals.css once scaffolded.                                   */
+
+:root {
+    --background: oklch(0.9885 0.0057 84.5659);
+    --foreground: oklch(0.3660 0.0251 49.6085);
+    --card: oklch(0.9686 0.0091 78.2818);
+    --primary: oklch(0.5553 0.1455 48.9975);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.8276 0.0752 74.4400);
+    --muted: oklch(0.9363 0.0218 83.2637);
+    --muted-foreground: oklch(0.5534 0.0116 58.0708);
+    --accent: oklch(0.9000 0.0500 74.9889);
+    --destructive: oklch(0.4437 0.1613 26.8994);
+    --border: oklch(0.8866 0.0404 89.6994);
+    --radius: 0.3rem;
+    color-scheme: light;
+}
+
+.dark {
+    --background: oklch(0.2161 0.0061 56.0434);
+    --foreground: oklch(0.9699 0.0013 106.4238);
+    --card: oklch(0.2685 0.0063 34.2976);
+    --primary: oklch(0.7049 0.1867 47.6044);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.4444 0.0096 73.6390);
+    --muted: oklch(0.2330 0.0073 67.4563);
+    --muted-foreground: oklch(0.7161 0.0091 56.2590);
+    --accent: oklch(0.3598 0.0497 229.3202);
+    --destructive: oklch(0.5771 0.2152 27.3250);
+    --border: oklch(0.3741 0.0087 67.5582);
+    color-scheme: dark;
+}

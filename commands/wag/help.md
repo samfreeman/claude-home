@@ -18,6 +18,7 @@ Show available WAG commands and their usage.
 | `/wag:add-theme` | Add tweakcn theming and dark mode |
 | `/wag:init` | Add planning infrastructure (intake → research → requirements → scaffold) |
 | `/wag:docs` | Refine PRD/Architecture, author epics and PBIs |
+| `/wag:html-docs` | Render PRD.md and Architecture.md as polished HTML — themed, diff-driven diagram review |
 | `/wag:adr` | Design a PBI — Architecture Decision Record with snag and learning awareness |
 | `/wag:dev` | Implement the ADR — spawn an Agent Team (Architect, Dev, CQ, Tester) |
 | `/wag:migrate-backlog` | One-time migration of a project's existing backlog to the per-epic numbering scheme |

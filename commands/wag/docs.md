@@ -179,8 +179,9 @@ This mode doesn't have a strict "complete" state — it ends when the user says 
 
 1. Confirm every new/changed file has been saved.
 2. If PRD or Architecture were modified, confirm their version numbers and changelog entries were updated.
-3. State.json is not modified by this command. `active_epic` and `active_pbi` are managed by `/wag:adr` and `/wag:dev`.
-4. Remind the user of natural next steps:
+3. **If PRD.md or Architecture.md changed this session, offer to refresh the HTML render.** Ask: "PRD/Architecture changed — refresh the HTML render via `/wag:html-docs`?" If yes, hand off; if no or skipped, continue. The HTML is a polished render kept alongside the Markdown source; skipping it just means the `.html` lags until the next manual `/wag:html-docs` run.
+4. State.json is not modified by this command. `active_epic` and `active_pbi` are managed by `/wag:adr` and `/wag:dev`.
+5. Remind the user of natural next steps:
    - "New PBIs exist — run `/wag:adr` to design the solution for one of them."
    - "If you want to discuss or revise further, re-run `/wag:docs` anytime."
 

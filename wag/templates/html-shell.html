@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{TITLE}}</title>
+
+<!-- Set the theme before first paint to avoid a flash -->
+<script>
+	(function () {
+		try {
+			var saved = localStorage.getItem('wag-doc-theme')
+			var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
+			if (dark) document.documentElement.classList.add('dark')
+		}
+		catch (e) {}
+	})()
+</script>
+
+<style>
+	/* ── Theme tokens — lifted from the app's globals.css, or the WAG default ── */
+{{THEME_TOKENS}}
+
+	/* No web fonts loaded — keep self-contained, fall back to platform stack */
+	:root {
+		--font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+		--font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+	}
+
+	* { box-sizing: border-box; }
+	html { scroll-behavior: smooth; }
+	body {
+		margin: 0;
+		font-family: var(--font-sans);
+		color: var(--foreground);
+		background: var(--background);
+		line-height: 1.65;
+	}
+	.wrap { max-width: 1000px; margin: 0 auto; padding: 0 32px 96px; }
+
+	/* ── Header — pinned to the top of the document ── */
+	.topbar {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 16px;
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		padding: 16px 0;
+		background: var(--background);
+		border-bottom: 1px solid var(--border);
+		box-shadow: 0 6px 16px -12px color-mix(in oklch, var(--foreground) 55%, transparent);
+	}
+	.topbar-actions {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.eyebrow {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--muted-foreground);
+		margin: 0 0 5px;
+	}
+	h1 {
+		font-size: 1.9rem;
+		margin: 0;
+		color: var(--foreground);
+	}
+	.btn-chip {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 7px 12px;
+		font: inherit;
+		font-size: 0.82rem;
+		color: var(--foreground);
+		background: var(--card);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		cursor: pointer;
+		text-decoration: none;
+	}
+	.btn-chip:hover { border-color: var(--primary); color: var(--primary); }
+	.btn-chip .ic { font-size: 0.95rem; line-height: 1; }
+
+	h2, h3, h4 { line-height: 1.25; margin: 2em 0 0.6em; }
+	/* Keep TOC jump-links clear of the sticky header */
+	h2, h3 { scroll-margin-top: 96px; }
+	#toc { scroll-margin-top: 96px; }
+	h2 {
+		font-size: 1.45rem;
+		color: var(--foreground);
+		border-left: 4px solid var(--primary);
+		padding: 0.1em 0 0.3em 0.6em;
+		border-bottom: 1px solid var(--border);
+	}
+	h3 { font-size: 1.12rem; color: var(--primary); }
+	h4 { font-size: 1rem; }
+	p { margin: 0.8em 0; }
+	a { color: var(--primary); text-decoration: none; }
+	a:hover { text-decoration: underline; }
+	hr { border: none; border-top: 1px solid var(--border); margin: 2.5em 0; }
+
+	code {
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+		background: color-mix(in oklch, var(--muted) 70%, var(--background));
+		padding: 0.15em 0.4em;
+		border-radius: 4px;
+		color: var(--primary);
+	}
+	pre {
+		background: color-mix(in oklch, var(--muted) 60%, var(--background));
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 16px;
+		overflow-x: auto;
+		font-size: 0.84rem;
+		line-height: 1.55;
+	}
+	pre code {
+		font-family: var(--font-mono);
+		background: none;
+		padding: 0;
+		font-size: inherit;
+		color: var(--foreground);
+	}
+
+	table { border-collapse: collapse; width: 100%; margin: 1.2em 0; font-size: 0.92rem; }
+	th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+	th { background: color-mix(in oklch, var(--primary) 12%, var(--background)); color: var(--foreground); }
+	tr:nth-child(even) td { background: color-mix(in oklch, var(--muted) 45%, var(--background)); }
+
+	blockquote { margin: 1em 0; padding: 0.2em 1em; border-left: 4px solid var(--border); color: var(--muted-foreground); }
+
+	/* ── Table of contents ── */
+	.toc {
+		background: color-mix(in oklch, var(--primary) 7%, var(--background));
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		padding: 16px 24px;
+		margin-top: 24px;
+	}
+	.toc strong { color: var(--primary); }
+	.toc ul { margin: 0.4em 0; padding-left: 1.4em; columns: 2; }
+	.meta { color: var(--muted-foreground); font-size: 0.9rem; }
+
+	/* ── Collapsible code blocks — full tech-spec detail, tucked away by default ── */
+	details {
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		margin: 1.1em 0;
+		background: color-mix(in oklch, var(--muted) 35%, var(--background));
+		overflow: hidden;
+	}
+	summary {
+		cursor: pointer;
+		padding: 9px 14px;
+		font-size: 0.86rem;
+		font-weight: 600;
+		color: var(--foreground);
+		list-style: none;
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		user-select: none;
+	}
+	summary::-webkit-details-marker { display: none; }
+	summary::before {
+		content: '▸';
+		color: var(--primary);
+		font-size: 0.78em;
+		transition: transform 0.12s ease;
+	}
+	details[open] > summary::before { transform: rotate(90deg); }
+	summary:hover { color: var(--primary); }
+	summary .kind {
+		font-family: var(--font-mono);
+		font-size: 0.66rem;
+		font-weight: 700;
+		letter-spacing: 0.07em;
+		color: var(--primary-foreground);
+		background: var(--primary);
+		padding: 2px 6px;
+		border-radius: 4px;
+	}
+	summary .kind.tree, summary .kind.env { background: var(--muted-foreground); }
+	summary .kind.sql { background: color-mix(in oklch, var(--primary) 75%, var(--foreground)); }
+	details > pre {
+		margin: 0;
+		border: none;
+		border-top: 1px solid var(--border);
+		border-radius: 0;
+	}
+
+	/* ── Invariant callout — theme's destructive red ── */
+	.warn {
+		background: color-mix(in oklch, var(--destructive) 10%, var(--background));
+		border: 1px solid var(--destructive);
+		border-left: 5px solid var(--destructive);
+		border-radius: 0 8px 8px 0;
+		padding: 16px 20px;
+		margin: 1.5em 0;
+		color: var(--destructive);
+	}
+	.warn > strong { display: block; margin-bottom: 0.4em; font-size: 1.05rem; }
+	.warn a { color: var(--destructive); text-decoration: underline; }
+
+	/* ── Diagrams — hand-authored inline SVG, recolours with the theme ── */
+	.diagram { margin: 1.6em 0; }
+	.diagram svg {
+		display: block;
+		width: 100%;
+		height: auto;
+		background: color-mix(in oklch, var(--muted) 55%, var(--background));
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 14px;
+	}
+	.d-band { fill: color-mix(in oklch, var(--primary) 7%, var(--background)); stroke: var(--border); stroke-width: 1.5; }
+	.d-box { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+	.d-box-accent { fill: color-mix(in oklch, var(--primary) 13%, var(--background)); stroke: var(--primary); stroke-width: 1.5; }
+	.d-label { fill: var(--muted-foreground); font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.07em; }
+	.d-title { fill: var(--foreground); font-size: 13px; font-weight: 700; }
+	.d-strong { fill: var(--foreground); font-size: 12px; font-weight: 600; }
+	.d-sub { fill: var(--muted-foreground); font-size: 11px; }
+	.d-msg { fill: var(--muted-foreground); font-size: 10.5px; }
+	.d-edge { stroke: var(--primary); stroke-width: 1.6; fill: none; }
+	.d-edge-dash { stroke-dasharray: 5 4; }
+	.d-life { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 3 4; }
+	.diagram marker path { fill: var(--primary); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="topbar">
+	<div class="topbar-title">
+		<p class="eyebrow">{{EYEBROW}}</p>
+		<h1>{{TITLE}}</h1>
+	</div>
+	<div class="topbar-actions">
+		<a class="btn-chip" href="#toc" aria-label="Jump to table of contents">
+			<span class="ic">↑</span><span class="lbl">TOC</span>
+		</a>
+		<button class="btn-chip" id="theme-toggle" type="button" aria-label="Toggle colour theme">
+			<span class="ic"></span><span class="lbl"></span>
+		</button>
+	</div>
+</header>
+<p class="meta">{{META_DESCRIPTION}}</p>
+
+<div class="toc" id="toc">
+	<strong>Contents</strong>
+	<ul>
+{{TOC_ITEMS}}
+	</ul>
+</div>
+
+{{BODY}}
+
+</div>
+
+<script>
+	(function () {
+		var btn = document.getElementById('theme-toggle')
+		if (!btn) return
+		var ic = btn.querySelector('.ic')
+		var lbl = btn.querySelector('.lbl')
+		function paint() {
+			var dark = document.documentElement.classList.contains('dark')
+			ic.textContent = dark ? '☀' : '☾'
+			lbl.textContent = dark ? 'Light' : 'Dark'
+		}
+		paint()
+		btn.addEventListener('click', function () {
+			var dark = document.documentElement.classList.toggle('dark')
+			try { localStorage.setItem('wag-doc-theme', dark ? 'dark' : 'light') } catch (e) {}
+			paint()
+		})
+	})()
+</script>
+</body>
+</html>
