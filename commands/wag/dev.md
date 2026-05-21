@@ -128,7 +128,10 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
    - Clear `active_pbi` (set to `null`) — the PBI is complete.
    - Clear `feature_branch` (set to `null`) — the feature branch is merged.
    - Update `active_epic` only if the user confirmed epic completion in step 4 (set to `"epic-000-general"`).
-6. **Offer to refresh the rendered HTML.** Closing a PBI moves files inside `.wag/backlog/`, so `Backlog.html` is now stale (and `PRD.html` / `Architecture.html` may be too if this session also touched the planning docs). Ask: "Refresh the HTML renders via `/wag:html-docs`?" If yes, hand off; if no, the user runs it later when convenient.
+6. **Offer to refresh the rendered surfaces.** Closing a PBI moves files inside `.wag/backlog/`, so the rendered backlog (both standalone HTML and in-app docs page, if either exists) is now stale. Ask: "Refresh the rendered surfaces?
+   - `/wag:html-docs` — standalone `.html` files in `.wag/docs/`.
+   - `/wag:gendocs` — in-app docs page (if the project has one wired)."
+   Either, both, or neither — user's call. They can also run them later.
 7. User reviews and approves the PR.
 8. Squash merge to `dev`.
 

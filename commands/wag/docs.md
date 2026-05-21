@@ -179,7 +179,12 @@ This mode doesn't have a strict "complete" state — it ends when the user says 
 
 1. Confirm every new/changed file has been saved.
 2. If PRD or Architecture were modified, confirm their version numbers and changelog entries were updated.
-3. **If any rendered source changed this session, offer to refresh the HTML.** Rendered sources are `PRD.md`, `Architecture.md`, and anything under `.wag/backlog/`. If at least one changed, ask: "Refresh the HTML renders via `/wag:html-docs`?" If yes, hand off to the runner; if no, the `.html` lags until the next manual run. Individual sub-commands (`/wag:html-prd`, `/wag:html-architecture`, `/wag:html-backlog`) are also runnable directly if only one doc needs refreshing.
+3. **If any rendered source changed this session, offer to refresh.** Rendered sources are `PRD.md`, `Architecture.md`, and anything under `.wag/backlog/`. If at least one changed, ask the user which surfaces to refresh:
+   - `/wag:html-docs` — standalone HTML files in `.wag/docs/` (for sharing / archive).
+   - `/wag:gendocs` — in-app docs page (if the project has one wired).
+   - Both / either / neither — user's call.
+   
+   Individual html sub-commands (`/wag:html-prd`, `/wag:html-architecture`, `/wag:html-backlog`) are also runnable directly if only one doc needs refreshing.
 4. State.json is not modified by this command. `active_epic` and `active_pbi` are managed by `/wag:adr` and `/wag:dev`.
 5. Remind the user of natural next steps:
    - "New PBIs exist — run `/wag:adr` to design the solution for one of them."

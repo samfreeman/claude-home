@@ -145,12 +145,14 @@ An epic is a **business objective** — a coherent outcome that delivers value t
      "current_mode": null,
      "active_epic": "epic-000-general",
      "active_pbi": null,
-     "feature_branch": null
+     "feature_branch": null,
+     "docs_page_path": null
    }
    ```
    - `active_epic` is the slug of the epic folder currently in scope. It is never null — it defaults to `"epic-000-general"` and returns to that value when no other epic is active.
    - `active_pbi` is the local per-epic PBI number as a zero-padded string like `"003"` when a PBI is in flight, or `null` when between PBIs. The full canonical ID is `PBI <active_epic-number>.<active_pbi>` (e.g., `PBI 001.003`).
    - `feature_branch` is a string like `"feature/PBI-001.003"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
+   - `docs_page_path` is the project-relative path to the directory holding the in-app docs page (e.g., `"src/app/(dashboard)/docs"`), or `null` until `/wag:gendocs` runs for the first time. Set on first run after the user confirms a detected or chosen path; reused (but re-confirmed) on subsequent runs.
 5. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents.

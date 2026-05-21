@@ -18,10 +18,11 @@ Show available WAG commands and their usage.
 | `/wag:add-theme` | Add tweakcn theming and dark mode |
 | `/wag:init` | Add planning infrastructure (intake → research → requirements → scaffold) |
 | `/wag:docs` | Refine PRD/Architecture, author epics and PBIs |
-| `/wag:html-docs` | Runner — refresh every HTML render (PRD, Architecture, Backlog) in sequence |
+| `/wag:html-docs` | Runner — refresh every standalone-HTML render (PRD, Architecture, Backlog) in sequence |
 | `/wag:html-prd` | Render `PRD.md` as polished HTML |
 | `/wag:html-architecture` | Render `Architecture.md` as polished HTML |
 | `/wag:html-backlog` | Render `.wag/backlog/` as polished HTML — epic + PBI accordions with filter pills and search |
+| `/wag:gendocs` | Generate / refresh the in-app docs page (Next.js + ShadCN + Tailwind) — scaffolds route + bakes PRD/Architecture/Backlog/Updates into TSX |
 | `/wag:adr` | Design a PBI — Architecture Decision Record with snag and learning awareness |
 | `/wag:dev` | Implement the ADR — spawn an Agent Team (Architect, Dev, CQ, Tester) |
 | `/wag:migrate-backlog` | One-time migration of a project's existing backlog to the per-epic numbering scheme |
