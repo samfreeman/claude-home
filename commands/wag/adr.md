@@ -66,23 +66,45 @@ If `adr/active/` already contains an ADR, previous work is in progress. Present 
 
 ### Determine working context
 
-Read `.wag/state.json`. `active_epic` is always set — it defaults to `"epic-000-general"` and points to whichever epic the user is working within.
+Read `.wag/state.json` to confirm the project is initialised. The relevant fields are `active_epic`, `active_pbi`, and `feature_branch` — they may carry stale values from a previous PBI. This command rewrites them when the user picks a new PBI; the prior values are not used to filter what's offered.
 
 **Backlog shape:**
 - Every epic folder (`epic-NNN-word/`) contains an `epic.md` and zero or more `PBI-PPP.md` files.
 - `epic-000-general/` is the bucket for ungrouped PBIs and always exists.
+- Closed PBIs live in `.wag/backlog/_completed/epic-NNN-word/` — those folders are the source of truth for "what's done".
 
 ### Pick a PBI
 
-1. List `PBI-PPP.md` files inside `.wag/backlog/<active_epic>/` (excluding `epic.md`). Show each PBI's full canonical ID (`PBI <epic>.<pbi>`), title, priority, and status.
-2. Show a one-line reminder of the active epic (title + goal from `epic.md`).
-3. Default path: pick a PBI from the active epic.
-4. Alternatives offered only if the user asks:
-   - Switch to a different epic — update `active_epic` in `state.json`.
-   - The active epic is empty: either pick from another epic, or propose authoring new PBIs (run `/wag:docs` for the dedicated authoring command).
+Present every open, unblocked PBI across all epics so the user can choose where to focus next. The previous `active_epic` value is not a filter — it's just a stale piece of state that this section will overwrite.
 
-**Empty backlog (rare — only possible right after init with no Phase C content):**
-Propose authoring an epic and PBIs. Run `/wag:docs` if the user prefers the dedicated command.
+1. **Gather every open PBI.** Glob `.wag/backlog/epic-*/PBI-*.md` (exclude `_completed/`). For each, parse:
+   - Canonical ID `PBI EEE.PPP` (epic number from folder name, PBI number from filename).
+   - Title (from the `# PBI EEE.PPP: ...` heading).
+   - Priority (from `**Priority:**`).
+   - Dependencies (from `**Dependencies:**`) — either "None" or one or more `PBI EEE.PPP` references.
+
+2. **Determine eligibility.** A PBI is **eligible** when every dependency it lists is closed — i.e. the dependency's file lives under `.wag/backlog/_completed/epic-*/`, not under an active epic folder. `Dependencies: None` is trivially eligible. Anything with at least one open dependency is **blocked**.
+
+3. **Present eligible PBIs grouped by epic.** For each epic that contains at least one eligible PBI, show a header line with the epic's number, title, and goal (from `epic.md`), then list its eligible PBIs underneath with full canonical ID, title, and priority. Sort epics by number; within an epic, sort PBIs by local number. Do not show empty epics.
+
+4. **Mention blocked work as a footnote** if any. One line: `N blocked PBI(s) waiting on: PBI X.Y, PBI A.B, ...` — enough for the user to see what unblocks them, but don't expand the full blocked list (they aren't selectable now).
+
+5. **Suggest a default and let the user pick.** Suggest a default in this priority order — but every eligible PBI across every epic is on the table, the default is just a nudge:
+   1. Highest priority (P1 > P2 > P3).
+   2. Same epic as the previous `active_epic` — a user mid-thread on one epic naturally gets nudged back to it.
+   3. Lowest epic number.
+   4. Lowest local PBI number.
+
+   The user may pick any eligible PBI, override the suggestion, or ask to switch to authoring/unblocking work instead.
+
+6. **Write the selection to `state.json`.** Once the user confirms a PBI, update `.wag/state.json`:
+   - Set `active_epic` to the epic folder name of the picked PBI (e.g. `"epic-002-onboarding"`).
+   - Set `active_pbi` to the local PBI number as a zero-padded string (e.g. `"003"`).
+   Do not commit yet — the Phase 4 commit bundles this `state.json` change with the ADR file and the `feature_branch` write.
+
+**No eligible PBIs:**
+- If at least one open PBI exists but every one is blocked, surface the blocking graph and ask the user where to focus: pick blocked work to unblock manually, sharpen a dependency via `/wag:docs`, or close an upstream PBI to free things up.
+- If the backlog has no open PBIs at all (rare — only possible right after init with no Phase C content), propose authoring an epic and PBIs via `/wag:docs`.
 
 ### Read the selected PBI
 
@@ -201,9 +223,10 @@ Write the ADR to `.wag/adr/active/ADR-EEE.PPP.md` where `EEE.PPP` is the canonic
 git checkout -b feature/PBI-EEE.PPP dev
 ```
 
-Then update `.wag/state.json`:
-- Set `active_pbi` to the local PBI number (e.g., `"003"`).
-- Set `feature_branch` to the exact branch name just created (e.g., `"feature/PBI-001.003"`). `state.json` is an ADR artifact — `/wag:dev` reads `feature_branch` verbatim to check out the right branch, so don't rely on naming conventions.
+Then update `.wag/state.json`. `active_epic` and `active_pbi` were already written when the PBI was picked in Phase 1; reaffirm them here so this commit captures the full state in one go:
+- Confirm `active_epic` matches the epic folder containing the selected PBI (e.g. `"epic-002-onboarding"`).
+- Confirm `active_pbi` matches the local PBI number (e.g. `"003"`).
+- Set `feature_branch` to the exact branch name just created (e.g. `"feature/PBI-001.003"`). `state.json` is an ADR artifact — `/wag:dev` reads `feature_branch` verbatim to check out the right branch, so don't rely on naming conventions.
 
 ```bash
 git add .wag/adr/active/ADR-EEE.PPP.md .wag/state.json
@@ -223,6 +246,6 @@ git push -u origin feature/PBI-EEE.PPP
 6. **Learnings are standards.** The design must comply with applicable learnings or explicitly justify why not.
 7. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
 8. **No implementation.** `/wag:adr` designs; `/wag:dev` implements.
-9. **Respect the active epic.** Default to PBIs within it. Switching is an explicit user action.
+9. **Pick across all epics.** Every open, unblocked PBI is selectable in Phase 1 — the previous `active_epic` in `state.json` is a tiebreaker for the default suggestion, not a filter on what's offered. `active_epic` is the *result* of picking a PBI, not a precondition.
 10. **One decision at a time.** In grill phases, surface the list once and resolve each decision before moving on.
 11. **Canonical PBI ID everywhere.** Use `PBI EEE.PPP` in display, prose, ADR titles, commit messages, snag references. The dot-separated filename-safe form (`EEE.PPP`) appears in filenames and branch names; the colon form is not used.
