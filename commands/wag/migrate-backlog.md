@@ -88,13 +88,18 @@ The user decides per PBI. Same logic applies to completed standalones in `_compl
 
 ### Decision 4: Per-epic renumbering
 
-For each epic (legacy or new), build a clean per-epic sequence. Start with the active PBIs in dependency order (LEARNING-005), then number completed PBIs into the remaining slots — or, if it tidies things, renumber completed PBIs too. Migration is the one window where renumbering completed PBIs is allowed.
+For each epic (legacy or new), build a clean per-epic sequence that reflects chronology — earlier work gets lower numbers. Closed PBIs happened before any still-open PBIs in the same epic, so they take the low slots. Concretely:
+
+1. **Number completed PBIs first**, in completion order (oldest closure → newest). The original legacy PBI number is usually a good chronological proxy; otherwise fall back to file mtime in `_completed/` or `git log --diff-filter=A` for the file.
+2. **Number active PBIs next**, in dependency order (LEARNING-005), taking the slots immediately after the last completed PBI.
+
+This is the one and only window where completed PBIs can be renumbered. After migration the immutability rule reapplies, and new PBIs always take the next free slot — which guarantees that in a mixed epic the active PBIs sit above the closed ones, matching the order work actually happened.
 
 Present the proposed numbering as a mapping table per epic. Example:
 
 > Epic 001 (auth):
-> - Active: PBI 001.001 (was PBI-003 invite-flow), PBI 001.002 (was PBI-007 magic-link)
-> - Completed: PBI 001.003 (was PBI-001 scaffold), PBI 001.004 (was PBI-002 schema)
+> - Completed: PBI 001.001 (was PBI-001 scaffold), PBI 001.002 (was PBI-002 schema)
+> - Active:    PBI 001.003 (was PBI-003 invite-flow), PBI 001.004 (was PBI-007 magic-link)
 
 Confirm before moving.
 
