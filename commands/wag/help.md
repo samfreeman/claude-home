@@ -28,6 +28,7 @@ Show available WAG commands and their usage.
 | `/wag:migrate-backlog` | One-time migration of a project's existing backlog to the per-epic numbering scheme |
 | `/wag:audit` | Scan all projects against promoted learnings — compliance matrix |
 | `/wag:apply` | Walk through audit gaps and apply fixes with user approval |
+| `/wag:whatsnew` | Summarise WAG tooling changes since the last run (for collaborators pulling latest claude-home) |
 
 ## Typical flow
 
