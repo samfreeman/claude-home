@@ -1,11 +1,11 @@
 ---
-description: Generate (and refresh) the in-app docs page — scaffolds route + content components, synthesizes Updates entry, statically bakes PRD/Architecture/Backlog into TSX
+description: Generate (and refresh) the in-app Project Plan and Status page — scaffolds route + content components, synthesizes Updates entry, statically bakes PRD/Architecture/Backlog into TSX
 allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 
-# WAG Gendocs — In-app docs page generator
+# WAG Gendocs — In-app Project Plan and Status page generator
 
-Produces a static, themed docs page inside a Next.js + ShadCN + Tailwind app. The page surfaces the project's PRD, Architecture, Backlog, and an accumulating Updates history. Markdown sources in `.wag/` stay authoritative — `gendocs` reads them, synthesizes a new Updates entry, and bakes everything into TSX components that the app renders without any request-time markdown processing.
+Produces a static, themed Project Plan and Status page inside a Next.js + ShadCN + Tailwind app. The page surfaces the project's PRD, Architecture, Backlog, and an accumulating Updates history. Markdown sources in `.wag/` stay authoritative — `gendocs` reads them, synthesizes a new Updates entry, and bakes everything into TSX components that the app renders without any request-time markdown processing.
 
 Run this before each QA push. One command does the whole thing — scaffold (if needed), synthesize Updates, render all four content components, wire `page.tsx`.
 
@@ -13,11 +13,11 @@ Run this before each QA push. One command does the whole thing — scaffold (if 
 
 In the target app:
 
-- `<docs_page_path>/page.tsx` — composition. Header + Updates Card on top + ShadCN Accordion containing PRD / Architecture / Backlog sections.
-- `<docs_page_path>/prd-content.tsx` — generated from `.wag/docs/PRD.md`.
-- `<docs_page_path>/architecture-content.tsx` — generated from `.wag/docs/Architecture.md`.
-- `<docs_page_path>/backlog-content.tsx` — generated from `.wag/backlog/` (client component for filter + search).
-- `<docs_page_path>/updates-content.tsx` — generated from `.wag/docs/Updates.md`.
+- `<plan_status_page_path>/page.tsx` — composition. Page header + a single ShadCN Accordion with four items: What's New / PRD / Architecture / Backlog. Each item's `AccordionContent` carries whatever fixed header bar that content needs (see Phase 4).
+- `<plan_status_page_path>/prd-content.tsx` — generated from `.wag/docs/PRD.md`.
+- `<plan_status_page_path>/architecture-content.tsx` — generated from `.wag/docs/Architecture.md`.
+- `<plan_status_page_path>/backlog-content.tsx` — generated from `.wag/backlog/` (client component for filter + search).
+- `<plan_status_page_path>/updates-content.tsx` — generated from `.wag/docs/Updates.md`.
 
 And in the WAG planning surface:
 
@@ -38,14 +38,14 @@ Custom Tailwind for layout, spacing, or structural concerns is fine — just don
 
 ## Phase 1: Path resolution
 
-1. Read `.wag/state.json` for `docs_page_path`.
-2. **If set:** show it. *"Docs page path is `<value>`. Use this path?"* User confirms or redirects. Always confirm — never silently mount.
+1. Read `.wag/state.json` for `plan_status_page_path`.
+2. **If set:** show it. *"Project Plan and Status page path is `<value>`. Use this path?"* User confirms or redirects. Always confirm — never silently mount.
 3. **If unset (or user redirected):**
    - Scan `src/app/` for route groups (folders matching `(*)`).
-   - **Exactly one candidate** → propose `src/app/<group>/docs` and ask.
+   - **Exactly one candidate** → propose `src/app/<group>/project-plan-status` and ask.
    - **Multiple candidates** → list them and ask which (or "none / put at root").
-   - **No candidates** → propose `src/app/docs` and ask.
-4. Save the chosen path to `.wag/state.json` `docs_page_path` (full path from project root, e.g., `"src/app/(dashboard)/docs"`).
+   - **No candidates** → propose `src/app/project-plan-status` and ask.
+4. Save the chosen path to `.wag/state.json` `plan_status_page_path` (full path from project root, e.g., `"src/app/(dashboard)/project-plan-status"`).
 
 ## Phase 2: Verify ShadCN deps
 
@@ -127,7 +127,7 @@ const [search, setSearch] = useState('')
 ```
 
 Layout:
-- Header row: `<Tabs>` with three tabs (Active / Completed / All), `<Input type="search">`, stats line ("N open, N done across N epics").
+- **Fixed header bar** — the first child of the `BacklogContent` root element. Holds `<Tabs>` with three tabs (Active / Completed / All), `<Input type="search">`, and the stats line ("N open, N done across N epics"). This bar matches the role of the `.backlog-controls` strip at the top of the standalone `/wag:html-backlog` render. It stays pinned to the top of the accordion content while the epic list below it scrolls — use `sticky top-0 z-10 bg-card border-b border-border` plus appropriate padding so it sits flush against the AccordionContent edge and the epic accordions slide under it. Other content types (PRD, Architecture, Updates) don't need a fixed header — only Backlog does.
 - Each epic is an `<AccordionItem>` showing epic ID, title, status `<Badge>`, PBI count. Inside: epic meta (Priority / Status / Depends on / Goal / Deliverables / Design Input / Non-goals) + a nested `<Accordion type="multiple">` of PBIs.
 - Each PBI is an `<AccordionItem>` showing canonical ID, title, status `<Badge>`, priority. Inside: dependencies line + ADR link (if present) + Description / Deliverables / Acceptance Criteria / Testing Requirements / Technical Notes.
 
@@ -183,10 +183,10 @@ Always regenerate — the source just changed in Phase 3.
 
 ## Phase 5: Wire `page.tsx`
 
-Generate or replace `<docs_page_path>/page.tsx` with this composition:
+Generate or replace `<plan_status_page_path>/page.tsx` with this composition. One Card, no `CardHeader` — page `<h1>` already labels the page. Inside the Card, a single `Accordion` with four items: What's New / PRD / Architecture / Backlog.
 
 ```tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { PrdContent } from './prd-content'
@@ -194,29 +194,26 @@ import { ArchitectureContent } from './architecture-content'
 import { BacklogContent } from './backlog-content'
 import { UpdatesContent } from './updates-content'
 
-export default function DocsPage() {
+export default function ProjectPlanAndStatusPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Documentation</h1>
-        <p className="text-muted-foreground">Project documentation and backlog status</p>
+        <h1 className="text-2xl font-semibold">Project Plan and Status</h1>
+        <p className="text-muted-foreground">PRD, architecture, backlog, and what's new</p>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Updates</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <UpdatesContent />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Project Documents</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <Accordion type="single" collapsible>
+            <AccordionItem value="updates">
+              <AccordionTrigger>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline">New</Badge>
+                  <span className="font-medium">What's New</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent><UpdatesContent /></AccordionContent>
+            </AccordionItem>
             <AccordionItem value="prd">
               <AccordionTrigger>
                 <div className="flex items-center gap-3">
@@ -252,11 +249,16 @@ export default function DocsPage() {
 }
 ```
 
-If `page.tsx` already exists and looks like a previously generated WAG docs page (detectable by the imports of the `*-content` files), regenerate without asking. If it looks user-customized, ask before overwriting and offer to back up as `page.tsx.backup`.
+Notes:
+- `CardContent` gets `pt-6` because there's no `CardHeader` providing top padding (ShadCN's `CardContent` ships with `pt-0` for the headered case).
+- No `defaultValue` on the `Accordion` — all four items start closed.
+- The Backlog accordion item's content (`<BacklogContent />`) carries its own sticky control bar per Phase 4; nothing extra is needed here.
+
+If `page.tsx` already exists and looks like a previously generated WAG Project Plan and Status page (detectable by the imports of the `*-content` files), regenerate without asking. If it looks user-customized, ask before overwriting and offer to back up as `page.tsx.backup`.
 
 ## Phase 6: Finish
 
-No post-run summary. The user browses to `/docs` in the running app to see the result. If anything needs adjusting, they ask the LLM in a follow-up turn.
+No post-run summary. The user browses to the generated route in the running app to see the result. If anything needs adjusting, they ask the LLM in a follow-up turn.
 
 Don't commit. The user runs `/push` when ready.
 
