@@ -25,11 +25,157 @@ And in the WAG planning surface:
 
 No `react-markdown`, no `MarkdownRenderer`, no `actions/docs.ts`, no `remark-gfm`. Content is statically baked into the TSX at generation time. The app reads nothing at request time.
 
-## Styling
+## Styling — match `/wag:html-*` visual quality
 
-Every component the command writes uses **standard Tailwind utility classes** referencing the CSS variables in the target app's `globals.css` — `bg-background`, `text-foreground`, `bg-card`, `border-border`, `text-muted-foreground`, `text-primary`, etc. Theme flows through Tailwind automatically. **Do not** extract tokens, inline `style` props, or write `<style>` blocks — that's only how `/wag:html-*` does it for standalone files. Inline SVGs also use Tailwind utilities for fill/stroke (`fill-card`, `stroke-border`, `stroke-primary`).
+Components written by `gendocs` must render at the same level of polish as the standalone HTML produced by `/wag:html-*`. Every prose element gets explicit Tailwind utility classes — **do not** wrap content in `<div className="prose">`. The typography plugin's defaults don't produce the html-* h2 accent, table polish, or details/warn/diagram styling. Apply the Visual treatment reference below to every element.
 
-Custom Tailwind for layout, spacing, or structural concerns is fine — just don't hardcode theme values.
+Theme flows through Tailwind variants that reference `globals.css` tokens (`bg-background`, `text-foreground`, `bg-card`, `text-primary`, `text-muted-foreground`, `border-border`, `bg-muted`, `bg-destructive/10`, …). **Do not** extract tokens into a `<style>` block or inline `style` props — that's the html-* mechanism, not gendocs'.
+
+Custom Tailwind for layout, spacing, or structural concerns beyond the reference is fine — just don't hardcode colour values, and never bypass the table below for prose-style elements.
+
+### Visual treatment reference — prose elements
+
+| Element | Tailwind class chain |
+|---|---|
+| `<h2>` | `mt-10 mb-3 text-xl font-semibold leading-tight text-foreground border-l-4 border-primary pl-3 pb-1 border-b border-border scroll-mt-24` |
+| `<h3>` | `mt-7 mb-2 text-base font-semibold text-primary leading-tight scroll-mt-24` |
+| `<h4>` | `mt-5 mb-2 text-sm font-semibold` |
+| `<p>` | `my-3 leading-relaxed` |
+| `<a>` | `text-primary hover:underline` |
+| `<ul>` | `my-3 ml-6 space-y-1 list-disc` |
+| `<ol>` | `my-3 ml-6 space-y-1 list-decimal` |
+| `<hr>` | `my-10 border-border` |
+| `<blockquote>` | `my-4 pl-4 border-l-4 border-border text-muted-foreground` |
+| inline `<code>` | `font-mono text-[0.85em] bg-muted/70 text-primary px-1.5 py-0.5 rounded` |
+| `<pre>` (standalone) | `my-4 bg-muted/60 border border-border rounded-lg p-4 overflow-x-auto text-sm font-mono leading-relaxed` |
+| `<pre><code>` (nested) | `font-mono text-inherit bg-transparent p-0 text-foreground` |
+
+### Visual treatment reference — tables
+
+| Element | Class chain |
+|---|---|
+| `<table>` | `w-full my-4 border-collapse text-sm` |
+| `<th>` | `border border-border bg-primary/10 px-3 py-2 text-left font-semibold text-foreground` |
+| `<td>` | `border border-border px-3 py-2` |
+| `<tr>` (body) | `even:bg-muted/40` |
+
+### Collapsible code blocks (`<details>`)
+
+Long code snippets — TypeScript blocks > ~10 lines, full SQL DDL, directory trees, env-var lists — go into native `<details>` with a kind chip in the summary. Mirrors `/wag:html-*`:
+
+```tsx
+<details className="group my-4 rounded-lg border border-border bg-muted/35 overflow-hidden">
+  <summary className="cursor-pointer px-3.5 py-2 text-sm font-semibold text-foreground select-none flex items-center gap-2 hover:text-primary [&::-webkit-details-marker]:hidden">
+    <span aria-hidden className="text-primary text-xs leading-none transition-transform group-open:rotate-90">▸</span>
+    <Badge variant="default" className="font-mono text-[0.66rem] tracking-wider px-1.5 py-0">TS</Badge>
+    <span>Caption text</span>
+  </summary>
+  <pre className="m-0 rounded-none border-0 border-t border-border bg-muted/60 p-4 overflow-x-auto text-sm font-mono leading-relaxed">
+    <code className="font-mono bg-transparent p-0 text-foreground">{`// code here`}</code>
+  </pre>
+</details>
+```
+
+Kind chips by content type (mirrors html-*):
+
+| Kind | When | Badge |
+|---|---|---|
+| `TS` | TypeScript / JavaScript snippets | `<Badge variant="default">` |
+| `SQL` | DDL / migrations | `<Badge variant="default">` |
+| `TREE` | Directory trees | `<Badge variant="secondary">` |
+| `ENV` | Environment-variable lists | `<Badge variant="secondary">` |
+
+### Invariant callouts (replaces html-* `<div class="warn">`)
+
+For "INVARIANT" / "Never do X" blocks in the source (typically prefixed with ⛔ or "INVARIANT:"):
+
+```tsx
+<div className="my-6 rounded-r-lg border border-destructive border-l-[5px] bg-destructive/10 p-4 text-destructive">
+  <strong className="block mb-2 text-base font-bold">Invariant title</strong>
+  <p className="m-0 text-destructive">Body text. Links use <a href="..." className="text-destructive underline">underlined destructive colour</a>.</p>
+</div>
+```
+
+### Diagrams — inline SVG, never ASCII
+
+Hand-author inline SVG, matching the SVG geometry of the corresponding `/wag:html-*` render. ASCII-art fallbacks in `<pre>` are **not acceptable** for layer stacks, sequence diagrams, data flows, or ERDs — the source `.md` ASCII is there for plain-text readability; the rendered TSX must produce the same SVG diagram the html-* render does.
+
+When a corresponding `/wag:html-*` rendering exists for the same document (`.wag/docs/PRD.html`, `Architecture.html`, etc.), treat its inline SVG as the visual spec. Translate the inline CSS classes (`.d-box`, `.d-edge`, …) into Tailwind classes per the mappings below, preserving viewBox, geometry, and labels.
+
+SVG container:
+
+```tsx
+<div className="my-6">
+  <svg viewBox="0 0 720 446" role="img" aria-label="..."
+       className="block w-full h-auto bg-muted/55 border border-border rounded-xl p-3.5">
+    <defs>
+      <marker id="ah-..." viewBox="0 0 10 10" refX={9} refY={5} markerWidth={7} markerHeight={7} orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" className="fill-primary" />
+      </marker>
+    </defs>
+    {/* shapes per the class mapping below */}
+  </svg>
+</div>
+```
+
+Shape class mappings (apply with `className` on each SVG element):
+
+| html-* class | Tailwind on the SVG element |
+|---|---|
+| `.d-band` | `fill-primary/[0.07] stroke-border` + attr `strokeWidth={1.5}` |
+| `.d-box` | `fill-card stroke-border` + attr `strokeWidth={1.5}` |
+| `.d-box-accent` | `fill-primary/15 stroke-primary` + attr `strokeWidth={1.5}` |
+| `.d-edge` (solid) | `stroke-primary fill-none` + attr `strokeWidth={1.6}` |
+| `.d-edge-dash` (dashed) | add `[stroke-dasharray:5_4]` |
+| `.d-life` (lifeline) | `stroke-border [stroke-dasharray:3_4]` + attr `strokeWidth={1.5}` |
+| `.d-label` (small mono caps) | `fill-muted-foreground [font-family:var(--font-mono)] text-[10.5px] tracking-[0.07em]` |
+| `.d-title` | `fill-foreground text-[13px] font-bold` |
+| `.d-strong` | `fill-foreground text-[12px] font-semibold` |
+| `.d-sub` | `fill-muted-foreground text-[11px]` |
+| `.d-msg` | `fill-muted-foreground text-[10.5px]` |
+
+### ERD-specific class mappings
+
+For entity-relationship diagrams, on top of the `.d-*` table above:
+
+| html-* class | Tailwind |
+|---|---|
+| `.erd-region` | `fill-primary/[0.05] stroke-border` + `strokeWidth={1.5}` |
+| `.erd-region-label` | `fill-foreground [font-family:var(--font-mono)] text-[11px] font-bold tracking-[0.07em]` |
+| `.erd-region-sub` | `fill-muted-foreground [font-family:var(--font-mono)] text-[9.5px]` |
+| `.erd-head` (table header band) | `fill-primary/[0.16]` + attr `stroke="none"` |
+| `.erd-tname` | `fill-foreground text-[12px] font-bold [font-family:var(--font-mono)]` |
+| `.erd-col` | `fill-foreground text-[10px] [font-family:var(--font-mono)]` |
+| `.erd-type` | `fill-muted-foreground text-[9px] [font-family:var(--font-mono)]` |
+| `.erd-rowline` | `stroke-border` + `strokeWidth={0.75}` |
+| `.erd-pk` (filled dot) | `fill-primary` |
+| `.erd-fk` (outlined dot) | `fill-none stroke-primary` + `strokeWidth={1.5}` |
+| `.erd-ref` (soft-ref dot) | `fill-none stroke-muted-foreground [stroke-dasharray:1.5_1.5]` + `strokeWidth={1.25}` |
+| `.erd-rel` | `stroke-primary fill-none` + `strokeWidth={1.5}` |
+| `.erd-rel-key` (heavy routing line) | `stroke-primary fill-none` + `strokeWidth={2.6}` |
+
+ERD legend (rendered below the diagram, not inside the SVG):
+
+```tsx
+<div className="mt-2.5 mx-0.5 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+  <span className="inline-flex items-center gap-1.5">
+    <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
+    primary key
+  </span>
+  <span className="inline-flex items-center gap-1.5">
+    <span className="w-2.5 h-2.5 rounded-full border-[1.5px] border-primary inline-block" />
+    foreign key
+  </span>
+  <span className="inline-flex items-center gap-1.5">
+    <span className="w-2.5 h-2.5 rounded-full border-[1.5px] border-dotted border-muted-foreground inline-block" />
+    soft reference
+  </span>
+</div>
+```
+
+### When in doubt, mirror html-*
+
+If a `/wag:html-*` rendering exists for the same `.wag/docs/*.md` source, treat its HTML as the visual specification. Translate `<style>`-block CSS classes → Tailwind class chains using the tables above, preserving SVG geometry, viewBoxes, container wrapping, and layout exactly.
 
 ## Preconditions
 
@@ -99,11 +245,11 @@ Compare its source as it was at that commit against the current source. Stable s
 
 ### `prd-content.tsx` — from `.wag/docs/PRD.md`
 
-Server component (no `'use client'`). Each `## ` section becomes a sub-section. Prose wraps in `<div className="prose prose-sm dark:prose-invert max-w-none">`. Long code blocks in ShadCN-styled `<pre>` or inside an `<Accordion>` item with a `<Badge>` chip indicating language. Inline SVG diagrams use Tailwind classes for fill/stroke.
+Server component (no `'use client'`). Each `## ` section becomes a sub-section. Render prose semantically using the **Visual treatment reference** in the Styling section — apply Tailwind class chains element-by-element to every `<h2>`, `<h3>`, `<p>`, `<ul>`, `<table>`, etc. **Do not** wrap in `<div className="prose">`. Long code snippets go into the polished `<details>` collapsible pattern with a `<Badge>` chip. Any diagrams in the PRD are hand-authored inline SVG using the `.d-*` Tailwind mappings — never ASCII fallbacks.
 
 ### `architecture-content.tsx` — from `.wag/docs/Architecture.md`
 
-Same shape as PRD content. Heavier on diagrams (layer stacks, sequence, ERDs). Tech stack tables use ShadCN-styled `<table>` with `prose` classes. Long type definitions or implementation snippets in `<Accordion>` items with `<Badge>` chips.
+Same shape as PRD content — apply the **Visual treatment reference** explicitly to every element; no `prose` wrapper. Architecture is heavier on diagrams (layer stacks, sequence diagrams, ERDs) — each is hand-authored inline SVG matching the geometry of the corresponding `/wag:html-*` render, using the `.d-*` and `.erd-*` Tailwind mappings. **Never** drop ASCII text in a `<pre>` for a diagram. Long type definitions, SQL DDL, and implementation snippets go into `<details>` collapsibles with `<Badge>` chips (`TS`, `SQL`, `TREE`, `ENV`). Invariant callouts (⛔ / "INVARIANT") use the warn pattern from the styling reference. Tech-stack tables follow the table class chain in the styling reference.
 
 ### `backlog-content.tsx` — from `.wag/backlog/`
 
@@ -177,7 +323,7 @@ Walk the new-scheme structure throughout — `epic-NNN-word/` folders, `PBI-PPP.
 
 ### `updates-content.tsx` — from `.wag/docs/Updates.md`
 
-Server component. Each dated entry renders as a sub-section with the date as the heading. Features / Fixes / Internal become small headers. Prose styled with `prose`.
+Server component. Each dated entry renders as a sub-section with the date as the heading. Features / Fixes / Internal become `<h3>` headers. Apply the **Visual treatment reference** to headings, paragraphs, and lists — no `prose` wrapper.
 
 Always regenerate — the source just changed in Phase 3.
 
@@ -268,7 +414,7 @@ Don't commit. The user runs `/push` when ready.
 2. **Source of truth stays in `.wag/`.** PRD.md, Architecture.md, the backlog tree, Updates.md are authoritative. The TSX components are renders.
 3. **Date-based Updates baseline.** Top date in `Updates.md` marks the conceptual boundary. Robust to in-file edits.
 4. **Diff-driven content renders.** PRD/Architecture/Backlog components preserve stable sections from prior generations; only changed sections are re-rendered. Updates always regenerates.
-5. **Styling is automatic.** Standard Tailwind utility classes; theme flows through the app's `globals.css`. No token extraction, no `<style>` blocks, no inline `style` props for theme values. Custom Tailwind for layout is fine.
+5. **Styling matches `/wag:html-*`.** Apply the Visual treatment reference's Tailwind class chains explicitly per element — no `prose` wrapper, no `<style>` blocks, no inline `style` props for theme. Diagrams are hand-authored inline SVG (matching the html-* render's geometry); never ASCII text in a `<pre>`. Custom Tailwind for layout is fine.
 6. **No auth, no env gating, no link wiring.** The app drives all of that.
 7. **Always confirm the path.** Even when stored.
 8. **New backlog scheme only.** Walks `epic-NNN-word/` folders. Legacy projects need `/wag:migrate-backlog` first.
