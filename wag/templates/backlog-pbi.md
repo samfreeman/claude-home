@@ -9,11 +9,11 @@
 
 ## Deliverables
 
-- [Concrete files/features to be produced. Specific enough that an ADR can be written from this — not "build the thing," but "ship X workspace with Y shape and Z public surface."]
+- [Concrete observable outcomes — what the slice must do, expressed as behaviour. Specific enough that an ADR can be written from this, but **not** by naming exported identifiers, function signatures, or API shape. "The package exposes a schema factory that produces fully-typed, strict-by-default schemas per event, with a constructor attached for value construction." — not "exports `defineEvent(tag, payloadSchema)`." The ADR owns the surface; the PBI owns the outcome.]
 
 ## Acceptance Criteria
 
-- [ ] [Specific, testable outcomes. Each item is a checkbox that can be verified.]
+- [ ] [Behavioural assertions — specific, testable outcomes that can be verified without knowing the implementation's identifier names. "A consumer-side union over two or more event schemas auto-discriminates on the envelope's `type` field." — not "`Schema.Union` over schemas produced by `defineEvent` auto-discriminates."]
 
 ## Testing Requirements
 
@@ -34,3 +34,4 @@
 3. **Per-epic numbering.** Each epic numbers its PBIs starting at 001. The canonical PBI ID is `PBI EEE.PPP` where `EEE` is the epic number and `PPP` is the per-epic PBI number, both zero-padded triples. The filename inside the epic folder is `PBI-PPP.md` — the epic number comes from the folder. Scan the epic's `_completed/` mirror when picking the next number; closed PBI numbers are never reused.
 4. **Completed PBIs are immutable.** Once a PBI is moved into `_completed/`, its number and epic membership are locked forever. Open PBIs can be renumbered or moved between epics; closed ones cannot. (Migration of a project's pre-existing backlog via `/wag:migrate-backlog` is the one exception.)
 5. **Platform features name their tier.** Any deliverable that names a platform feature (GitHub, Vercel, Turso, Neon, etc.) must also name the tier it assumes, and that feature must be confirmed available on that tier. (LEARNING-003)
+6. **Outcomes, not signatures.** Deliverables and Acceptance Criteria describe observable behaviour — what the slice must do — not specific exported identifiers, call signatures, or API shape. Surface belongs to the ADR; outcomes belong here. Existing external library identifiers may be referenced in Technical Notes for context (e.g. `Schema.decodeUnknown` from `effect`); what's forbidden is declaring new identifiers as part of the shipped surface. (LEARNING-006)
