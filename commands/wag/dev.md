@@ -147,6 +147,8 @@ The team's job is done. Open the PR, then stop and wait for the user's explicit 
 
    The team stays warm. If the user wants follow-up edits to the PR (push more commits, fix CI, address review comments), the team handles those in-session and the gate remains open until the user explicitly says "merge".
 
+   **If the user mentions a review** ("the review is ready", "check the review", or similar) during the hold, they're referring to a senior architect review produced by `/wag:review` in a separate session. Glob `.wag/reviews/REVIEW-EEE.PPP-*.md` for the active PBI, pick the highest-numbered file, read it, and surface the verdict (APPROVE / REQUEST_CHANGES) and headline findings. Don't ask which review or wait for a paste — the file is on disk.
+
 ## Phase 6: Merge + close — only on explicit user signal
 
 When the user says "merge" / "merge it" / equivalent, the gate opens. Do not run any of this before that signal.
