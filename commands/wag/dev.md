@@ -113,48 +113,110 @@ CQ runs the full gate. Everything must pass — no advisory findings allowed.
 4. Repeat until all clear.
 5. **Architect** reports to user: implementation complete, all gates passed.
 
-## Phase 5: PR
+## Phase 5: PR — implementation complete, awaiting merge approval
 
-1. Create PR from `feature/PBI-EEE.PPP` to `dev`.
-2. Move ADR from `adr/active/ADR-EEE.PPP.md` to `adr/completed/ADR-EEE.PPP.md`.
-3. Close the PBI per the canonical procedure at `~/.claude/wag/references/close-pbi-and-epic.md`:
-   - `git mv backlog/<active_epic>/PBI-PPP.md backlog/_completed/<active_epic>/PBI-PPP.md`. The mirror folder was pre-created when the epic was authored; remove the mirror's `.gitkeep` if this is the first PBI closed there.
-4. **Check for epic drain.** If `<active_epic>` is not `epic-000-general` and the active folder now contains only `epic.md`:
+The team's job is done. Open the PR, then stop and wait for the user's explicit go-ahead to merge. **Nothing in `.wag/` moves and no state changes yet** — the PBI is *not* done until the user says merge.
+
+1. **Create the PR** from `feature/PBI-EEE.PPP` to `dev`:
+
+   ```bash
+   gh pr create --base dev --head feature/PBI-EEE.PPP --title "PBI EEE.PPP: [title]" --body "$(cat <<'EOF'
+   ## Summary
+   [From ADR]
+
+   ## Changes
+   [File list from implementation]
+
+   ## Test plan
+   [From ADR Testing Strategy]
+   EOF
+   )"
+   ```
+
+2. **Tell the user**, including the PR URL:
+
+   > "Implementation complete. PR: <URL>.
+   >
+   > Review the diff and CI. When you're ready, tell me 'merge' and I'll squash to `dev`, move the ADR and PBI to completed, run the epic drain check, and update state. Until you say so, nothing in `.wag/` moves."
+
+3. **Hold.** Do not touch:
+   - the ADR (`adr/active/` stays put)
+   - the PBI file (still in `backlog/<active_epic>/`)
+   - `state.json` (`active_pbi` and `feature_branch` stay set)
+   - the rendered surfaces
+
+   The team stays warm. If the user wants follow-up edits to the PR (push more commits, fix CI, address review comments), the team handles those in-session and the gate remains open until the user explicitly says "merge".
+
+## Phase 6: Merge + close — only on explicit user signal
+
+When the user says "merge" / "merge it" / equivalent, the gate opens. Do not run any of this before that signal.
+
+1. **Pre-merge sanity check.**
+
+   ```bash
+   gh pr view <PR> --json state,mergeable,mergeStateStatus,statusCheckRollup
+   ```
+
+   Verify:
+   - `state` is `OPEN` (or already `MERGED` — see step 2)
+   - `mergeable` is `MERGEABLE`
+   - CI checks in `statusCheckRollup` are all `SUCCESS` (or skipped)
+
+   **If anything is off, do not merge — and do not just dump the error and freeze either.** The team is still alive at this point (Phase 7 hasn't run). Surface the specific problem to the user and route them to the Architect for a discussion:
+
+   > "Pre-merge sanity failed:
+   > - [Specific failure — failing CI check, merge conflict, draft PR, etc.]
+   >
+   > Discussing this with the Architect now. The Architect will pull in the Dev, Tester, or CQ as needed and we'll propose a fix together. Once it's resolved and you say 'merge' again, the gate re-opens."
+
+   The Architect leads the discussion. CI failure → Architect routes to Dev/Tester for the fix. Merge conflict → Architect coordinates the rebase/merge. CQ-flagged issue → Architect pulls in CQ for the diagnosis. The team works *with* the user, not around them. When the fix lands (new commit pushed to the feature branch), the gate stays closed until the user re-issues "merge" — re-run the sanity check from the top.
+
+   The user can also explicitly override at any point ("merge anyway, I'm OK with the failing X check"). Honour the override and proceed to step 2.
+
+2. **Merge.**
+
+   ```bash
+   gh pr merge feature/PBI-EEE.PPP --squash --delete-branch
+   git checkout dev
+   git pull origin dev
+   ```
+
+   If the user already merged the PR via the GitHub UI before saying "merge", the `gh pr merge` call short-circuits — just sync `dev` and continue.
+
+3. **Move the ADR.** `git mv .wag/adr/active/ADR-EEE.PPP.md .wag/adr/completed/ADR-EEE.PPP.md`.
+
+4. **Close the PBI** per `~/.claude/wag/references/close-pbi-and-epic.md`:
+   - `git mv .wag/backlog/<active_epic>/PBI-PPP.md .wag/backlog/_completed/<active_epic>/PBI-PPP.md`
+   - Remove the mirror's `.gitkeep` if this is the first closure into that mirror.
+
+5. **Check for epic drain.** If `<active_epic>` is not `epic-000-general` and the active folder now contains only `epic.md`:
    - Prompt: *"All PBIs in `<active_epic>` are complete. Mark the epic done?"*
    - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<active_epic>/epic.md backlog/_completed/<active_epic>/epic.md`; `rmdir backlog/<active_epic>/`; set `active_epic` in `state.json` back to `"epic-000-general"`.
-   - **If no:** leave the epic active with only its `epic.md`; don't change `active_epic`. The user may add more PBIs later.
+   - **If no:** leave the epic active with only its `epic.md`. The user may add more PBIs later.
    - **Skip this check entirely for `epic-000-general`** — it's a permanent bucket and never drains.
-5. **Update `state.json`:**
-   - Clear `active_pbi` (set to `null`) — the PBI is complete.
-   - Clear `feature_branch` (set to `null`) — the feature branch is merged.
-   - Update `active_epic` only if the user confirmed epic completion in step 4 (set to `"epic-000-general"`).
-6. **Offer to refresh the rendered surfaces.** Closing a PBI moves files inside `.wag/backlog/`, so the rendered backlog (both standalone HTML and in-app docs page, if either exists) is now stale. Ask: "Refresh the rendered surfaces?
-   - `/wag:html-docs` — standalone `.html` files in `.wag/docs/`.
-   - `/wag:gendocs` — in-app docs page (if the project has one wired)."
+
+6. **Update `state.json`:**
+   - `active_pbi` → `null` (the PBI is complete)
+   - `feature_branch` → `null` (the feature branch is merged and deleted)
+   - `active_epic` → `"epic-000-general"` *only* if the user confirmed epic completion in step 5.
+
+7. **Commit the planning artifact moves on `dev` and push.**
+
+   ```bash
+   git add .wag/
+   git commit -m "wag: close PBI EEE.PPP — [title]"
+   git push origin dev
+   ```
+
+8. **Offer to refresh the rendered surfaces.** Closing a PBI moves files inside `.wag/backlog/`, so the rendered backlog (both standalone HTML and in-app Project Plan and Status page, if either exists) is now stale. Ask:
+
+   > "Refresh the rendered surfaces?
+   > - `/wag:html-docs` — standalone `.html` files in `.wag/docs/`.
+   > - `/wag:gendocs` — in-app Project Plan and Status page (if wired)."
+
    Either, both, or neither — user's call. They can also run them later.
-7. User reviews and approves the PR.
-8. Squash merge to `dev`.
 
-```bash
-gh pr create --base dev --head feature/PBI-EEE.PPP --title "PBI EEE.PPP: [title]" --body "$(cat <<'EOF'
-## Summary
-[From ADR]
-
-## Changes
-[File list from implementation]
-
-## Test plan
-[From ADR Testing Strategy]
-EOF
-)"
-
-# After user approves:
-git checkout dev
-git merge --squash feature/PBI-EEE.PPP
-git commit
-```
-
-## Phase 6: Team shutdown
+## Phase 7: Team shutdown
 
 1. Shut down all teammates.
 2. Clean up team resources.
@@ -170,3 +232,5 @@ git commit
 7. **Advisory findings during active work.** Dev/Tester can acknowledge known issues that will resolve with later work. At the final gate, everything must pass.
 8. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
 9. **Preserve epic membership when completing.** Completed PBIs go to `_completed/<active_epic>/PBI-PPP.md` (mirror pre-created at epic authoring). Epic drain is detected automatically except for `epic-000-general`, which never drains. Closure of a real epic is confirmed by the user — don't auto-close without the prompt.
+10. **Merge is user-gated.** The team can complete implementation and push the PR (Phase 5), but the ADR move, PBI close, epic drain, and state.json updates happen only after the user explicitly says "merge" (Phase 6). "PR open" ≠ "PBI done."
+11. **A failing pre-merge check opens a discussion, not a halt.** If sanity fails in Phase 6 step 1, route the user to the Architect for a collaborative fix. The team stays alive across the gate so this conversation is always possible.
