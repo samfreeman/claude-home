@@ -36,21 +36,26 @@
 		background: var(--background);
 		line-height: 1.65;
 	}
-	.wrap { max-width: 1000px; margin: 0 auto; padding: 0 32px 96px; }
+	.wrap { max-width: 1000px; margin: 0 auto; padding: 28px 32px 96px; }
 
-	/* ── Header — pinned to the top of the document ── */
+	/* ── Header — full-width bar pinned to the top of the document ── */
 	.topbar {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		background: var(--background);
+		border-bottom: 1px solid var(--border);
+		box-shadow: 0 6px 16px -12px color-mix(in oklch, var(--foreground) 55%, transparent);
+	}
+	/* Inner rail keeps the title/actions aligned to the body text column */
+	.topbar-inner {
+		max-width: 1000px;
+		margin: 0 auto;
+		padding: 16px 32px;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		gap: 16px;
-		position: sticky;
-		top: 0;
-		z-index: 20;
-		padding: 16px 0;
-		background: var(--background);
-		border-bottom: 1px solid var(--border);
-		box-shadow: 0 6px 16px -12px color-mix(in oklch, var(--foreground) 55%, transparent);
 	}
 	.topbar-actions {
 		display: flex;
@@ -237,22 +242,25 @@
 </style>
 </head>
 <body>
-<div class="wrap">
 
 <header class="topbar">
-	<div class="topbar-title">
-		<p class="eyebrow">{{EYEBROW}}</p>
-		<h1>{{TITLE}}</h1>
-	</div>
-	<div class="topbar-actions">
-		<a class="btn-chip" href="#toc" aria-label="Jump to table of contents">
-			<span class="ic">↑</span><span class="lbl">TOC</span>
-		</a>
-		<button class="btn-chip" id="theme-toggle" type="button" aria-label="Toggle colour theme">
-			<span class="ic"></span><span class="lbl"></span>
-		</button>
+	<div class="topbar-inner">
+		<div class="topbar-title">
+			<p class="eyebrow">{{EYEBROW}}</p>
+			<h1>{{TITLE}}</h1>
+		</div>
+		<div class="topbar-actions">
+			<a class="btn-chip" href="#toc" aria-label="Jump to table of contents">
+				<span class="ic">↑</span><span class="lbl">TOC</span>
+			</a>
+			<button class="btn-chip" id="theme-toggle" type="button" aria-label="Toggle colour theme">
+				<span class="ic"></span><span class="lbl"></span>
+			</button>
+		</div>
 	</div>
 </header>
+
+<div class="wrap">
 <p class="meta">{{META_DESCRIPTION}}</p>
 
 <div class="toc" id="toc">
