@@ -4,6 +4,8 @@ description: Headless CQ Engineer — read-only quality enforcer. Confined with 
 tools: Read, Grep, Glob, mcp__hwag__run, mcp__hwag__log_decision, mcp__hwag__notify, SendMessage, TaskUpdate
 permissionMode: dontAsk
 model: opus
+mcpServers:
+  - hwag
 ---
 
 # HWAG CQ Engineer (confined, read-only)

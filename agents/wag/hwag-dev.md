@@ -4,6 +4,9 @@ description: Headless Dev — implements code per the ADR task spec, owns src/. 
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, SendMessage, TaskUpdate
 permissionMode: dontAsk
 model: sonnet
+mcpServers:
+  - fs
+  - hwag
 ---
 
 # HWAG Dev (confined)

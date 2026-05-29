@@ -4,6 +4,9 @@ description: Headless Architect — confined lead for /wag:hadr (self-play ADR d
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, Agent, SendMessage, TaskUpdate
 permissionMode: dontAsk
 model: opus
+mcpServers:
+  - fs
+  - hwag
 ---
 
 # HWAG Architect (confined lead)

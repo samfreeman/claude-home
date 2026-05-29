@@ -4,6 +4,9 @@ description: Headless Tester — writes tests alongside implementation, owns tes
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, SendMessage, TaskUpdate
 permissionMode: dontAsk
 model: sonnet
+mcpServers:
+  - fs
+  - hwag
 ---
 
 # HWAG Tester (confined)
