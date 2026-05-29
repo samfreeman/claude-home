@@ -54,6 +54,18 @@
 				"/mnt/c/Users/${USER}/AppData/Roaming/Claude",
 				"/mnt/c/Users/${USER}/Dropbox/Claude"
 			]
+		},
+		"hwag": {
+			"command": "node",
+			"args": [
+				"/home/samfr/.claude/mcp-servers/hwag-mcp/dist/index.js",
+				"~/.claude",
+				"~/source"
+			],
+			"env": {
+				"HWAG_TELEGRAM_TOKEN": "${HWAG_TELEGRAM_TOKEN}",
+				"HWAG_TELEGRAM_CHAT_ID": "${HWAG_TELEGRAM_CHAT_ID}"
+			}
 		}
 	}
 }

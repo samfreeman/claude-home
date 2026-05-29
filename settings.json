@@ -93,6 +93,12 @@
       "mcp__wag__wag_clear",
       "mcp__wag__wag_gate",
       "mcp__wag__wag_cop",
+      "mcp__hwag__run",
+      "mcp__hwag__ask",
+      "mcp__hwag__notify",
+      "mcp__hwag__log_decision",
+      "mcp__hwag__checkpoint",
+      "mcp__fs__*",
       "mcp__claude-memory__memory_read",
       "mcp__claude-memory__memory_write",
       "mcp__claude-memory__memory_search",
@@ -156,7 +162,9 @@
     "wag",
     "claude-memory",
     "claude-inbox",
-    "google-ai-mcp"
+    "google-ai-mcp",
+    "fs",
+    "hwag"
   ],
   "enabledPlugins": {
     "vercel-plugin@vercel-vercel-plugin": true

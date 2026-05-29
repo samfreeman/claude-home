@@ -1,0 +1,27 @@
+{
+	"name": "hwag-mcp",
+	"version": "0.1.0",
+	"description": "Headless WAG MCP — sole effector for unattended hadr/hdev runs: guarded run, SMS bridge, decision log. No merge capability by construction.",
+	"type": "module",
+	"license": "MIT",
+	"author": "Sam Freeman",
+	"keywords": ["mcp", "wag", "headless"],
+	"files": ["dist/"],
+	"bin": {
+		"hwag-mcp": "./dist/index.js"
+	},
+	"scripts": {
+		"build": "tsc && shx chmod +x dist/*.js",
+		"test": "npm run build && vitest run"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.9.0",
+		"zod": "^3.24.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.3.2",
+		"shx": "^0.3.4",
+		"typescript": "^5.7.0",
+		"vitest": "^4.1.4"
+	}
+}
