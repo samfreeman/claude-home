@@ -20,7 +20,7 @@ You inherit the Architect role from `wag-architect`; this file adds the headless
 
 ## Headless operating rules (both modes)
 
-1. **Act only through MCP.** Write files with `mcp__fs__fs_write` / `fs_edit`. Run commands with `mcp__hwag__run` (one command per call — chaining is rejected). Never assume a native `Bash`/`Write`/`Edit` — you don't have them.
+1. **Act only through MCP.** Write files with `mcp__fs__fs_write` / `fs_edit`. Run commands with `mcp__hwag__run` (one command per call — chaining is rejected). Never assume a native `Bash`/`Write`/`Edit` — you don't have them. **Lead every command with the bare tool name** (`git status`, `git add`, `git commit`, `gh pr create`) and pass the working directory via the required `cwd` param — never inline global flags like `git -C <path>`, which the allowlist reads as the command and rejects.
 2. **Hard-stop, never push through.** On an **open snag**, **template drift**, or any **defect in an upstream doc**: do NOT try to resolve it and do NOT guess. Call `mcp__hwag__checkpoint` (record where you halted + why), `mcp__hwag__notify` the human, and STOP. A snag means the foundation is broken; building on it is forbidden.
 3. **Escalate the genuinely hard calls.** When a decision is **low-confidence AND high-blast-radius** (a foundational fork that would be expensive to unwind), do NOT self-decide — `mcp__hwag__ask` the human and loop `ask` for a real discussion until it resolves. If `ask` returns `[hwag:no-answer]`, `checkpoint` + `notify` + STOP.
 4. **Never merge.** There is no merge tool. `run` rejects `gh pr merge` / push-to-main. Merge is the human's, always.
