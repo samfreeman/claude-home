@@ -27,6 +27,7 @@ This is a conversational command — a working session with the user, not a one-
 | `.wag/docs/Architecture.md` | Update tech stack rows, add key decisions, revise rationale, close open questions |
 | `.wag/docs/RESEARCH.md` | Add research findings that informed architecture changes (optional) |
 | `.wag/backlog/` | Author epics (`epic-NNN-word/epic.md`) and PBIs (`epic-NNN-word/PBI-PPP.md`) |
+| `.wag/stash/` | Triage stashed thoughts — promote to PBI, fold into PRD/Architecture, or discard |
 
 **Not covered by this command:**
 - Picking a PBI to work on → `/wag:adr`
@@ -65,6 +66,14 @@ If `.wag/adr/active/` contains an ADR, there's work in flight. Surface this:
 
 Don't block on it — the user may know the ADR is unaffected. Just make it visible.
 
+### Surface the stash
+
+Glob `.wag/stash/STASH-*.md` (exclude `_processed/`). If the stash is non-empty, surface a one-liner:
+
+> "Stash has N items: STASH-NNN, STASH-NNN, … You can triage them this session — see the focus options below."
+
+Don't drive triage automatically. Surface and move on — the user decides whether to process them now or focus elsewhere. If the stash is empty, say nothing.
+
 ### Determine focus
 
 Ask what the user wants to work on in this session. Common entry points:
@@ -72,6 +81,7 @@ Ask what the user wants to work on in this session. Common entry points:
 - "I need to revise an architecture decision"
 - "I need to add epics/PBIs to the backlog"
 - "I want to review what's there and refresh"
+- "I want to triage the stash" *(only relevant if the stash is non-empty — see Phase 4)*
 
 The rest of this workflow branches on that answer.
 
@@ -173,7 +183,46 @@ If reordering or removing PBIs leaves the local sequence uncomfortably gappy, re
 4. If the active ADR's PBI is being renumbered, also rename the ADR file (`ADR-EEE.OLD.md` → `ADR-EEE.NEW.md`) and update its body header. The feature branch keeps its existing name unless you also rename it (`git branch -m feature/PBI-EEE.OLD feature/PBI-EEE.NEW`), which is supported as long as nothing else has the old branch checked out.
 5. Update `state.json` (`active_pbi`, `feature_branch`) if affected.
 
-## Phase 4: Exit
+## Phase 4: Triaging the stash
+
+The stash (`.wag/stash/`) holds raw thoughts captured via `/wag:stash` during prior ADR or dev sessions. This phase walks each unprocessed item with the user and decides where it goes. Triage is per-item and the user can stop at any time — partial triage is fine, items left untouched stay stashed for the next session.
+
+For each `STASH-NNN.md` file (exclude `_processed/`), in order:
+
+1. **Read the file and show it to the user** — title, captured-at timestamp, context line, body.
+2. **Ask: promote, fold, discard, or keep?**
+   - **Promote to PBI** — the thought is a unit of work. Drive the PBI authoring flow from Phase 3, then move the stash file to `_processed/` with a footer noting the new PBI's canonical ID and path.
+   - **Fold into PRD or Architecture** — the thought is a product or architectural decision, not a unit of work. Drive the relevant edit from Phase 2, then move the stash file to `_processed/` with a footer noting the doc and section it landed in.
+   - **Discard** — the thought is no longer useful. Capture a one-line reason from the user, then move the stash file to `_processed/` with a footer noting "Discarded: [reason]".
+   - **Keep stashed** — leave the file untouched in `.wag/stash/`. The next `/wag:docs` session will surface it again.
+3. **Continue to the next item** until the stash is empty or the user says "enough".
+
+### Moving a stash item to _processed/
+
+```bash
+git mv .wag/stash/STASH-NNN.md .wag/stash/_processed/STASH-NNN.md
+```
+
+Then append a footer to the moved file:
+
+```markdown
+
+## Triaged: YYYY-MM-DD
+
+**Outcome:** promoted | folded | discarded
+**Landed at:** [PBI EEE.PPP path | PRD section | Architecture decision | n/a for discard]
+**Reason:** [one-line — required for discard, optional otherwise]
+```
+
+Don't rewrite the original body. The footer is additive — the captured thought stays verbatim as historical record.
+
+If `.wag/stash/_processed/` doesn't exist yet, create it as part of the first move.
+
+### After triage
+
+When the user is done triaging (stash empty, or they said "enough"), return to the "Determine focus" step in Phase 1 — they may still want to author other docs/PBIs in this session, or they may be done. Don't auto-advance to Exit.
+
+## Phase 5: Exit
 
 This mode doesn't have a strict "complete" state — it ends when the user says so. Before ending:
 
@@ -202,3 +251,4 @@ This mode doesn't have a strict "complete" state — it ends when the user says 
 8. **File location is the source of truth for epic membership.** A PBI in `epic-001-auth/` belongs to that epic. No frontmatter for membership.
 9. **This command does not modify state.json.** `active_epic` and `active_pbi` are managed by `/wag:adr` and `/wag:dev`.
 10. **No code.** Docs mode updates planning surfaces only. Implementation is `/wag:dev`.
+11. **Stash triage is optional and per-item.** The stash is surfaced in pre-flight but never auto-processed. Triage routes each item through the normal PRD/Architecture/backlog flows — there's no shortcut. Items not processed this session stay stashed for the next.
