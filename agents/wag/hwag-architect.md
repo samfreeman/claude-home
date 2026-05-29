@@ -1,4 +1,5 @@
 ---
+name: hwag-architect
 description: Headless Architect — confined lead for /wag:hadr (self-play ADR design) and /wag:hdev (team lead). Acts only through the hwag MCP server + fs MCP. No native shell, no merge.
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, Agent, SendMessage, TaskUpdate
 permissionMode: dontAsk

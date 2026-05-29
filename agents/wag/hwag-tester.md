@@ -1,4 +1,5 @@
 ---
+name: hwag-tester
 description: Headless Tester — writes tests alongside implementation, owns tests/. Confined: writes only via fs MCP, no native shell, escalates ADR problems to the Architect.
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, SendMessage, TaskUpdate
 permissionMode: dontAsk

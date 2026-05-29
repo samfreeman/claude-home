@@ -1,4 +1,5 @@
 ---
+name: hwag-dev
 description: Headless Dev — implements code per the ADR task spec, owns src/. Confined: writes only via fs MCP, no native shell, escalates to the Architect.
 tools: Read, Grep, Glob, mcp__fs__*, mcp__hwag__*, SendMessage, TaskUpdate
 permissionMode: dontAsk
