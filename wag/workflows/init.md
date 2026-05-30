@@ -181,9 +181,10 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    - `active_pbi` is the local per-epic PBI number as a zero-padded string like `"003"` when a PBI is in flight, or `null` when between PBIs. The full canonical ID is `PBI <active_epic-number>.<active_pbi>` (e.g., `PBI 001.003`).
    - `feature_branch` is a string like `"feature/PBI-001.003"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
    - `docs_page_path` is the project-relative path to the directory holding the in-app docs page (e.g., `"src/app/(dashboard)/docs"`), or `null` until `/wag:gendocs` runs for the first time. Set on first run after the user confirms a detected or chosen path; reused (but re-confirmed) on subsequent runs.
-5. Present the scaffolded structure to the user. Walk through each document.
+5. Initialise the git repository at the project root (`git init`) if one doesn't already exist. This is the single repo for the project — it tracks `.wag/` now, and the app later when Phase E merges it in. Establishing it here means `.wag/` is version-controlled from the start, and the Phase E scaffolder finds an existing repo (so `create-next-app` won't create a competing one in its subfolder).
+6. Present the scaffolded structure to the user. Walk through each document.
 
-**Output:** Complete `.wag/` infrastructure with populated documents.
+**Output:** Complete `.wag/` infrastructure with populated documents, under a git repo rooted at the project root.
 
 **Transition:** User approves the scaffolded `.wag/`. If the design calls for an app, proceed to Phase E. If it does not (e.g. a docs-only or research-only project), init is complete — skip to wrap-up.
 
@@ -200,8 +201,8 @@ An epic is a **business objective** — a coherent outcome that delivers value t
 2. **Offer** to run the matching scaffolder — don't run it unprompted. For a Next.js app that's `/wag:create-nextjs`; a future Node project would use its own scaffolder (e.g. `/wag:create-node`). If no scaffolder exists for the chosen stack, tell the user and stop — they'll scaffold manually.
 3. On the user's approval, invoke the scaffolder via the Skill tool. The scaffolder is responsible for:
    - scaffolding into a **fresh empty subfolder** (because the project root already contains `.wag/`, and `create-next-app` and friends refuse a non-empty directory),
-   - merging the scaffolded contents **up into the project root**, discarding the subfolder's throwaway `.git`,
-   - initialising and configuring **a single git repository at the project root** (so `.git` lives at the root and tracks both `.wag/` and the app),
+   - merging the scaffolded contents **up into the project root**, leaving behind the subfolder's throwaway `.git`,
+   - using the **existing root-level git repository** (created in Phase D) — `create-next-app`, run inside that repo, won't create a competing one — and configuring it (identity, remote, branches),
    - baseline deps, optional layers, and project files.
 
    Init does not implement the subfolder/merge/git mechanics — it delegates them to the scaffolder. Init's job is to decide *whether* and *which*, then hand off.

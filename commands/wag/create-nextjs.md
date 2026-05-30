@@ -40,6 +40,15 @@ Detect the current state of the working directory:
 
 Ask the user for an app name if not provided as an argument: `$ARGUMENTS`. The app name doubles as the temporary scaffold subfolder name.
 
+**First, establish the git repo at the project root — before scaffolding.** The single repository lives at the root and tracks both the app and any `.wag/`. In the init-orchestrated flow it already exists (init's Phase D runs `git init` once `.wag/` is built). Create it only if absent:
+
+```bash
+# only if the project root has no .git yet (standalone runs); a no-op otherwise
+git init
+```
+
+Why first: with a repo already present at the root, `create-next-app` detects it's inside a git repo and typically skips creating its own `.git` in the subfolder — so there's nothing to discard. We exclude `.git` in the move regardless, so it's safe either way.
+
 Show the full scaffold command and wait for approval before running. `create-next-app` creates and populates the `[app]/` subfolder, sidestepping the non-empty-root problem:
 
 ```bash
@@ -48,34 +57,21 @@ pnpm create next-app@latest [app] \
     --turbopack --import-alias "@/*" --use-pnpm --yes
 ```
 
-**Relocate to the project root immediately — before anything else is installed.** The baseline deps, optional layers, and shadcn components (Phase 3 onward) must all run at the project root inside the final git repo, not in the throwaway subfolder. So as soon as `create-next-app` finishes: move the scaffold up, fix the git repo, *then* continue.
-
-`create-next-app` initializes its own `.git` inside `[app]/`; that repo is thrown away and replaced with a single repository at the **project root**, tracking both the app and `.wag/`.
+**Relocate to the project root immediately — before anything else is installed.** The baseline deps, optional layers, and shadcn components (Phase 3 onward) must all run at the project root inside the root git repo, not in the throwaway subfolder. So as soon as `create-next-app` finishes, move the scaffold up — everything **except** any `.git` the scaffold may have left behind — *then* continue.
 
 Run these as separate steps (each is its own approval):
 
 ```bash
-# 1. discard the scaffold's throwaway git repo
-rm -rf [app]/.git
+# 1. move everything from the subfolder up to the project root, skipping its .git
+find [app] -mindepth 1 -maxdepth 1 -name .git -prune -o -exec mv -t . {} +
 ```
 
 ```bash
-# 2. move everything (including dotfiles) from the subfolder up to the project root
-find [app] -mindepth 1 -maxdepth 1 -exec mv -t . {} +
+# 2. remove the leftover subfolder (empty, or holding only the skipped .git)
+rm -rf [app]
 ```
 
-```bash
-# 3. remove the now-empty subfolder
-rmdir [app]
-```
-
-```bash
-# 4. fix the git: establish the single repo at the project root now, so all
-#    subsequent installs happen inside it. Skip the init if a .git already exists here.
-git init
-```
-
-The project root now contains the Next.js app alongside any pre-existing `.wag/`, with `.git` at the root. **Do not `cd` into `[app]/`** — it no longer exists. All remaining phases operate at the project root.
+The project root now contains the Next.js app alongside any pre-existing `.wag/`, sharing the single `.git` at the root. **Do not `cd` into `[app]/`** — it no longer exists. All remaining phases operate at the project root.
 
 If the project root contained files that collide with the scaffold (it normally only holds `.wag/`, which never collides), stop and ask the user how to reconcile before moving anything.
 
@@ -419,7 +415,7 @@ QA branch auto-deploys. Main and dev do not deploy automatically.
 
 ## Phase 6: Git Configuration
 
-The single root-level repository was already established in Phase 2 (`git init` right after the relocate), so there's no repo to create here — just configure it.
+The single root-level repository was already established in Phase 2 (`git init` at the project root, before scaffolding), so there's no repo to create here — just configure it.
 
 ### Step 1: Per-repo identity
 
