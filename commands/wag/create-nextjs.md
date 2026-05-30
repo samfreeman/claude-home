@@ -32,13 +32,15 @@ Detect the current state of the working directory:
 1. **cwd has `package.json` with Next.js** -> Existing Next.js app. Skip scaffold, proceed to Phase 3 (Baseline Install).
 2. **Otherwise** -> Need to scaffold. Proceed to Phase 2.
 
+> **Note — the project root is often non-empty.** This command is usually run by `/wag:init` *after* the `.wag/` planning infrastructure already exists at the project root. `create-next-app` refuses to run in a non-empty directory, so Phase 2 always scaffolds into a fresh **subfolder** and then merges the result up into the project root. The cwd at the start of Phase 2 is the project root (it may already contain `.wag/`); it is **not** empty and must not be treated as the scaffold target directly.
+
 ---
 
-## Phase 2: Scaffold
+## Phase 2: Scaffold into a subfolder, then merge up
 
-Ask the user for an app name if not provided as an argument: `$ARGUMENTS`
+Ask the user for an app name if not provided as an argument: `$ARGUMENTS`. The app name doubles as the temporary scaffold subfolder name.
 
-Show the full scaffold command and wait for approval before running:
+Show the full scaffold command and wait for approval before running. `create-next-app` creates and populates the `[app]/` subfolder, sidestepping the non-empty-root problem:
 
 ```bash
 pnpm create next-app@latest [app] \
@@ -46,7 +48,38 @@ pnpm create next-app@latest [app] \
     --turbopack --import-alias "@/*" --use-pnpm --yes
 ```
 
-After scaffold completes, cd into the new `[app]/` directory.
+**Relocate to the project root immediately — before anything else is installed.** The baseline deps, optional layers, and shadcn components (Phase 3 onward) must all run at the project root inside the final git repo, not in the throwaway subfolder. So as soon as `create-next-app` finishes: move the scaffold up, fix the git repo, *then* continue.
+
+`create-next-app` initializes its own `.git` inside `[app]/`; that repo is thrown away and replaced with a single repository at the **project root**, tracking both the app and `.wag/`.
+
+Run these as separate steps (each is its own approval):
+
+```bash
+# 1. discard the scaffold's throwaway git repo
+rm -rf [app]/.git
+```
+
+```bash
+# 2. move everything (including dotfiles) from the subfolder up to the project root
+find [app] -mindepth 1 -maxdepth 1 -exec mv -t . {} +
+```
+
+```bash
+# 3. remove the now-empty subfolder
+rmdir [app]
+```
+
+```bash
+# 4. fix the git: establish the single repo at the project root now, so all
+#    subsequent installs happen inside it. Skip the init if a .git already exists here.
+git init
+```
+
+The project root now contains the Next.js app alongside any pre-existing `.wag/`, with `.git` at the root. **Do not `cd` into `[app]/`** — it no longer exists. All remaining phases operate at the project root.
+
+If the project root contained files that collide with the scaffold (it normally only holds `.wag/`, which never collides), stop and ask the user how to reconcile before moving anything.
+
+**Fix the package name.** `create-next-app` sets the `name` field in `package.json` to the scaffold subfolder name (`[app]`). Now that the app lives at the project root, update `package.json`'s `name` to match the actual project (the project-root folder name, kebab-cased) so it isn't pinned to the throwaway subfolder name. Use the Edit tool — don't shell-edit the file.
 
 Configure TypeScript rules (eslint.config.mjs, tsconfig.json) per `~/.claude/documents/typescript-rules.md`.
 
@@ -386,7 +419,7 @@ QA branch auto-deploys. Main and dev do not deploy automatically.
 
 ## Phase 6: Git Configuration
 
-`create-next-app` already initialized git. This phase configures it.
+The single root-level repository was already established in Phase 2 (`git init` right after the relocate), so there's no repo to create here — just configure it.
 
 ### Step 1: Per-repo identity
 
@@ -466,6 +499,8 @@ If this fails, stop and help the user diagnose. Do not continue until auth works
 
 ### Step 5: Branches, commit, push
 
+`git add .` stages the app **and** any `.wag/` infrastructure present at the root — the initial commit captures both.
+
 ```bash
 git checkout -b main
 git add .
@@ -504,4 +539,6 @@ If the build fails, show the error and stop. Do not report success until the bui
    - Git branches created (main, qa, dev)
    - Remote status (connected or not)
 
-3. Suggest next step: "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."
+3. Suggest the next step, depending on how this command was reached:
+   - **`.wag/` already exists at the root** (this command was run by `/wag:init` as its Phase E): planning infrastructure is already in place. Suggest picking a PBI and running `/wag:adr`, or `/wag:docs` to refine the plan.
+   - **No `.wag/` present** (standalone scaffold): suggest "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."
