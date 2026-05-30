@@ -32,7 +32,7 @@ Detect the current state of the working directory:
 1. **cwd has `package.json` with Next.js** -> Existing Next.js app. Skip scaffold, proceed to Phase 3 (Baseline Install).
 2. **Otherwise** -> Need to scaffold. Proceed to Phase 2.
 
-> **Note — the project root is often non-empty.** This command is usually run by `/wag:init` *after* the `.wag/` planning infrastructure already exists at the project root. `create-next-app` refuses to run in a non-empty directory, so Phase 2 always scaffolds into a fresh **subfolder** and then merges the result up into the project root. The cwd at the start of Phase 2 is the project root (it may already contain `.wag/`); it is **not** empty and must not be treated as the scaffold target directly.
+> **Note — the project root is often non-empty.** This command is usually run while implementing **PBI 0.1** (the infrastructure PBI), *after* `/wag:init` has already built the `.wag/` planning layer and the root git repo. `create-next-app` refuses to run in a non-empty directory, so Phase 2 always scaffolds into a fresh **subfolder** and then merges the result up into the project root. The cwd at the start of Phase 2 is the project root (it normally already contains `.wag/` and a `.git/`); it is **not** empty and must not be treated as the scaffold target directly.
 
 ---
 
@@ -40,7 +40,7 @@ Detect the current state of the working directory:
 
 Ask the user for an app name if not provided as an argument: `$ARGUMENTS`. The app name doubles as the temporary scaffold subfolder name.
 
-**First, establish the git repo at the project root — before scaffolding.** The single repository lives at the root and tracks both the app and any `.wag/`. In the init-orchestrated flow it already exists (init's Phase D runs `git init` once `.wag/` is built). Create it only if absent:
+**First, establish the git repo at the project root — before scaffolding.** The single repository lives at the root and tracks both the app and any `.wag/`. When run during PBI 0.1's dev cycle it already exists (init's Phase D ran `git init` once `.wag/` was built). Create it only if absent:
 
 ```bash
 # only if the project root has no .git yet (standalone runs); a no-op otherwise
@@ -536,5 +536,5 @@ If the build fails, show the error and stop. Do not report success until the bui
    - Remote status (connected or not)
 
 3. Suggest the next step, depending on how this command was reached:
-   - **`.wag/` already exists at the root** (this command was run by `/wag:init` as its Phase E): planning infrastructure is already in place. Suggest picking a PBI and running `/wag:adr`, or `/wag:docs` to refine the plan.
+   - **`.wag/` already exists at the root** (this scaffold is PBI 0.1, run from the dev cycle): the planning infrastructure is already in place and this PBI is standing up its foundation. Once the scaffold is committed, the PBI 0.1 dev cycle continues — suggest finishing/closing PBI 0.1, then picking the next PBI (now unblocked) and running `/wag:adr`.
    - **No `.wag/` present** (standalone scaffold): suggest "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."

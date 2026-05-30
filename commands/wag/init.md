@@ -1,5 +1,5 @@
 ---
-description: Initialise a new project — intake, research, requirements, scaffold. Creates .wag/ infrastructure with populated planning documents.
+description: Initialise a new project — intake, research, requirements, backlog. Creates .wag/ infrastructure with populated planning documents; standing up the app is PBI 0.1.
 allowed-tools: Read, Write, Bash, Agent, WebSearch, WebFetch, Grep, Glob
 ---
 
@@ -27,11 +27,10 @@ Run these in order. **The user must approve each phase before you advance.**
 |-------|------|----------|--------|
 | A | Intake | questioning.md reference | `.wag/docs/PRD.md` (seeded) |
 | B | Research | workflows/research.md | `.wag/docs/RESEARCH.md` + `.wag/docs/Architecture.md` (seeded) |
-| C | Backlog | (inline in init workflow) | `.wag/backlog/` (epics/PBIs — vertical slices) |
-| D | Scaffold | (inline in init workflow) | `.wag/` infrastructure (state.json, adr/, snags/) |
-| E | App scaffold (conditional) | offers `/wag:create-nextjs` | app merged into project root, sharing one git repo with `.wag/` |
+| C | Backlog | (inline in init workflow) | `.wag/backlog/` (**PBI 0.1 = infrastructure**; rest are vertical feature slices) |
+| D | Scaffold | (inline in init workflow) | `.wag/` infrastructure (state.json, adr/, snags/) + root `git init` |
 
-`.wag/` planning infrastructure is built **first** (Phases A–D); the app, if the design calls for one, is scaffolded **second** (Phase E). Phase E only runs when Architecture.md specifies an app stack — it's skipped for planning-only projects.
+**Init plans; it does not scaffold the app.** What app to build is an *output* of the init review (PRD + Architecture), captured as **PBI 0.1** — `epic-000-general/PBI-001`, "stand up the project infrastructure." The app is actually built later, when PBI 0.1 is worked through `/wag:adr` → `/wag:dev` (which is where `/wag:create-nextjs` runs). Init establishes the root git repo (Phase D) so that dev cycle has a repo to merge into. A non-app project (docs-only) has no PBI 0.1.
 
 ## WAG docs structure
 
@@ -46,12 +45,12 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 
 ## Key rules
 
-- **Planning first, app second.** Build the `.wag/` planning layer (Phases A–D) before scaffolding any app (Phase E). The planning is what decides whether an app exists and what kind.
-- **You don't scaffold directly — you delegate.** When the design calls for an app, init *offers* to run the matching scaffolder (`/wag:create-nextjs` for Next.js). The scaffolder owns the scaffold-into-subfolder-then-merge-to-root mechanics and the single root-level git repo. Init decides *whether* and *which*; it never scaffolds of its own accord and never before user approval.
+- **Init plans; it does not scaffold the app.** Init produces the `.wag/` planning layer and the root git repo. What app to build is an *output* of the init review, captured as **PBI 0.1** (`epic-000-general/PBI-001`). The app is stood up later, when PBI 0.1 is worked via `/wag:adr` → `/wag:dev` (where `/wag:create-nextjs` runs).
+- **PBI 0.1 is the infrastructure PBI.** First backlog item authored; scope = scaffold + baseline + the layers Architecture called for. It's the one sanctioned foundational PBI; every feature PBI depends on it. Non-app projects have no PBI 0.1.
 - **No auto-advancing.** Each phase ends with user approval before the next begins.
 - **Documents are seeded, not empty.** PRD and Architecture are populated from their respective phases, not blank templates.
-- **Research grounds decisions.** Don't guess at tech stack or architecture — let Phase B inform Phase D.
-- **Slice the backlog vertically.** Phase C PBIs should be thin end-to-end increments (UI → action → data) that leave the project demonstrable — not horizontal layers split by tier.
+- **Research grounds decisions.** Don't guess at tech stack or architecture — let Phase B inform the backlog.
+- **Slice the backlog vertically.** Beyond PBI 0.1, Phase C PBIs should be thin end-to-end increments (UI → action → data) that leave the project demonstrable — not horizontal layers split by tier.
 - **Use sub-agents for research.** Spawn `wag-researcher` agents in parallel for Phase B (one per axis). Fall back to sequential if agents aren't available.
 
 ## Templates
@@ -60,6 +59,8 @@ Templates for all output documents are at `wag/templates/`. Use them as structur
 
 ## When you're done
 
-Tell the user:
-- What was created and where — `.wag/` infrastructure, and (if Phase E ran) the scaffolded app at the project root with `.git` at the root
-- Suggest next steps: run `/wag:docs` to refine the PRD, or pick a PBI and run `/wag:adr`
+Tell the user what was created and where — the `.wag/` infrastructure and the root git repo.
+
+Then, for an app project, **offer to start PBI 0.1 next and explain that it must be next**: nothing else in the backlog can be built until the foundation exists, so PBI 0.1 (stand up the infrastructure — scaffold + baseline + layers) has to be the first thing worked. Offer to kick it off with `/wag:adr` on `PBI 000.001`. If they decline, leave the backlog ready and stop.
+
+For a non-app project there is no PBI 0.1 — suggest `/wag:docs` to refine, or pick a PBI and run `/wag:adr`.

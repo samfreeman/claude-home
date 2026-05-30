@@ -2,11 +2,13 @@
 
 ## Purpose
 
-Take a user from "I have an idea" to a project with populated `.wag/` infrastructure — PRD, architecture, and backlog — and, when the design calls for an app, a scaffolded codebase sitting alongside it at the project root.
+Take a user from "I have an idea" to a project with populated `.wag/` infrastructure — PRD, architecture, and a backlog ready to work. Init produces the **planning layer**; it does **not** scaffold the app.
 
-The ordering is deliberate: `.wag/` planning infrastructure is built **first**, then the app is scaffolded **second**. This is the reverse of the old flow. It matters because the planning phases (intake → research → backlog) are what decide *whether* there's an app and *what kind* — that decision can't be made before the planning exists. Init is the single orchestrator that owns this sequence; it offers to run the appropriate scaffolder (e.g. `/wag:create-nextjs`) once the design is settled.
+**What app to build is an output of init, not an action init takes.** Intake (Phase A) and research (Phase B) produce the PRD and Architecture; reviewing those docs is what decides the stack, the layers, and the shape of the app. Init captures that decision — it doesn't execute it.
 
-**The empty-folder problem.** `create-next-app` (and most scaffolders) refuse to run in a non-empty directory, and by the time we scaffold, the project root already contains `.wag/`. The scaffolder solves this by always scaffolding into a fresh empty **subfolder** and then merging its contents up into the project root. Init does not need to special-case this — it just invokes the scaffolder, which owns the subfolder-and-merge mechanics.
+**Standing up the app is PBI 0.1.** The very first backlog item — `epic-000-general/PBI-001`, canonical `PBI 000.001` — is "stand up the project infrastructure": scaffold the app, baseline deps, and whatever layers (db/auth/theme) Architecture called for. Every other PBI is a vertical feature slice that depends on 0.1. This is the one legitimate foundational PBI — the justified exception to vertical slicing (see Phase C) — and it's first. The app actually gets built when PBI 0.1 is worked through the normal `/wag:adr` → `/wag:dev` cycle, which is where `/wag:create-nextjs` (or another scaffolder) runs.
+
+Init still establishes the git repo at the project root (Phase D), so by the time PBI 0.1 is implemented there's a repo for the scaffolder to merge into.
 
 ## WAG docs structure
 
@@ -77,6 +79,8 @@ Confirm the chosen root back to the user. This folder is where `.wag/` is built 
 **Process:**
 1. Read PRD.md and Architecture.md.
 2. Draft backlog items grounded in the PRD and architecture:
+   - **PBI 0.1 — the infrastructure PBI.** The first item authored is always `epic-000-general/PBI-001` (canonical `PBI 000.001`): "stand up the project infrastructure." Its scope is whatever Architecture decided — scaffold the app (e.g. via `/wag:create-nextjs`), baseline deps, and the chosen layers (db / auth / theme). For a non-app project (docs-only, research-only) there is no infrastructure to stand up, so skip PBI 0.1.
+   - **Every PBI blocks on 0.1.** When PBI 0.1 exists, every other PBI lists `PBI 000.001` in its `Dependencies:` line — there is no codebase to build against until the foundation is stood up, so nothing can start before it. This is a cross-epic dependency (named with the full `PBI 000.001` form), so it's compatible with the per-epic dependency-direction rule. PBI 0.1 itself depends on nothing.
    - v1 epics / PBIs — each traceable to a PRD requirement or architecture decision
    - v2 / future items — parked, not forgotten
    - Non-goals — explicit, with rationale
@@ -97,7 +101,7 @@ Concretely, when drafting and challenging PBIs:
 - Prefer "user can create and view a single todo (input → action → row → render)" over "create the todos table."
 - Each PBI's Deliverables and Acceptance Criteria should include an observable, user- or caller-facing outcome — not just an internal layer being present.
 - It's fine for an early slice to be deliberately narrow (one entity, one happy path, hardcoded edges) and for later slices in the same epic to widen it. Width grows across slices; depth (end-to-end) holds in every slice.
-- A purely-foundational PBI (a shared schema package, an auth substrate) is acceptable when a genuine dependency forces it — but treat it as the exception to justify, not the default. Push the foundation *into* the first feature slice that needs it whenever you can.
+- The infrastructure PBI (**PBI 0.1**) is the one sanctioned foundational exception — standing up the scaffold and layers genuinely can't be a feature slice, and everything depends on it. Beyond 0.1, treat further purely-foundational PBIs (a shared schema package, an auth substrate) as exceptions to justify, not the default. Push the foundation *into* the first feature slice that needs it whenever you can.
 
 When a proposed PBI looks horizontal, say so and propose the vertical recut before moving on.
 
@@ -181,43 +185,29 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    - `active_pbi` is the local per-epic PBI number as a zero-padded string like `"003"` when a PBI is in flight, or `null` when between PBIs. The full canonical ID is `PBI <active_epic-number>.<active_pbi>` (e.g., `PBI 001.003`).
    - `feature_branch` is a string like `"feature/PBI-001.003"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
    - `docs_page_path` is the project-relative path to the directory holding the in-app docs page (e.g., `"src/app/(dashboard)/docs"`), or `null` until `/wag:gendocs` runs for the first time. Set on first run after the user confirms a detected or chosen path; reused (but re-confirmed) on subsequent runs.
-5. Initialise the git repository at the project root (`git init`) if one doesn't already exist. This is the single repo for the project — it tracks `.wag/` now, and the app later when Phase E merges it in. Establishing it here means `.wag/` is version-controlled from the start, and the Phase E scaffolder finds an existing repo (so `create-next-app` won't create a competing one in its subfolder).
+5. Initialise the git repository at the project root (`git init`) if one doesn't already exist. This is the single repo for the project — it tracks `.wag/` now, and the app later, when PBI 0.1 is implemented and the scaffolder merges the app in. Establishing it here means `.wag/` is version-controlled from the start, and when PBI 0.1's dev cycle runs the scaffolder it finds an existing repo (so `create-next-app` won't create a competing one in its subfolder).
 6. Present the scaffolded structure to the user. Walk through each document.
 
 **Output:** Complete `.wag/` infrastructure with populated documents, under a git repo rooted at the project root.
 
-**Transition:** User approves the scaffolded `.wag/`. If the design calls for an app, proceed to Phase E. If it does not (e.g. a docs-only or research-only project), init is complete — skip to wrap-up.
+**Transition:** User approves the scaffolded `.wag/`. Init is complete — proceed to wrap-up.
 
 ---
 
-### Phase E: App Scaffold (conditional)
+## Wrap-up: hand off to PBI 0.1
 
-**Goal:** When the PRD/Architecture call for an application, scaffold the codebase at the project root, alongside the `.wag/` infrastructure built in the prior phases.
+Init does not scaffold the app. When init finishes, tell the user what was created, then — for an app project — **offer to start PBI 0.1 next** and explain *why it has to be next*:
 
-**Whether this phase runs at all is decided by the planning phases, not here.** Phase A intake and Phase B research establish the project type and whether there's an app to build. Read Architecture.md: if it specifies an application stack (Next.js, Node service, etc.), this phase applies. If the project is planning-only, docs-only, or otherwise has no app, **skip this phase** and tell the user init is complete.
+> "The planning layer is in place. The next step is **PBI 0.1 — stand up the project infrastructure** (scaffold + baseline + layers). Nothing else in the backlog can be built until the foundation exists, so this PBI must be worked first. Want me to start it now with `/wag:adr` on PBI 0.1?"
 
-**Process:**
-1. Confirm the app type from Architecture.md (e.g. Next.js web app, Node CLI/service). State it back to the user.
-2. **Offer** to run the matching scaffolder — don't run it unprompted. For a Next.js app that's `/wag:create-nextjs`; a future Node project would use its own scaffolder (e.g. `/wag:create-node`). If no scaffolder exists for the chosen stack, tell the user and stop — they'll scaffold manually.
-3. On the user's approval, invoke the scaffolder via the Skill tool. The scaffolder is responsible for:
-   - scaffolding into a **fresh empty subfolder** (because the project root already contains `.wag/`, and `create-next-app` and friends refuse a non-empty directory),
-   - merging the scaffolded contents **up into the project root**, leaving behind the subfolder's throwaway `.git`,
-   - using the **existing root-level git repository** (created in Phase D) — `create-next-app`, run inside that repo, won't create a competing one — and configuring it (identity, remote, branches),
-   - baseline deps, optional layers, and project files.
-
-   Init does not implement the subfolder/merge/git mechanics — it delegates them to the scaffolder. Init's job is to decide *whether* and *which*, then hand off.
-4. After the scaffolder returns, confirm the project root now holds both `.wag/` and the app, with `.git` at the root.
-
-**Output:** A scaffolded app merged into the project root, sharing one git repository with `.wag/`.
-
-**Transition:** Scaffolder completes. Init is done.
+If the user agrees, hand off to `/wag:adr` for `PBI 000.001`. If they decline, leave the backlog ready and stop — they can start the dev cycle whenever. For a non-app project there is no PBI 0.1; just report that init is complete.
 
 ---
 
 ## Rules
 
 1. **User approves every phase transition.** Never auto-advance.
-2. **Planning before scaffolding.** Build the full `.wag/` planning layer (Phases A–D) before any app is scaffolded (Phase E). The planning is what decides whether an app exists and what kind — so it must come first. Init never scaffolds an app of its own accord; it delegates to a scaffolder command, and only after the user approves.
+2. **Init plans; it never scaffolds the app.** Init produces the `.wag/` planning layer (PRD, Architecture, backlog) and the root git repo. What app to build is an *output* of the init review, captured as **PBI 0.1** — the app is actually stood up later, when PBI 0.1 is worked through `/wag:adr` → `/wag:dev`.
 3. **Documents are seeded, not empty.** Every document should contain real content derived from the phases that produced it.
 4. **Research grounds decisions.** Requirements and architecture should trace back to research findings, not assumptions.
 5. **The user drives scope.** You propose, they decide. Especially for v1 vs v2 and non-goals.
