@@ -100,7 +100,7 @@ For a **non-app project** (docs-only, research-only) there is nothing to scaffol
 1. Read PRD.md and Architecture.md.
 2. Draft backlog items grounded in the PRD and architecture. The baseline already exists (Phase C), so every PBI is a vertical feature slice built on top of it — there is no infrastructure PBI:
    - v1 epics / PBIs — each traceable to a PRD requirement or architecture decision
-   - v2 / future items — parked, not forgotten
+   - v2 / future items — authored into `epic-501-future/` (the future bucket): parked, not forgotten, and carried forward into later design
    - Non-goals — explicit, with rationale
 3. Present to user. This is a conversation:
    - Walk through each v1 epic / PBI and its rationale
@@ -126,12 +126,13 @@ When a proposed PBI looks horizontal, say so and propose the vertical recut befo
 **Backlog structure:**
 - Every PBI lives in an epic. Epic folders are named `epic-NNN-word/` (one-word kebab-style descriptor), and each contains an `epic.md` plus the PBI files belonging to that epic, named `PBI-PPP.md` (per-epic local number, zero-padded).
 - `epic-000-general/` is the permanent bucket for loose work — bug fixes, small UI tweaks, afterthoughts, anything that doesn't deserve its own epic. It is created automatically during Phase E and always exists. PBIs in it are not pinned — when a cluster of them coheres around a shared outcome, lift them into a new feature epic.
+- `epic-501-future/` is the holding bucket for *deferred* work — envisioned PBIs you intend to build later. Created during Phase E. Its PBIs carry a deferral dependency so `/wag:adr` keeps them visible-but-not-offered and feeds them into later design. (Feature epics take `001–199`; `000` and `200+` are reserved, ongoing special buckets — the `200+` numbers borrow HTTP status codes as a soft mnemonic, so `501` = "Not Implemented".)
 - Canonical PBI ID is `PBI EEE.PPP` (epic number dot PBI number). This is the form used in display, commits, ADR titles, snags, and prose.
 
 **What an epic is:**
 An epic is a **business objective** — a coherent outcome that delivers value to users or the business. Not a category of tasks. A single epic's PBIs may span backend, frontend, schema, infra, and docs; what makes them an epic together is the shared outcome they deliver. Names like `epic-NNN-database` or `epic-NNN-refactoring` or `epic-NNN-bugs` are anti-patterns — those PBIs either serve a real business epic, or live in `epic-000-general`.
 
-**Output:** `.wag/backlog/` (epic folders, including `epic-000-general/`)
+**Output:** `.wag/backlog/` (epic folders, including `epic-000-general/` and `epic-501-future/`)
 
 **Transition:** User approves the backlog. Do not proceed without approval.
 
@@ -152,7 +153,9 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    │   └── Architecture.md    (from Phase B)
    ├── backlog/
    │   ├── epic-000-general/
-   │   │   └── epic.md        (stub — purpose: bucket for ungrouped PBIs)
+   │   │   └── epic.md        (stub — bucket for ungrouped present work)
+   │   ├── epic-501-future/
+   │   │   └── epic.md        (stub — bucket for deferred/envisioned work)
    │   ├── epic-NNN-word/     (any v1 epics authored in Phase D)
    │   │   ├── epic.md
    │   │   └── PBI-PPP.md
@@ -163,7 +166,7 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    └── snags/
        └── _resolved/
    ```
-2. Author the `epic-000-general/epic.md` stub:
+2. Author the special-bucket stubs. First, `epic-000-general/epic.md`:
    ```markdown
    # Epic 000: General
 
@@ -186,6 +189,33 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    ## Non-goals
 
    - Not a permanent home for work that belongs in a real epic. When PBIs here start clustering around a shared outcome, lift them out into a new feature epic.
+   ```
+
+   Then `epic-501-future/epic.md`:
+   ```markdown
+   # Epic 501: Future
+
+   **Priority:** P3
+   **Status:** Ongoing
+   **Depends on:** None
+
+   ## Goal
+
+   Holding bucket for envisioned, deferred work — backlog-shaped PBIs the project intends to build later, not now. Unlike feature epics, Epic 501 is not a business objective being actively pursued; it's where "v2/future — parked, not forgotten" lives as concrete, pointable PBIs. Each PBI carries a deferral dependency so `/wag:adr` keeps it visible-but-not-offered — it surfaces in the blocked footnote and feeds Phase 2 design context. When a future item draws near, lift it into its own properly-framed feature epic.
+
+   (Number `501` follows the special-bucket convention: feature epics use `001–199`; `200+` buckets borrow HTTP status codes as a soft mnemonic. `501 Not Implemented` = envisioned, not built yet; the `5xx` class marks work that takes priority after delivery.)
+
+   ## Deliverables
+
+   - Whatever individual future PBIs in this epic describe. Per-PBI scope lives in each PBI file.
+
+   ## Design Input Required
+
+   None at the epic level. Future PBIs carry their own design context and inform present ADRs via `/wag:adr` Phase 2.
+
+   ## Non-goals
+
+   - Not a backlog of now-work. PBIs here are deferred by definition; promote one to a feature epic when it's time to build it.
    ```
 3. Register the project in `~/.claude/wag/projects.json`. Read the existing file (or create it as an empty array). Add an entry: `{ "name": "[project name]", "path": "[absolute path]", "type": "[nextjs|cli|other]" }`. Don't duplicate if already registered.
 4. Initialise `state.json`:

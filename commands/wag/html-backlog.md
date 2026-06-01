@@ -50,7 +50,7 @@ Walk the file system and build an in-memory model of the backlog. For each epic 
   - `.wag/adr/completed/ADR-EEE.PPP.md` → status: completed, link: that path
   - Neither → no ADR yet
 
-Sort epics by number: epic-000-general first if present, then epic-001, epic-002, ... Within each epic, sort PBIs by local number.
+Sort epics by number: epic-000-general first if present, then epic-001, epic-002, ...; any `200+` special bucket (e.g. epic-501-future) sorts last by its number. Within each epic, sort PBIs by local number.
 
 ## Phase 4: Render session
 

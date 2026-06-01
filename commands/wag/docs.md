@@ -108,8 +108,18 @@ The backlog has one shape: epics. Every PBI lives in an epic folder.
 
 - **Feature epics** — `backlog/epic-NNN-word/` folders, where `word` is a one-word kebab-style descriptor (e.g., `epic-001-auth`, `epic-002-billing`). Each contains an `epic.md` and zero or more PBI files.
 - **`epic-000-general`** — the permanent bucket for loose work: bug fixes, small UI tweaks, afterthoughts, isolated chores. Always exists. Never drains. PBIs in here are not pinned — when a cluster of them starts to cohere around a shared outcome, lift them into a new (or existing) feature epic via the "Moving PBIs between epics" procedure below.
+- **`epic-501-future`** — the holding bucket for envisioned, *deferred* work: backlog-shaped PBIs you intend to build later, not now. Items here are never offered as buildable work — each carries a deferral dependency (e.g. `Dependencies: PBI 001.001`, or a sentinel PBI standing for "v1 proven") so `/wag:adr` Phase 1 treats it as blocked — but they stay **visible** in the blocked footnote and feed forward into present design (`/wag:adr` Phase 2 loads them as design context). When a future item draws near, lift it into its own properly-framed feature epic.
 
-There is no "standalone PBI at the backlog root." If a PBI doesn't fit any feature epic, it goes in `epic-000-general`.
+There is no "standalone PBI at the backlog root." If a PBI doesn't fit any feature epic, it goes in `epic-000-general` (present work) or `epic-501-future` (deferred work).
+
+### Special buckets and the epic-number namespace
+
+Feature epics take numbers `001–199`. You won't realistically reach `200`; if you do, the backlog is over-decomposed. `000` and `200+` are reserved for **special buckets** — ongoing holding areas that aren't actively-pursued business objectives and never drain:
+
+- `000` — `epic-000-general`, the now/unclassified bucket for loose present work.
+- `200+` — special buckets whose numbers borrow **HTTP status codes** as a **soft mnemonic** (a handle, not a rule the tooling enforces). The status *class* hints at the bucket's relationship to delivery — e.g. **`5xx`** (server errors, the things that surface in production) marks work that takes priority *after* delivery: deferred while you build v1, activated once it ships. The first such bucket is **`epic-501-future`** (`501 Not Implemented` — envisioned, not built yet).
+
+Special-bucket numbers (`000` and `200+`) are fixed: never counted when computing the next feature-epic number, and never drained.
 
 ### What an epic is
 
@@ -142,7 +152,7 @@ When in doubt, drop it in `epic-000-general`. An epic can always be created late
 
 ### Finding the next number
 
-**Epic number.** Before creating a new epic, scan `.wag/backlog/` (including `_completed/`) for the highest-numbered existing epic. The new epic gets the next number. `epic-000-general` is fixed and not counted.
+**Epic number.** Before creating a new epic, scan `.wag/backlog/` (including `_completed/`) for the highest-numbered existing *feature* epic (`001–199`). The new epic gets the next number. Special buckets — `epic-000-general` and any `200+` bucket (e.g. `epic-501-future`) — are fixed and not counted.
 
 **PBI number within an epic.** Before creating a PBI inside `epic-NNN-word/`, scan both `.wag/backlog/epic-NNN-word/` and `.wag/backlog/_completed/epic-NNN-word/` for the highest existing local PBI number. The new PBI gets the next one. **Closed PBI numbers are never reused.**
 
@@ -190,8 +200,9 @@ The stash (`.wag/stash/`) holds raw thoughts captured via `/wag:stash` during pr
 For each `STASH-NNN.md` file (exclude `_processed/`), in order:
 
 1. **Read the file and show it to the user** — title, captured-at timestamp, context line, body.
-2. **Ask: promote, fold, discard, or keep?**
-   - **Promote to PBI** — the thought is a unit of work. Drive the PBI authoring flow from Phase 3, then move the stash file to `_processed/` with a footer noting the new PBI's canonical ID and path.
+2. **Ask: promote, defer, fold, discard, or keep?**
+   - **Promote to PBI** — the thought is a unit of work to build now or soon. Drive the PBI authoring flow from Phase 3, then move the stash file to `_processed/` with a footer noting the new PBI's canonical ID and path.
+   - **Defer to the future bucket** — the thought is real, backlog-shaped work for *later, not now*. Author it as a PBI in `epic-501-future/` carrying a deferral dependency (so `/wag:adr` keeps it visible-but-not-offered rather than selectable), then move the stash file to `_processed/` with a footer noting the new `PBI EEE.PPP` path. This is the home for "v2/future — parked, not forgotten."
    - **Fold into PRD or Architecture** — the thought is a product or architectural decision, not a unit of work. Drive the relevant edit from Phase 2, then move the stash file to `_processed/` with a footer noting the doc and section it landed in.
    - **Discard** — the thought is no longer useful. Capture a one-line reason from the user, then move the stash file to `_processed/` with a footer noting "Discarded: [reason]".
    - **Keep stashed** — leave the file untouched in `.wag/stash/`. The next `/wag:docs` session will surface it again.
@@ -209,7 +220,7 @@ Then append a footer to the moved file:
 
 ## Triaged: YYYY-MM-DD
 
-**Outcome:** promoted | folded | discarded
+**Outcome:** promoted | deferred | folded | discarded
 **Landed at:** [PBI EEE.PPP path | PRD section | Architecture decision | n/a for discard]
 **Reason:** [one-line — required for discard, optional otherwise]
 ```

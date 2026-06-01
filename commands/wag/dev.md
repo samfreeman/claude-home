@@ -191,11 +191,11 @@ When the user says "merge" / "merge it" / equivalent, the gate opens. Do not run
    - `git mv .wag/backlog/<active_epic>/PBI-PPP.md .wag/backlog/_completed/<active_epic>/PBI-PPP.md`
    - Remove the mirror's `.gitkeep` if this is the first closure into that mirror.
 
-5. **Check for epic drain.** If `<active_epic>` is not `epic-000-general` and the active folder now contains only `epic.md`:
+5. **Check for epic drain.** If `<active_epic>` is a feature epic (`001–199`) and the active folder now contains only `epic.md`:
    - Prompt: *"All PBIs in `<active_epic>` are complete. Mark the epic done?"*
    - **If yes:** update `epic.md` header (`**Status:** Completed <date>`, optional closure-note block summarising PBI outcomes); `git mv backlog/<active_epic>/epic.md backlog/_completed/<active_epic>/epic.md`; `rmdir backlog/<active_epic>/`; set `active_epic` in `state.json` back to `"epic-000-general"`.
    - **If no:** leave the epic active with only its `epic.md`. The user may add more PBIs later.
-   - **Skip this check entirely for `epic-000-general`** — it's a permanent bucket and never drains.
+   - **Skip this check entirely for special buckets** — `epic-000-general` and any `200+` bucket (e.g. `epic-501-future`) are ongoing and never drain.
 
 6. **Update `state.json`:**
    - `active_pbi` → `null` (the PBI is complete)
@@ -233,6 +233,6 @@ When the user says "merge" / "merge it" / equivalent, the gate opens. Do not run
 6. **Snags escalate to user via Architect** when no prior resolution exists.
 7. **Advisory findings during active work.** Dev/Tester can acknowledge known issues that will resolve with later work. At the final gate, everything must pass.
 8. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
-9. **Preserve epic membership when completing.** Completed PBIs go to `_completed/<active_epic>/PBI-PPP.md` (mirror pre-created at epic authoring). Epic drain is detected automatically except for `epic-000-general`, which never drains. Closure of a real epic is confirmed by the user — don't auto-close without the prompt.
+9. **Preserve epic membership when completing.** Completed PBIs go to `_completed/<active_epic>/PBI-PPP.md` (mirror pre-created at epic authoring). Epic drain is detected automatically except for special buckets (`epic-000-general` and any `200+` bucket), which never drain. Closure of a real epic is confirmed by the user — don't auto-close without the prompt.
 10. **Merge is user-gated.** The team can complete implementation and push the PR (Phase 5), but the ADR move, PBI close, epic drain, and state.json updates happen only after the user explicitly says "merge" (Phase 6). "PR open" ≠ "PBI done."
 11. **A failing pre-merge check opens a discussion, not a halt.** If sanity fails in Phase 6 step 1, route the user to the Architect for a collaborative fix. The team stays alive across the gate so this conversation is always possible.

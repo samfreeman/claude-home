@@ -71,6 +71,7 @@ Read `.wag/state.json` to confirm the project is initialised. The relevant field
 **Backlog shape:**
 - Every epic folder (`epic-NNN-word/`) contains an `epic.md` and zero or more `PBI-PPP.md` files.
 - `epic-000-general/` is the bucket for ungrouped PBIs and always exists.
+- `epic-501-future/` (and any `200+` special bucket) holds deferred/envisioned work. Its PBIs carry a deferral dependency, so the eligibility check below treats them as **blocked** — never offered as selectable work, but they surface in the blocked footnote and feed Phase 2's design context. No special-case logic needed; they ride the existing dependency rule.
 - Closed PBIs live in `.wag/backlog/_completed/epic-NNN-word/` — those folders are the source of truth for "what's done".
 
 ### Pick a PBI
@@ -123,6 +124,7 @@ Read only what's needed:
 3. `.wag/docs/PRD.md`.
 4. `.wag/backlog/<active_epic>/epic.md`.
 5. `~/.claude/wag/learnings/` — filter by the `Applies to` field; surface learnings that match this PBI's domain.
+6. `.wag/backlog/epic-501-future/` (if it exists) — the future bucket. Read its PBIs and filter to those whose domain touches this PBI's area (same instinct as learnings). Surface them as **forward-looking design constraints**: envisioned-but-deferred outcomes that should shape today's design even though they aren't being built now (e.g. a future PBI "publish the schema as a versioned package" means today's schema should be designed decoupled and version-clean). Don't design the future work — let it inform the present decision.
 
 Do not pre-load the full backlog or every learning. Phase 1 has already verified template conformance; trust it.
 

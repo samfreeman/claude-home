@@ -317,7 +317,7 @@ const BACKLOG = {
 
 Filter and search work via React state. Hide PBIs whose `status` doesn't match the active filter; further hide PBIs whose `searchKeywords` doesn't contain (case-insensitive) the search input. Hide epics whose visible-PBI count drops to zero while searching.
 
-Sort: `epic-000-general` last (it's the bucket), other epics by number. Within each epic, PBIs by local number.
+Sort: special buckets last — `epic-000-general`, then any `200+` bucket like `epic-501-future` (they're ongoing buckets, not features); other epics by number. Within each epic, PBIs by local number.
 
 Walk the new-scheme structure throughout — `epic-NNN-word/` folders, `PBI-PPP.md` files inside, `_completed/` mirrors. Projects on the legacy scheme need `/wag:migrate-backlog` first.
 

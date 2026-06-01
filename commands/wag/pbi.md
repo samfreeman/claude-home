@@ -61,7 +61,7 @@ Conduct each op as a conversation. Confirm before any write. Show diffs before a
 
 ### new epic
 
-1. **Compute the next epic number.** Scan `.wag/backlog/` including `_completed/` for the highest existing `epic-NNN-word/` folder. Next = max + 1. `epic-000-general` is fixed and not counted in the max.
+1. **Compute the next epic number.** Scan `.wag/backlog/` including `_completed/` for the highest existing *feature* epic (`001–199`). Next = max + 1. Special buckets — `epic-000-general` and any `200+` bucket (e.g. `epic-501-future`) — are fixed and not counted in the max.
 2. **Gather fields.** Ask for the kebab-case slug (the `word` in `epic-NNN-word`), title, priority, goal (1–3 sentences, business outcome), deliverables, design input required, non-goals. Reference the epic template.
 3. **Create both folders.**
    - `mkdir -p .wag/backlog/epic-NNN-slug/`
@@ -106,7 +106,7 @@ Implements the canonical procedure from `wag/references/close-pbi-and-epic.md`. 
    - Add a `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs or LEARNINGs produced.
 3. **Move to the mirror.** `git mv .wag/backlog/<epic>/PBI-PPP.md .wag/backlog/_completed/<epic>/PBI-PPP.md`.
 4. **Remove `.gitkeep` from the mirror** if this is the first closure into that mirror.
-5. **Epic drain check** (skip for `epic-000-general`). If the active epic folder now contains only `epic.md` (no remaining PBI files), ask the user: *"All PBIs in `epic-NNN-word` are complete. Mark the epic done?"*
+5. **Epic drain check** (skip for special buckets — `epic-000-general` and any `200+` bucket like `epic-501-future`, which are ongoing and never drain). If the active epic folder now contains only `epic.md` (no remaining PBI files), ask the user: *"All PBIs in `epic-NNN-word` are complete. Mark the epic done?"*
    - On yes: update `epic.md`'s `**Status:**` to `Completed <date>`, `git mv` it to the mirror, `rmdir` the active folder. If `state.json.active_epic == "epic-NNN-word"`, reset to `"epic-000-general"`.
    - On no: leave the empty epic folder as-is.
 6. **Stage and commit.** Bundle the closure edit + the move + any drain ceremony + `state.json` change into one commit: `backlog: close PBI EEE.PPP — [short reason]`. If the epic also drained, include `· close epic EEE` in the subject.
