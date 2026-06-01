@@ -160,5 +160,3 @@ Other wag commands don't version-check on every run. But when one **can't comple
 4. **Stamp last.** `wag_version` is written in Phase 4, only after the rest reconciles, so a half-done update is never mistaken for current.
 5. **Delegate the big migrations.** Backlog renumbering is `/wag:migrate-backlog`'s job — call it, don't reimplement it.
 6. **Planning artifacts only.** Update touches `.wag/` (and branch/ADR names via migrate-backlog). It does not change `src/` or `tests/`.
-</content>
-</invoke>

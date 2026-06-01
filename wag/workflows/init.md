@@ -192,6 +192,7 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    ```json
    {
      "app_name": "{{PROJECT_NAME}}",
+     "wag_version": "{{WAG_VERSION}}",
      "current_mode": null,
      "active_epic": "epic-000-general",
      "active_pbi": null,
@@ -199,6 +200,7 @@ An epic is a **business objective** — a coherent outcome that delivers value t
      "docs_page_path": null
    }
    ```
+   - `wag_version` stamps the wag2 tooling version this project was created under. Read it from `~/.claude/wag/config.json` (`version`) and write that exact value — do not hardcode. This is the stamp `/wag:update` reads to migrate the project forward; without it the project looks legacy/unstamped.
    - `active_epic` is the slug of the epic folder currently in scope. It is never null — it defaults to `"epic-000-general"` and returns to that value when no other epic is active.
    - `active_pbi` is the local per-epic PBI number as a zero-padded string like `"003"` when a PBI is in flight, or `null` when between PBIs. The full canonical ID is `PBI <active_epic-number>.<active_pbi>` (e.g., `PBI 001.003`).
    - `feature_branch` is a string like `"feature/PBI-001.003"` when an ADR has been approved for the active PBI, or `null` otherwise. `/wag:adr` writes it on approval; `/wag:dev` reads it to check out the right branch at session start.
