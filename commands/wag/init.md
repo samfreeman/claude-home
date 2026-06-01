@@ -1,11 +1,11 @@
 ---
-description: Initialise a new project — intake, research, requirements, backlog. Creates .wag/ infrastructure with populated planning documents; standing up the app is PBI 0.1.
-allowed-tools: Read, Write, Bash, Agent, WebSearch, WebFetch, Grep, Glob
+description: Initialise a new project — intake, research, scaffold the baseline app, backlog. Creates a running baseline plus populated .wag/ planning infrastructure; the app to build falls out of init's discovery.
+allowed-tools: Read, Write, Bash, Agent, WebSearch, WebFetch, Grep, Glob, Skill
 ---
 
 # WAG Init — Enriched Project Initialisation
 
-You are running the WAG init flow. This takes a user from "I have an idea" to a project with populated `.wag/` planning infrastructure.
+You are running the WAG init flow. This takes a user from "I have an idea" to a running baseline app with populated `.wag/` planning infrastructure.
 
 ## Before you start
 
@@ -26,11 +26,12 @@ Run these in order. **The user must approve each phase before you advance.**
 | Phase | What | Workflow | Output |
 |-------|------|----------|--------|
 | A | Intake | questioning.md reference | `.wag/docs/PRD.md` (seeded) |
-| B | Research | workflows/research.md | `.wag/docs/RESEARCH.md` + `.wag/docs/Architecture.md` (seeded) |
-| C | Backlog | (inline in init workflow) | `.wag/backlog/` (**PBI 0.1 = infrastructure**; rest are vertical feature slices) |
-| D | Scaffold | (inline in init workflow) | `.wag/` infrastructure (state.json, adr/, snags/) + root `git init` |
+| B | Research | workflows/research.md | `.wag/docs/RESEARCH.md` + `.wag/docs/Architecture.md` (seeded, **with the baseline decided**) |
+| C | Stand up the baseline | (inline in init workflow) | running baseline app + root git repo (via `/wag:create-nextjs` or another scaffolder) |
+| D | Backlog | (inline in init workflow) | `.wag/backlog/` (all vertical feature slices on top of the baseline) |
+| E | Finalise infra | (inline in init workflow) | `.wag/` infrastructure (state.json, adr/, snags/) + project registration |
 
-**Init plans; it does not scaffold the app.** What app to build is an *output* of the init review (PRD + Architecture), captured as **PBI 0.1** — `epic-000-general/PBI-001`, "stand up the project infrastructure." The app is actually built later, when PBI 0.1 is worked through `/wag:adr` → `/wag:dev` (which is where `/wag:create-nextjs` runs). Init establishes the root git repo (Phase D) so that dev cycle has a repo to merge into. A non-app project (docs-only) has no PBI 0.1.
+**The app to build falls out of init's discovery, and init scaffolds it.** Intake (Phase A) and research (Phase B) decide the baseline — what kind of app, the baseline deps, the layers it ships with. Init then **stands that baseline up** (Phase C) by invoking `/wag:create-nextjs` (or another scaffolder), so the app boots before the backlog is authored. The scaffolder establishes the single root git repo and discards its own `.git`. Every backlog PBI (Phase D) is then a vertical feature slice — there is no infrastructure PBI. A non-app project (docs-only) skips Phase C.
 
 ## WAG docs structure
 
@@ -45,12 +46,13 @@ PRD is the living product document. RESEARCH.md preserves evaluation context. Ar
 
 ## Key rules
 
-- **Init plans; it does not scaffold the app.** Init produces the `.wag/` planning layer and the root git repo. What app to build is an *output* of the init review, captured as **PBI 0.1** (`epic-000-general/PBI-001`). The app is stood up later, when PBI 0.1 is worked via `/wag:adr` → `/wag:dev` (where `/wag:create-nextjs` runs).
-- **PBI 0.1 is the infrastructure PBI.** First backlog item authored; scope = scaffold + baseline + the layers Architecture called for. It's the one sanctioned foundational PBI; every feature PBI depends on it. Non-app projects have no PBI 0.1.
+- **The app to build falls out of discovery, and init scaffolds it.** Intake + research (Phases A–B) decide the baseline; init stands it up (Phase C) by invoking `/wag:create-nextjs` (or another scaffolder) before the backlog is authored. The baseline is init's output, not a backlog item.
+- **There is no infrastructure PBI.** The baseline already exists by the time the backlog is written, so every PBI is a vertical feature slice on top of it. Non-app projects skip the scaffold phase entirely.
+- **One git repo at the root.** The scaffolder establishes the single root repo and discards its own `.git`; everything (`.wag/` + app) lives under it.
 - **No auto-advancing.** Each phase ends with user approval before the next begins.
 - **Documents are seeded, not empty.** PRD and Architecture are populated from their respective phases, not blank templates.
-- **Research grounds decisions.** Don't guess at tech stack or architecture — let Phase B inform the backlog.
-- **Slice the backlog vertically.** Beyond PBI 0.1, Phase C PBIs should be thin end-to-end increments (UI → action → data) that leave the project demonstrable — not horizontal layers split by tier.
+- **Research grounds decisions.** Don't guess at tech stack or architecture — let Phase B inform the baseline and the backlog.
+- **Slice the backlog vertically.** Phase D PBIs should be thin end-to-end increments (UI → action → data) that leave the project demonstrable — not horizontal layers split by tier.
 - **Use sub-agents for research.** Spawn `wag-researcher` agents in parallel for Phase B (one per axis). Fall back to sequential if agents aren't available.
 
 ## Templates
@@ -59,8 +61,8 @@ Templates for all output documents are at `wag/templates/`. Use them as structur
 
 ## When you're done
 
-Tell the user what was created and where — the `.wag/` infrastructure and the root git repo.
+Tell the user what was created and where — the running baseline app, the root git repo, and the populated `.wag/` infrastructure.
 
-Then, for an app project, **offer to start PBI 0.1 next and explain that it must be next**: nothing else in the backlog can be built until the foundation exists, so PBI 0.1 (stand up the infrastructure — scaffold + baseline + layers) has to be the first thing worked. Offer to kick it off with `/wag:adr` on `PBI 000.001`. If they decline, leave the backlog ready and stop.
+Then suggest the next step: pick the first feature PBI and run `/wag:adr` on it. Nothing is blocked on a foundation PBI, so any v1 PBI is a valid start — recommend the one that delivers the thinnest end-to-end slice. If they'd rather refine the plan first, point them at `/wag:docs`.
 
-For a non-app project there is no PBI 0.1 — suggest `/wag:docs` to refine, or pick a PBI and run `/wag:adr`.
+For a non-app project there's no scaffold step — suggest `/wag:docs` to refine, or pick a PBI and run `/wag:adr`.

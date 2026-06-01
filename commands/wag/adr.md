@@ -128,10 +128,6 @@ Do not pre-load the full backlog or every learning. Phase 1 has already verified
 
 ### Grill session
 
-There are two grills, picked by altitude. **If the selected PBI is the infrastructure PBI (`PBI 000.001`), run the Foundation grill. Otherwise run the standard grill.**
-
-#### Standard grill (feature PBIs)
-
 Design the solution with the user. Iterative:
 
 - Propose approaches, discuss trade-offs
@@ -139,23 +135,6 @@ Design the solution with the user. Iterative:
 - Reference Architecture.md and applicable learnings
 - Push for specificity — vague designs produce vague implementations
 - Resolve one decision at a time — surface the list of open decisions once, then work through them
-
-#### Foundation grill (the infrastructure PBI, `PBI 000.001`, only)
-
-`PBI 000.001` stands up the project's basic app — it's the work that init and `/wag:create-nextjs` used to own. Everything in the backlog depends on it, so the stack decision here has total downstream blast radius. That makes it worth a grill — but a **broad-strokes** one, not the file-level design of the standard grill.
-
-This is a *discussion* and a **first stab**, not a one-shot lock-in. `.wag/docs/RESEARCH.md`, applicable learnings, and any snags inform it and may revise it — and it can be revisited later if reality disagrees.
-
-Grill these, at broad strokes:
-
-- **What kind of app** — Next.js web app, Node service, CLI, library, etc. This is the central decision; it selects the scaffolder. (`/wag:create-nextjs` for a Next.js app; a Node/CLI app may have no WAG scaffolder yet and gets stood up manually.)
-- **What's in the baseline** — the standard stand-up for that app kind (the deps and structure a create-nextjs-style setup installs).
-- **Third-party dependencies / layers** — db, auth, theme, or whatever this project actually needs. Decide what's in vs. deferred.
-- **Platform / tier** — where it runs and any tier assumptions (check LEARNING-003: name the tier, confirm the feature exists on it).
-
-Do **not** grill file structure, interfaces, or per-feature design — the scaffolder owns the "how." The Foundation grill answers *what kind of thing are we building and what's in its baseline*, full stop.
-
-Use `Architecture.md` as the starting position (init's review leaned a direction) and pressure-test it. If the discussion reveals `Architecture.md` is wrong — a layer doesn't fit, a tier assumption breaks — capture a snag inline (see below) and resolve before resuming; that's how the foundation decision feeds corrections back upstream.
 
 ### Inline snag capture
 
@@ -232,18 +211,6 @@ Write the ADR to `.wag/adr/active/ADR-EEE.PPP.md` where `EEE.PPP` is the canonic
 ## What NOT to do
 [Explicitly list anti-patterns and wrong approaches for this PBI]
 ```
-
-### Infrastructure ADR (`PBI 000.001`) — section adaptation
-
-The foundation ADR uses the same shape but fills the implementation-detail sections at broad strokes, because the scaffolder owns the "how":
-
-- **Architecture Decisions** — the stack: *what kind of app*, the baseline, the third-party deps/layers, and the platform/tier. Rationale per decision, drawn from the Foundation grill and `RESEARCH.md`. This is the substantive section.
-- **Implementation Plan** — not a file table. One line: "Run the chosen scaffolder (e.g. `/wag:create-nextjs`) with layers/deps X, Y, Z," or, for an app kind with no WAG scaffolder, the manual stand-up steps at a high level.
-- **Interfaces** — `n/a — the scaffolder defines the surface.`
-- **Testing Strategy** — the build-clean smoke for the chosen stack (e.g. `pnpm build` passes; baseline app boots). Not per-feature tests.
-- **What NOT to do** — don't hand-build what the scaffolder generates; don't add layers the grill deferred.
-
-Mark this a **first stab** in the ADR — note that learnings, snags, or later reality may revise the stack.
 
 ## Phase 4: Approve and branch
 

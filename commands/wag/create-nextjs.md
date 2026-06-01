@@ -32,7 +32,7 @@ Detect the current state of the working directory:
 1. **cwd has `package.json` with Next.js** -> Existing Next.js app. Skip scaffold, proceed to Phase 3 (Baseline Install).
 2. **Otherwise** -> Need to scaffold. Proceed to Phase 2.
 
-> **Note — the project root is often non-empty.** This command is usually run while implementing **PBI 0.1** (the infrastructure PBI), *after* `/wag:init` has already built the `.wag/` planning layer and the root git repo. `create-next-app` refuses to run in a non-empty directory, so Phase 2 always scaffolds into a fresh **subfolder** and then merges the result up into the project root. The cwd at the start of Phase 2 is the project root (it normally already contains `.wag/` and a `.git/`); it is **not** empty and must not be treated as the scaffold target directly.
+> **Note — the project root is often non-empty.** This command is usually invoked by `/wag:init` during **Phase C (stand up the baseline)**, *after* intake + research have produced `.wag/docs/` (PRD, RESEARCH, Architecture) but *before* the backlog and the rest of the `.wag/` skeleton exist. `create-next-app` refuses to run in a non-empty directory, so Phase 2 always scaffolds into a fresh **subfolder**; the user then chooses whether to merge it up into the project root or leave the app in that subfolder. The cwd at the start of Phase 2 is the project root (it normally already contains `.wag/docs/`); it is **not** empty and must not be treated as the scaffold target directly. It can also be run **standalone** in an empty or existing directory.
 
 ---
 
@@ -40,7 +40,7 @@ Detect the current state of the working directory:
 
 Ask the user for an app name if not provided as an argument: `$ARGUMENTS`. The app name doubles as the temporary scaffold subfolder name.
 
-**First, establish the git repo at the project root — before scaffolding.** The single repository lives at the root and tracks both the app and any `.wag/`. When run during PBI 0.1's dev cycle it already exists (init's Phase D ran `git init` once `.wag/` was built). Create it only if absent:
+**First, establish the git repo at the project root — before scaffolding.** The single repository lives at the root and tracks both the app and any `.wag/`. When invoked by init's Phase C there's usually no repo yet (init defers `git init` to the scaffolder), so this is where the single root repo gets created. Create it only if absent:
 
 ```bash
 # only if the project root has no .git yet (standalone runs); a no-op otherwise
@@ -57,9 +57,13 @@ pnpm create next-app@latest [app] \
     --turbopack --import-alias "@/*" --use-pnpm --yes
 ```
 
-**Relocate to the project root immediately — before anything else is installed.** The baseline deps, optional layers, and shadcn components (Phase 3 onward) must all run at the project root inside the root git repo, not in the throwaway subfolder. So as soon as `create-next-app` finishes, move the scaffold up — everything **except** any `.git` the scaffold may have left behind — *then* continue.
+**Now decide where the app lives — ask the user before moving anything:**
 
-Run these as separate steps (each is its own approval):
+> "Merge the app up into the project root, or keep it in the `[app]/` subfolder? Merging up is the default (the app and `.wag/` sit side by side at the root). Keep-in-subfolder suits a monorepo or a project where the app is one component among several."
+
+Either way there is **one git repo, at the project root**, and the scaffold's own `.git` is always discarded. The choice only sets the **app directory** — where `package.json` lives and where every later phase runs.
+
+**If merge up (default):** move the scaffold to the project root — everything **except** any `.git` the scaffold left behind — then remove the leftover subfolder. Run as separate steps (each its own approval):
 
 ```bash
 # 1. move everything from the subfolder up to the project root, skipping its .git
@@ -71,13 +75,24 @@ find [app] -mindepth 1 -maxdepth 1 -name .git -prune -o -exec mv -t . {} +
 rm -rf [app]
 ```
 
-The project root now contains the Next.js app alongside any pre-existing `.wag/`, sharing the single `.git` at the root. **Do not `cd` into `[app]/`** — it no longer exists. All remaining phases operate at the project root.
+The project root now contains the Next.js app alongside any pre-existing `.wag/`. **Do not `cd` into `[app]/`** — it no longer exists. The **app directory is the project root**; all remaining phases operate there.
 
 If the project root contained files that collide with the scaffold (it normally only holds `.wag/`, which never collides), stop and ask the user how to reconcile before moving anything.
 
-**Fix the package name.** `create-next-app` sets the `name` field in `package.json` to the scaffold subfolder name (`[app]`). Now that the app lives at the project root, update `package.json`'s `name` to match the actual project (the project-root folder name, kebab-cased) so it isn't pinned to the throwaway subfolder name. Use the Edit tool — don't shell-edit the file.
+**If keep in subfolder:** leave the app in `[app]/`, but discard the scaffold's own `.git` so the only repo is the one at the project root:
 
-Configure TypeScript rules (eslint.config.mjs, tsconfig.json) per `~/.claude/documents/typescript-rules.md`.
+```bash
+# discard the scaffold's nested git repo; the root repo is the single source of truth
+rm -rf [app]/.git
+```
+
+The **app directory is `[app]/`**; all remaining phases run there (cd into it for `pnpm` commands, or scope paths under `[app]/`). The root git repo tracks `[app]/` alongside any `.wag/`.
+
+**For the rest of this command, "app directory" means the project root (merge up) or `[app]/` (keep in subfolder).** Run package installs, file creation, and builds in the app directory; git operations always run at the project root.
+
+**Fix the package name.** `create-next-app` sets the `name` field in `package.json` to the scaffold subfolder name (`[app]`). If you **merged up**, update `package.json`'s `name` to the project-root folder name (kebab-cased) so it isn't pinned to the throwaway subfolder name. If you **kept the subfolder**, `[app]` is the real folder name, so confirm it's the name you want and adjust only if needed. Use the Edit tool — don't shell-edit the file.
+
+Configure TypeScript rules (eslint.config.mjs, tsconfig.json — in the app directory) per `~/.claude/documents/typescript-rules.md`.
 
 ---
 
@@ -536,5 +551,5 @@ If the build fails, show the error and stop. Do not report success until the bui
    - Remote status (connected or not)
 
 3. Suggest the next step, depending on how this command was reached:
-   - **`.wag/` already exists at the root** (this scaffold is PBI 0.1, run from the dev cycle): the planning infrastructure is already in place and this PBI is standing up its foundation. Once the scaffold is committed, the PBI 0.1 dev cycle continues — suggest finishing/closing PBI 0.1, then picking the next PBI (now unblocked) and running `/wag:adr`.
-   - **No `.wag/` present** (standalone scaffold): suggest "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."
+   - **Invoked by `/wag:init` (Phase C)** — `.wag/docs/` is present but the backlog isn't authored yet: the baseline is now standing. Hand control back to init so it can author the backlog (Phase D) against the running app and finalise the `.wag/` infrastructure (Phase E).
+   - **Standalone, no `.wag/` present:** suggest "Run `/wag:init` to add planning infrastructure (.wag/ directory, PRD, Architecture docs, backlog)."
