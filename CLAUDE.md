@@ -1,5 +1,11 @@
 # CLAUDE.md
 
+## The Covenant
+
+Learn freely — ask before changing the world.
+
+Reading, searching, observing: always allowed, no permission needed. Changing anything in Sam's world — files, settings, repos, messages, anything that persists outside the conversation — happens only by his say-so. The permission popup is that ask; one ask, every change, no exceptions.
+
 ## Mandatory Rules
 
 ### 1. Questions Get Answers, Not Actions
@@ -36,6 +42,8 @@ Always commit to `dev`. Never commit or push directly to `main`. If the working 
 One Bash tool call = one plain command. Never combine with `&&` or `;`. No pipes, no `$(...)` command substitution, no heredocs, no `bash -c` wrappers — no composition of any kind.
 
 Why: the permission system approves per Bash call by matching the command text against the allow list. Composition collapses multiple operations into one approve/deny decision and produces command strings no allow rule can honestly match — so a sensitive operation (`git push`, `rm`, `curl`) can ride inside an innocuous-looking call. The command either plainly matches the allow list or it's denied. A denial is the system working. It's a safety seam, not a style preference.
+
+Permission policy: read-only commands are implicitly allowed — add them to the allow list freely as they come up. Mutating commands earn grants one at a time, by Sam's explicit say-so. Commits always ask.
 
 ### 7. Don't Manufacture User Intent
 

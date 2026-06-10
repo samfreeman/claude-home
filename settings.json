@@ -5,6 +5,14 @@
   "permissions": {
     "allow": [
       "Read",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch)",
+      "Bash(git blame*)",
+      "Bash(git rev-parse*)",
+      "Bash(git remote -v)",
       "Bash(git add *)",
       "Bash(git push *)"
     ],
