@@ -33,7 +33,6 @@
       "Bash(git show:*)",
       "Bash(git blame:*)",
       "Bash(git rev-parse:*)",
-      "Bash(git -C:*)",
       "Bash(git remote:*)",
       "Bash(git fetch:*)",
       "Bash(git checkout:*)",
@@ -140,6 +139,10 @@
       "Bash(~/.bun/bin/bun x *)",
       "Bash(grep -E '^\\(bun\\\\.lock|\\\\.gitignore\\)$')",
       "Bash(~/.bun/bin/bun run *)"
+    ],
+    "ask": [
+      "Bash(git commit*)",
+      "Bash(git -C * commit*)"
     ],
     "deny": [
       "Bash(git revert*)",
