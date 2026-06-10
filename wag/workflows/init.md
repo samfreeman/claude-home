@@ -43,7 +43,7 @@ Confirm the chosen root back to the user. This folder is where `.wag/` is built 
 1. Start with: "Tell me what you want to build."
 2. Follow the questioning methodology — open-ended, follow the energy, no premature specificity.
 3. Explore the idea, motivation, users, desired outcome, and any constraints that surface naturally.
-4. When the vision is clear, draft a PRD.md and present it to the user for approval.
+4. When the vision is clear, draft a PRD.md. Author freely — any structure that serves the product. Before presenting for approval, check the draft against the **required-content manifest** at the top of `~/.claude/wag/templates/prd.md`: every item answered somewhere in the doc, or resolved in the grill now. The doc must leave init ADR-ready.
 
 **Output:** `.wag/docs/PRD.md`
 
@@ -62,7 +62,7 @@ Confirm the chosen root back to the user. This folder is where `.wag/` is built 
 2. Identify research questions per axis (ecosystem, feasibility, architecture patterns).
 3. Launch parallel research sub-agents (or run sequentially as fallback).
 4. Write RESEARCH.md — the full evaluation context: what was investigated, what was found, alternatives considered, and rationale for each choice. This is the provenance doc — "why not X?" is answered here.
-5. Derive Architecture.md from research findings — tech stack choices, architecture patterns, and key decisions are pre-filled. Architecture captures the decisions; RESEARCH captures the journey.
+5. Derive Architecture.md from research findings — tech stack choices, architecture patterns, and key decisions are pre-filled. Architecture captures the decisions; RESEARCH captures the journey. Author freely, then check the draft against the **required-content manifest** at the top of `~/.claude/wag/templates/architecture.md`: every item answered somewhere, or resolved before approval. The doc must leave init ADR-ready.
 6. Read all learning files from `~/.claude/wag/learnings/` whose `Applies to` field matches this project type. For each, merge the Template Patch section into the appropriate section of the Architecture doc.
 7. **Settle the baseline.** Pin down ground 0 explicitly so Phase C has something concrete to scaffold: what kind of app (Next.js web app, Node service, CLI, library — this selects the scaffolder), the baseline deps, the layers that ship now vs. are deferred, and the platform/tier (name the tier and confirm the feature exists on it — see LEARNING-003). Record these in Architecture.md as the baseline.
 8. Present both docs to user, discuss, and incorporate feedback.

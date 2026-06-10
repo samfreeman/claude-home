@@ -42,19 +42,17 @@ Open snags block ALL workflow commands, not only those that touch the snag's tar
 
 ### Halt on template drift
 
-Compare the project's docs against the current templates:
+Two doc classes, two rules — each defined by its template:
 
-- `.wag/docs/PRD.md` vs `wag/templates/prd.md`
-- `.wag/docs/Architecture.md` vs `wag/templates/architecture.md`
-- Each `epic.md` in `.wag/backlog/` vs `wag/templates/backlog-epic.md`
-- Each PBI file in `.wag/backlog/` vs `wag/templates/backlog-pbi.md`
+- **Narrative docs** — `.wag/docs/PRD.md` and `.wag/docs/Architecture.md` conform when every item in their template's **required-content manifest** (the comment block at the top of `wag/templates/prd.md` / `wag/templates/architecture.md`) is answered somewhere in the doc. Any headings, prose fine. Halt only on a genuinely unanswered item — **never on heading shape**.
+- **Record docs** — each `epic.md` vs `wag/templates/backlog-epic.md` and each PBI file vs `wag/templates/backlog-pbi.md`, strict template shape: commands parse these positionally. Missing or diverging sections halt.
 
-If any doc is missing a required section or diverges from the template shape, **halt**. Surface the drift:
+If a check fails, **halt**. Surface the gap:
 
 > "Template drift detected:
-> - [file]: [what's missing or different]
+> - [file]: [unanswered manifest item, or record-shape divergence]
 >
-> How do you want to proceed? I can capture a snag and drive the resolution protocol (likely a migration to the current template), or you can direct."
+> How do you want to proceed? I can capture a snag and drive the resolution protocol, or you can direct."
 
 Proceed only on explicit user direction.
 
@@ -241,7 +239,7 @@ git push -u origin feature/PBI-EEE.PPP
 ## Key rules
 
 1. **Halt on open snags.** No menu, no acknowledgment path. User directs the resolution, which runs as a TRI excursion (`/wag:tri`; protocol in `wag/workflows/snag-resolution.md`).
-2. **Halt on template drift.** Project docs must conform to the current templates. Drift is a defect; surface it, let the user direct. Legacy-scheme backlogs are resolved via `/wag:migrate-backlog`.
+2. **Halt on template drift.** Narrative docs (PRD/Architecture) conform by their template's required-content manifest; record docs (epics/PBIs) conform by strict shape. Drift is a defect; surface it, let the user direct. Legacy-scheme backlogs are resolved via `/wag:migrate-backlog`.
 3. **Templates are authoritative.** ADR follows the current templates for every doc it reads or modifies. Deviation requires a snag.
 4. **User approves every phase.** Don't auto-advance.
 5. **ADR quality is non-negotiable.** If it's not specific enough for a developer to implement without questions, it's not done.

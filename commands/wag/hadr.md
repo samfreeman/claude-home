@@ -25,7 +25,7 @@ Headless sibling of `/wag:adr`. Two faces of one design-decision system:
 ### Phase 0: Pre-flight (main session — fail fast, before spawning)
 1. `.wag/` exists (else `/wag:init`).
 2. **No open snag** in `.wag/snags/` (any `SNAG-*.md`). If any → halt, surface ids, stop. Don't spawn. (Resolve attended via `/wag:tri`.)
-3. **No template drift** — project docs conform to current templates. If drift → halt, stop. (Resolve attended / `/wag:migrate-backlog`.)
+3. **No template drift** — docs conform per `/wag:adr`'s drift rules (narrative docs by their template's required-content manifest, epics/PBIs by strict shape). If drift → halt, stop. (Resolve attended / `/wag:migrate-backlog`.)
 
 ### Phase 1: PBI + channel
 - **PBI:** if given as an arg, use it. Else auto-pick the highest-priority **eligible** (all deps closed) open PBI; record which one. Write `active_epic` / `active_pbi` to `state.json`.

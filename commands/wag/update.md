@@ -120,7 +120,7 @@ Each strategy is **Detect → Reconcile → Verify**. Run them as a diagnosis pa
 - **Verify:** Directory tree matches the canonical shape.
 
 ### S6 — Missing or legacy docs
-- **Detect:** `docs/RESEARCH.md` absent (predates the provenance doc); or a legacy `docs/decisions.md` where latest uses the decision-log / reasoning structure (`~/.claude/wag/templates/decision-log.md`, `reasoning-local.md`); or PRD/Architecture not matching current templates.
+- **Detect:** `docs/RESEARCH.md` absent (predates the provenance doc); or a legacy `docs/decisions.md` where latest uses the decision-log / reasoning structure (`~/.claude/wag/templates/decision-log.md`, `reasoning-local.md`); or PRD/Architecture not answering their templates' required-content manifests (heading shape is NOT drift for these two — see `/wag:adr`).
 - **Reconcile:** **Diagnose, don't fabricate.** You can't reconstruct research provenance that was never written — propose seeding a stub `RESEARCH.md` noting it's retroactive, or leave it and flag. For `decisions.md`, read it and propose how its content maps onto the current structure; confirm the mapping with the user before rewriting. Never invent decision history.
 - **Verify:** Docs present and structured per latest, or explicitly flagged as intentionally-stubbed.
 
