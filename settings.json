@@ -8,6 +8,7 @@
       "Glob",
       "Grep",
       "WebSearch",
+      "WebFetch",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
@@ -178,5 +179,6 @@
       }
     }
   },
-  "theme": "dark-ansi"
+  "theme": "dark-ansi",
+  "model": "claude-fable-5[1m]"
 }

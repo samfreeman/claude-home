@@ -13,5 +13,10 @@
     "name": "cmn-payonward-portal",
     "path": "/home/samfr/source/cmn-payonward-portal",
     "type": "nextjs"
+  },
+  {
+    "name": "gigger",
+    "path": "/home/samfr/source/gigger",
+    "type": "nextjs"
   }
 ]
