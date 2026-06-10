@@ -31,11 +31,11 @@ Never use the AskUserQuestion tool. Just ask questions as plain text and let the
 
 Always commit to `dev`. Never commit or push directly to `main`. If the working directory is on `main`, stop and ask the user how to proceed.
 
-### 6. Never Chain Bash Commands
+### 6. Never Compose Bash Commands
 
-Run each command as its own Bash tool call. Never combine with `&&` or `;`.
+One Bash tool call = one plain command. Never combine with `&&` or `;`. No pipes, no `$(...)` command substitution, no heredocs, no `bash -c` wrappers — no composition of any kind.
 
-Why: the permission system approves per Bash call. Chaining collapses multiple commands into one approve/deny decision, so a sensitive command (`git push`, `rm`, `curl`) can ride in behind an innocuous one (`cd`, `ls`) without separate review. It's a safety seam, not a style preference.
+Why: the permission system approves per Bash call by matching the command text against the allow list. Composition collapses multiple operations into one approve/deny decision and produces command strings no allow rule can honestly match — so a sensitive operation (`git push`, `rm`, `curl`) can ride inside an innocuous-looking call. The command either plainly matches the allow list or it's denied. A denial is the system working. It's a safety seam, not a style preference.
 
 ### 7. Don't Manufacture User Intent
 
