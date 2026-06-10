@@ -1,5 +1,5 @@
 ---
-description: Stash a thought, idea, or follow-up that surfaced mid-flow — captured fast, triaged later via /wag:docs
+description: Stash a thought, idea, or follow-up that surfaced mid-flow — captured fast, triaged later via /wag:docs or the cycle-end /wag:tri
 allowed-tools: Read, Write, Bash, Glob
 ---
 
@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Bash, Glob
 
 A lightweight inbox for ideas, follow-ups, and open questions that surface during ADR or dev work. The goal is **fast capture without derailment** — you note the thought, the command writes a file, control returns immediately to whatever you were doing.
 
-Stash items aren't PBIs (too heavy for raw thoughts), aren't snags (those halt work on purpose), and aren't learnings (those are portable rules). They're parked thoughts that get triaged later.
+Stash items aren't PBIs (too heavy for raw thoughts) and aren't snags (those halt work on purpose). They're parked thoughts that get triaged later — in a `/wag:docs` session or at the cycle-end `/wag:tri` drain.
 
 ## Usage
 

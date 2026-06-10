@@ -18,9 +18,9 @@ It is also the one place to run **lint** — a read-only validation pass over th
 
 ### Halt on open snags (mutating operations only)
 
-Scan `.wag/snags/` for any file with `**Status:** open`. If any exist, halt all *mutating* operations (new PBI, new epic, renumber, move, close) and surface the snag using the same halt language as `/wag:adr` Phase 1 — open snags signal the WAG system has an unpatched defect, and backlog edits during that state can leak the defect further.
+Scan `.wag/snags/` for any `SNAG-*.md` file. If any exist, halt all *mutating* operations (new PBI, new epic, renumber, move, close) and surface the snag using the same halt language as `/wag:adr` Phase 1 — open snags signal the WAG system has an unpatched defect, and backlog edits during that state can leak the defect further.
 
-`list` and `lint` are read-only and may run regardless. If the user explicitly requests one of those during a snag halt, run it. Otherwise drive the snag-resolution protocol.
+`list` and `lint` are read-only and may run regardless. If the user explicitly requests one of those during a snag halt, run it. Otherwise route to TRI — drive `/wag:tri` inline.
 
 ## Ask what to do
 

@@ -26,7 +26,7 @@ If the branch doesn't exist, something went wrong during ADR approval. Stop and 
 
 ## Phase 1: Pre-flight — halt on unresolved snags
 
-Scan `.wag/snags/` for any file with `**Status:** open`. **If any exist, halt immediately.** Open snags halt all work — no exceptions.
+Scan `.wag/snags/` for any `SNAG-*.md` file. **If any exist, halt immediately.** Open snags halt all work — no exceptions.
 
 - Do not present a menu of options.
 - Do not ask the user for a "different disposition."
@@ -38,9 +38,9 @@ Surface the halt to the user:
 > "An open snag blocks all work:
 > - SNAG-NNN — [title]. Target: [target field].
 >
-> Until this snag is resolved, no WAG work proceeds. Resolution is atomic: fix the defect in the doc, propagate the change to every affected backlog item, and close the snag — all in this session. Driving the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) now — confirm to proceed."
+> Until this snag is resolved, no WAG work proceeds. Resolution happens in TRI: fix the defect at its source, propagate to docs and backlog, and land the fix where it belongs — local, global, or both. Driving `/wag:tri` inline now — confirm to proceed."
 
-The snag-resolution protocol runs inline. Steps 1–3 (fix + doc propagation + PBI propagation) complete fully before this command resumes. Step 4 (promote): the assessment and LEARNING-NNN file creation — if the rule is portable — also happen in this session, mandatory. Only the embedding of that learning into commands/templates may be deferred per protocol rule #2. Once the snag moves to `.wag/snags/_resolved/`, the halted command resumes.
+This is the TRI mid-cycle excursion. The resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) runs inline: all four steps — fix, doc propagation, PBI propagation, disposition (local / global / both, with any global rule embedded mechanically in-session) — complete fully before this command resumes. Closure deletes the snag file; once `.wag/snags/` is empty, the halted command resumes.
 
 Open snags block ALL workflow commands, not only those that touch the snag's target. An open snag signals the WAG system has an unpatched defect.
 
@@ -99,7 +99,7 @@ Two read-only evaluators:
 
 ### Inline snag capture
 
-If any team role during implementation discovers a defect in the ADR, Architecture, or upstream docs — a design assumption doesn't hold, an acceptance criterion is unachievable, a decision contradicts reality — the finding escalates to Architect. Architect captures the snag using `~/.claude/wag/templates/snag.md` and halts the team. All work stops. Architect drives the snag-resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) with the user inline. Steps 1–3 (fix + doc propagation + PBI propagation) plus Step 4 assessment and LEARNING file creation (if the rule is portable) complete fully in this session before implementation resumes.
+If any team role during implementation discovers a defect in the ADR, Architecture, or upstream docs — a design assumption doesn't hold, an acceptance criterion is unachievable, a decision contradicts reality — the finding escalates to Architect. Architect captures the snag using `~/.claude/wag/templates/snag.md` and halts the team. All work stops. This is the TRI mid-cycle excursion: Architect drives the resolution protocol (`~/.claude/wag/workflows/snag-resolution.md`) with the user inline — fix, propagation, and disposition (local / global / both) complete fully, and the snag file is deleted, before implementation resumes.
 
 **Snags originate in docs, propagate to backlog.** A bug in the code itself isn't a snag — Dev just fixes it. A PBI with an unachievable acceptance criterion traces upstream to a doc defect and is a snag.
 
@@ -147,7 +147,7 @@ The team's job is done. Open the PR, then stop and wait for the user's explicit 
 
    The team stays warm. If the user wants follow-up edits to the PR (push more commits, fix CI, address review comments), the team handles those in-session and the gate remains open until the user explicitly says "merge".
 
-   **If the user mentions a review** ("the review is ready", "check the review", or similar) during the hold, they're referring to a senior architect review produced by `/wag:review` in a separate session. Glob `.wag/reviews/REVIEW-EEE.PPP-*.md` for the active PBI, pick the highest-numbered file, read it, and surface the verdict (APPROVE / REQUEST_CHANGES) and headline findings. Don't ask which review or wait for a paste — the file is on disk.
+   **If the user mentions a review** ("the review is ready", "check the review", or similar) during the hold, they're referring to a senior architect review produced by `/wag:rvw` in a separate session. Glob `.wag/reviews/REVIEW-EEE.PPP-*.md` for the active PBI, pick the highest-numbered file, read it, and surface the verdict (APPROVE / REQUEST_CHANGES) and headline findings. Don't ask which review or wait for a paste — the file is on disk.
 
 ## Phase 6: Merge + close — only on explicit user signal
 
@@ -217,6 +217,10 @@ When the user says "merge" / "merge it" / equivalent, the gate opens. Do not run
    > - `/wag:gendocs` — in-app Project Plan and Status page (if wired)."
 
    Either, both, or neither — user's call. They can also run them later.
+
+9. **Suggest the cycle-end TRI.** The cycle is `ADR → [DEV → RVW]* → TRI` — the merge closes the build loop, TRI closes the round:
+
+   > "Round's build loop is done. Run `/wag:tri` to drain the round — open snags, the review's snag candidates, the stash — before the next `/wag:adr`."
 
 ## Phase 7: Team shutdown
 

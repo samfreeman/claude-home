@@ -49,8 +49,7 @@ Reconcile *toward* this. Source of truth: `~/.claude/wag/workflows/init.md` Phas
 │       └── epic-NNN-word/        (mirror per active epic, .gitkeep)
 ├── adr/
 │   └── active/                   (ADR files: ADR-EEE.PPP.md)
-└── snags/
-    └── _resolved/
+└── snags/                        (open snags only — resolution deletes the file; _resolved/ is pre-0.3.0 legacy)
 ```
 
 Conventions at latest: per-epic PBI numbering (`PBI EEE.PPP`); branches `feature/PBI-EEE.PPP`; **no infrastructure PBI** (the baseline is scaffolded by init, not a backlog item); `active_epic` is never null (defaults to `epic-000-general`).
@@ -116,7 +115,7 @@ Each strategy is **Detect → Reconcile → Verify**. Run them as a diagnosis pa
 - **Verify:** No standalone infrastructure PBI remains, and no real outstanding work was dropped.
 
 ### S5 — Missing `.wag/` subdirs
-- **Detect:** Any of `adr/active/`, `snags/_resolved/`, `backlog/_completed/` (mirrors), or `epic-000-general/` absent.
+- **Detect:** Any of `adr/active/`, `backlog/_completed/` (mirrors), or `epic-000-general/` absent. (`snags/_resolved/` is no longer expected — as of 0.3.0 resolution deletes the snag file; an existing `_resolved/` is legacy and may be removed per the 0.3.0 change record.)
 - **Reconcile:** Create the missing scaffolding with `.gitkeep` where empty. This is additive and safe — still list it in the plan.
 - **Verify:** Directory tree matches the canonical shape.
 

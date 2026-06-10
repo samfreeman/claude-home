@@ -1,6 +1,6 @@
 # SNAG-NNN: [short title — one line]
 
-**Status:** open | resolved
+**Status:** open *(the only on-disk state — resolution deletes this file)*
 **Mode:** discovery | propagation
 **Source:** [where the defect was discovered — `/wag:adr` preflight, `/wag:dev` implementation, user testing, code review]
 **Target:** [impacted artifact(s) — e.g. `Architecture.md > Data Model`, `.wag/backlog/epic-002-bootstrap/`, a specific PBI file]
@@ -41,8 +41,8 @@ Pick **propagation** when the user has already stated the fix direction in conve
 
 ## Resolution
 
-[Filled when resolved via the snag-resolution protocol. Summarise what was changed, where, why. Cite the commit SHA if useful. **This section is the single source of truth** — changelog entries, commit messages, and any inbox notes about this snag should be one-line pointers back to this file, not re-narrations.]
+[Filled during TRI as the resolution lands. Summarise what was changed, where, why. **While the snag is open this section is the working source of truth**; at closure the file is deleted and the narrative lives in the closing commit — changelog entries and commit messages are one-line pointers, not re-narrations.]
 
-## Promotion candidate
+## Disposition
 
-[Yes / No, with one-line reason. If yes and promoted, link to the LEARNING-NNN file and note the date.]
+[Filled at TRI Step 4: **local** (this project only — steps 1–3 covered it), **global** (a rule embedded mechanically into a wag template or command — name the file and the rule), or **both**. There is no pending state — a global rule embeds before this snag closes.]

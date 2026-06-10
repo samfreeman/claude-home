@@ -14,7 +14,7 @@ Headless sibling of `/wag:dev`. Implements the approved ADR with a **confined** 
 Do these cheaply here; if any fails, **do not spawn** — tell the user and stop.
 
 1. `.wag/` exists (else: run `/wag:init`).
-2. **No open snag.** Scan `.wag/snags/` for `**Status:** open`. If any exist, halt — surface the SNAG id(s) and stop. An unattended run must not start on a broken foundation. (Resolve via the normal attended flow.)
+2. **No open snag.** Scan `.wag/snags/` for any `SNAG-*.md` file. If any exist, halt — surface the SNAG id(s) and stop. An unattended run must not start on a broken foundation. (Resolve attended via `/wag:tri`.)
 3. Read `.wag/state.json` → `feature_branch`. If null/missing: stop, tell the user to run `/wag:adr` or `/wag:hadr` first.
 4. An **approved** ADR exists in `.wag/adr/active/` (`ADR-EEE.PPP.md`, status approved). Else stop.
 5. Confirm the feature branch exists (`git rev-parse --verify`). If not, ADR approval went wrong — stop and tell the user.
@@ -38,7 +38,7 @@ Lead prompt must include:
 ## Phase 3: Surface the outcome
 
 When the lead returns, relay to the user:
-- **PR opened:** the URL, and "review with `/wag:review`; merge is yours (Phase 6 of `/wag:dev`, or merge in the UI)."
+- **PR opened:** the URL, and "review with `/wag:rvw`; merge is yours (Phase 6 of `/wag:dev`, or merge in the UI)."
 - **Halted:** the stop reason and the checkpoint path, so the user can resume attended.
 
 ## Key rules
