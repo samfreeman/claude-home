@@ -4,11 +4,8 @@
   },
   "permissions": {
     "allow": [
-      "Read"
-    ],
-    "ask": [
-      "Bash(git commit*)",
-      "Bash(git -C * commit*)"
+      "Read",
+      "Bash(git push *)"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -17,6 +14,10 @@
       "Bash(git push -f*)",
       "Bash(git push*origin main*)",
       "Bash(git push*origin master*)"
+    ],
+    "ask": [
+      "Bash(git commit*)",
+      "Bash(git -C * commit*)"
     ],
     "defaultMode": "default",
     "additionalDirectories": [
@@ -27,6 +28,7 @@
       "/home/samfr/source/chatr/.wag/adr"
     ]
   },
+  "model": "claude-fable-5[1m]",
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",
@@ -48,6 +50,5 @@
       }
     }
   },
-  "theme": "dark-ansi",
-  "model": "claude-fable-5[1m]"
+  "theme": "dark-ansi"
 }
