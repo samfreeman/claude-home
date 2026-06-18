@@ -14,7 +14,16 @@
       "Bash(git rev-parse*)",
       "Bash(git remote -v)",
       "Bash(git add *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "mcp__google-ai-mcp__get_video_info",
+      "mcp__google-ai-mcp__list_transcripts",
+      "Bash(grep -rl \"FDxW2bfBOWE\" /mnt/c/Users/samfr/Dropbox/Claude/kwiki/wiki/ 2>/dev/null)",
+      "Read(//mnt/c/Users/samfr/Dropbox/Claude/kwiki/wiki/**)",
+      "mcp__google-ai-mcp__transcribe_video",
+      "Bash(ls /mnt/c/Users/samfr/Dropbox/Claude/kwiki/)",
+      "Read(//mnt/c/Users/samfr/Dropbox/Claude/kwiki/**)",
+      "Bash(ls -la /home/samfr/.claude/wag/learnings/)",
+      "Read(//home/samfr/.claude/wag/learnings/**)"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -34,10 +43,10 @@
       "/home/samfr/source/coin-bounce/.wag",
       "/home/samfr/.claude/context",
       "/tmp",
-      "/home/samfr/source/chatr/.wag/adr"
+      "/home/samfr/source/chatr/.wag/adr",
+      "/mnt/c/Users/samfr/Dropbox/Claude/kwiki"
     ]
   },
-  "model": "claude-fable-5[1m]",
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",

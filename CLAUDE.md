@@ -61,6 +61,12 @@ Never prose-ask for approval before a file change. Draft the change inline for r
 
 Why: the harness already prompts the user to approve or reject each tool call. Adding "OK to write this?" / "Shall I proceed?" in text on top of it creates two approvals for one change. The user has to say "yes" twice. Trust the popup.
 
+### 9. Validate the Repo Before Committing
+
+Before any mutating git operation (stage, commit, push, `git rm`), confirm the working directory resolves to the *intended* project's repo — don't assume it. Plain git acts on whatever repo the cwd points at, so verify identity first (e.g. `git rev-parse --show-toplevel`, or the cwd against the target) before staging or committing.
+
+Why: targeting a repo by assumption is how a commit lands in the wrong project. This holds regardless of command form — a stale cwd misfires a plain `git commit`, and a typo'd `git -C <path>` misfires just as easily. Verifying repo identity is the real safeguard. It also makes plain git (relying on the cwd) preferable to `git -C <abspath>`, which bakes a project path into every command and forces a duplicated, per-project allow-list.
+
 ---
 
 ## Knowledge Base
