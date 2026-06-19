@@ -9,13 +9,13 @@ config({ path: resolve(__dirname, '../.env') })
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { GoogleGenAI, ApiError, FileState } from '@google/genai'
+import { GoogleGenAI, ApiError } from '@google/genai'
 
 import { z } from 'zod'
 import fs from 'fs'
 import path from 'path'
 import os from 'os'
-import { spawn, execSync, execFileSync } from 'child_process'
+import { spawn, execSync } from 'child_process'
 
 const MODEL_ALIASES: Record<string, string> = {
 	nb2: 'gemini-3.1-flash-image-preview',
@@ -31,7 +31,7 @@ const VIDEO_CACHE_DIR = path.join(os.homedir(), '.claude', 'mcp-servers', 'googl
 const TRANSCRIPT_CACHE_DIR = path.join(VIDEO_CACHE_DIR, 'transcripts')
 
 // ─── Debug logging ───────────────────────────────────────────────────
-// Instrumentation for diagnosing the stitch-on-write pipeline. Writes
+// Instrumentation for diagnosing the transcription pipeline. Writes
 // to /tmp/google-ai-stitch-debug.log. Silent no-op on I/O error.
 const DEBUG_LOG_FILE = '/tmp/google-ai-stitch-debug.log'
 function dlog(tag: string, msg: string, ctx?: Record<string, unknown>): void {
@@ -43,28 +43,16 @@ function dlog(tag: string, msg: string, ctx?: Record<string, unknown>): void {
 	catch {}
 }
 
-// Max video cache size in bytes — videos beyond this get evicted oldest-first
-const VIDEO_CACHE_MAX_BYTES = 500 * 1024 * 1024
+// Fallback chunk window for videos that exceed Gemini's one-shot output limit.
+// 30-min windows stay well under the ~2h transcript output ceiling.
+const CHUNK_SECONDS = 1800
 
-// Prefer /usr/local/bin/yt-dlp (manually updated) over apt version which goes stale
-const YT_DLP = fs.existsSync('/usr/local/bin/yt-dlp') ? '/usr/local/bin/yt-dlp' : 'yt-dlp'
+// A chunk returning fewer chars than this means we've advanced past the end of
+// the video — used to terminate the chunked-fallback loop without knowing duration.
+const MIN_CHUNK_CHARS = 40
 
-// Videos ≤10min: single direct Gemini call via YouTube URL (no download needed)
-// Videos >10min: download, split into segments, upload each to Gemini
-const DIRECT_URL_MAX_SECONDS = 600
-const SEGMENT_SECONDS = 120   // 2-min default segments
-const CANARY_SECONDS = 60     // 1-min fail-fast probe before committing to full segments
-
-// Per-segment upload timeout — 2-min segment is ~2MB, well within this
-const SEGMENT_UPLOAD_TIMEOUT_MS = 180_000
-
-// Transcript quality gate: minimum chars per minute of video to accept a transcript.
-// Healthy transcripts produce 600-1900 chars/min. Below this threshold the transcript
-// is incomplete — retry, and if still bad, report failure for that segment.
-const MIN_CHARS_PER_MINUTE = 200
-
-// Max retries for a single segment transcription that fails quality gate
-const MAX_TRANSCRIPT_RETRIES = 1
+// Safety cap on the chunked-fallback loop (30min × 48 = 24h) to bound a runaway.
+const MAX_CHUNKS = 48
 
 // Extraction model
 // Ordered best-to-worst. transcribeWithGemini tries each in order on transient
@@ -88,13 +76,10 @@ const EXTRACTION_PROMPT = [
 
 // ─── Manifest ───────────────────────────────────────────────────────────────
 //
-// Each video gets a manifest: cache/transcripts/{videoId}_manifest.json
-// The manifest records segment boundaries so we know what time ranges are
-// covered by cached transcripts and what still needs work.
-//
-// Transcript files are stitched contiguous runs of ok segments:
-//   - Full video complete:  {videoId}.txt
-//   - Partial (gap):        {videoId}_HHMMSS-HHMMSS.txt  (one per contiguous run)
+// Each transcribed video gets a manifest: cache/transcripts/{videoId}_manifest.json
+// It records the video's metadata (title, channel, source model, estimated
+// duration) and a single ok segment spanning the whole video. The transcript
+// itself lives in {videoId}.txt.
 
 interface SegmentInfo {
 	index: number
@@ -105,9 +90,9 @@ interface SegmentInfo {
 
 interface VideoManifest {
 	videoId: string
-	duration: number      // total video duration in seconds
+	duration: number      // total video duration in seconds (estimated from transcript)
 	segments: SegmentInfo[]
-	source?: string       // e.g. 'gemini:gemini-flash-latest' or 'yt-dlp' — set on first successful transcription
+	source?: string       // e.g. 'gemini:gemini-2.5-pro' — set on first successful transcription
 	title?: string        // video title (copied from _meta.json)
 	channel?: string      // channel / author (copied from _meta.json)
 	uploadDate?: string   // 'YYYYMMDD' (copied from _meta.json)
@@ -134,7 +119,7 @@ interface VideoMeta {
 	videoId?: string
 	title?: string
 	channel?: string
-	uploadDate?: string   // 'YYYYMMDD' from yt-dlp
+	uploadDate?: string   // 'YYYYMMDD'
 	duration?: number     // seconds
 	url?: string
 	description?: string
@@ -180,7 +165,7 @@ function loadAllManifests(): VideoManifest[] {
 		.map(f => JSON.parse(fs.readFileSync(path.join(TRANSCRIPT_CACHE_DIR, f), 'utf-8')) as VideoManifest)
 }
 
-// ─── Stitched transcript files ──────────────────────────────────────────────
+// ─── Transcript files ─────────────────────────────────────────────────────────
 
 function formatHhmmss(seconds: number): string {
 	const h = String(Math.floor(seconds / 3600)).padStart(2, '0')
@@ -189,7 +174,7 @@ function formatHhmmss(seconds: number): string {
 	return `${h}${m}${s}`
 }
 
-// Get the path for a stitched transcript file covering a contiguous run
+// Get the path for the transcript file covering a contiguous run
 function getStitchedPath(videoId: string, start: number, end: number, duration: number): string {
 	const isFullVideo = start == 0 && end >= duration
 	if (isFullVideo)
@@ -224,113 +209,28 @@ function findContiguousRuns(manifest: VideoManifest): { start: number, end: numb
 	return runs
 }
 
-// Stitch segment transcripts into contiguous run files.
-// Called after each successful segment transcription.
-// Reads individual _segN.txt files, writes stitched files, removes segment files.
-function stitchTranscript(videoId: string, manifest: VideoManifest): void {
-	const runs = findContiguousRuns(manifest)
-	dlog('stitch', 'ENTER', { videoId, runCount: runs.length, runs: runs.map(r => ({ start: r.start, end: r.end, segIndices: r.segIndices })) })
-
-	// List all transcript-cache files for this video at entry, to see full state
-	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
-		const entryFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
-			.filter(f => f.startsWith(videoId))
-			.map(f => {
-				const p = path.join(TRANSCRIPT_CACHE_DIR, f)
-				try {
-					const size = fs.statSync(p).size
-					return { name: f, size }
-				}
-				catch {
-					return { name: f, size: -1 }
-				}
-			})
-		dlog('stitch', 'entry-state', { videoId, files: entryFiles })
-	}
-
-	// Remove any old stitched files for this video before writing new ones
-	const deletedStitched: string[] = []
-	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
-		const files = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
-		for (const f of files) {
-			if (!f.endsWith('.txt')) continue
-			if (!f.startsWith(videoId)) continue
-			// Skip segment files — we'll clean those up after stitching
-			if (f.match(/_seg\d+\.txt$/)) continue
-			fs.unlinkSync(path.join(TRANSCRIPT_CACHE_DIR, f))
-			deletedStitched.push(f)
-		}
-	}
-	dlog('stitch', 'deleted-old-stitched', { videoId, deleted: deletedStitched })
-
-	for (const run of runs) {
-		const parts: string[] = []
-		const segsFound: string[] = []
-		const segsMissing: string[] = []
-		for (const segIdx of run.segIndices) {
-			const segPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_seg${segIdx}.txt`)
-			if (fs.existsSync(segPath)) {
-				const txt = fs.readFileSync(segPath, 'utf-8')
-				parts.push(txt)
-				segsFound.push(`seg${segIdx}(${txt.length}b)`)
-			}
-			else {
-				segsMissing.push(`seg${segIdx}`)
-			}
-		}
-		dlog('stitch', 'run-scan', { videoId, runStart: run.start, runEnd: run.end, segsFound, segsMissing, partsCount: parts.length })
-
-		if (parts.length > 0) {
-			const stitchedPath = getStitchedPath(videoId, run.start, run.end, manifest.duration)
-			const joined = parts.join('\n\n')
-			fs.writeFileSync(stitchedPath, joined, 'utf-8')
-			dlog('stitch', 'wrote-stitched', { videoId, path: path.basename(stitchedPath), bytes: joined.length, segCount: parts.length })
-		}
-		else {
-			dlog('stitch', 'skipped-run-empty', { videoId, runStart: run.start, runEnd: run.end })
-		}
-	}
-
-	// Final state for comparison
-	if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
-		const exitFiles = fs.readdirSync(TRANSCRIPT_CACHE_DIR)
-			.filter(f => f.startsWith(videoId))
-			.map(f => {
-				const p = path.join(TRANSCRIPT_CACHE_DIR, f)
-				try {
-					const size = fs.statSync(p).size
-					return { name: f, size }
-				}
-				catch {
-					return { name: f, size: -1 }
-				}
-			})
-		dlog('stitch', 'EXIT', { videoId, files: exitFiles })
-	}
-}
-
-// Get the full transcript for a video by reading all stitched files in order
-function getFullTranscript(videoId: string, manifest: VideoManifest): string | null {
-	const runs = findContiguousRuns(manifest)
-	if (runs.length == 0)
-		return null
-
-	const parts: string[] = []
-	for (const run of runs) {
-		const p = getStitchedPath(videoId, run.start, run.end, manifest.duration)
-		if (fs.existsSync(p))
-			parts.push(fs.readFileSync(p, 'utf-8'))
-	}
-
-	return parts.length > 0 ? parts.join('\n\n') : null
-}
-
-// Check if a video's transcript is fully cached (all segments ok, stitched file exists)
+// Check if a video's transcript is fully cached (all segments ok, transcript file exists)
 function isTranscriptComplete(videoId: string, manifest: VideoManifest): boolean {
 	const allOk = manifest.segments.every(s => s.status == 'ok')
 	if (!allOk) return false
 	const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
 	return fs.existsSync(fullPath)
+}
+
+// Estimate a video's duration (seconds) from the largest [h:mm:ss] / [mm:ss]
+// timestamp the model emitted. Best-effort — returns 0 if none are found.
+function estimateDurationFromTranscript(text: string): number {
+	const re = /\[(?:(\d+):)?(\d{1,2}):(\d{2})\]/g
+	let max = 0
+	let m: RegExpExecArray | null
+	while ((m = re.exec(text)) != null) {
+		const h = m[1] ? parseInt(m[1], 10) : 0
+		const min = parseInt(m[2], 10)
+		const s = parseInt(m[3], 10)
+		const total = h * 3600 + min * 60 + s
+		if (total > max) max = total
+	}
+	return max
 }
 
 // ─── Utilities ──────────────────────────────────────────────────────────────
@@ -387,53 +287,6 @@ function saveCachedTranscript(cacheKey: string, text: string): void {
 	const outPath = path.join(TRANSCRIPT_CACHE_DIR, `${cacheKey}.txt`)
 	fs.writeFileSync(outPath, text, 'utf-8')
 	dlog('save', 'wrote', { path: path.basename(outPath), bytes: text.length })
-}
-
-function cleanVideoCache(): void {
-	if (!fs.existsSync(VIDEO_CACHE_DIR))
-		return
-
-	const entries = fs.readdirSync(VIDEO_CACHE_DIR, { withFileTypes: true })
-
-	const videoFiles: { path: string, size: number, mtime: number }[] = []
-
-	for (const entry of entries) {
-		if (entry.name == 'transcripts')
-			continue
-
-		const fullPath = path.join(VIDEO_CACHE_DIR, entry.name)
-
-		if (entry.isDirectory()) {
-			const dirFiles = fs.readdirSync(fullPath)
-			let dirSize = 0
-			for (const f of dirFiles)
-				dirSize += fs.statSync(path.join(fullPath, f)).size
-			const stat = fs.statSync(fullPath)
-			videoFiles.push({ path: fullPath, size: dirSize, mtime: stat.mtimeMs })
-		}
-		else if (entry.name.endsWith('.mp4')) {
-			const stat = fs.statSync(fullPath)
-			videoFiles.push({ path: fullPath, size: stat.size, mtime: stat.mtimeMs })
-		}
-	}
-
-	// Size-based eviction only — evict oldest videos when over 500MB.
-	// We no longer auto-delete videos that have transcripts, because partial
-	// transcription means the video may still be needed for retrying failed segments.
-	let totalSize = videoFiles.reduce((sum, vf) => sum + vf.size, 0)
-	if (totalSize <= VIDEO_CACHE_MAX_BYTES)
-		return
-
-	videoFiles.sort((a, b) => a.mtime - b.mtime)
-	for (const vf of videoFiles) {
-		if (totalSize <= VIDEO_CACHE_MAX_BYTES)
-			break
-		if (fs.statSync(vf.path).isDirectory())
-			fs.rmSync(vf.path, { recursive: true })
-		else
-			fs.unlinkSync(vf.path)
-		totalSize -= vf.size
-	}
 }
 
 function getImageDimensions(buf: Buffer): { width: number, height: number } {
@@ -510,63 +363,62 @@ function extractVideoId(url: string): string {
 	return url
 }
 
-// ─── Gemini API helpers ─────────────────────────────────────────────────────
-
-async function uploadAndWaitForFile(filePath: string, timeoutMs: number = 300_000): Promise<string> {
-	let file = await ai.files.upload({
-		file: filePath,
-		config: { mimeType: 'video/mp4' }
-	})
-
-	const deadline = Date.now() + timeoutMs
-
-	while (file.state == FileState.PROCESSING) {
-		if (Date.now() > deadline)
-			throw new Error(`Upload processing exceeded ${Math.round(timeoutMs / 1000)}s timeout`)
-		await new Promise(r => setTimeout(r, 3000))
-		file = await ai.files.get({ name: file.name! })
-	}
-
-	if (file.state == FileState.FAILED)
-		throw new Error(`Gemini file processing failed: ${JSON.stringify(file.error)}`)
-
-	if (!file.uri)
-		throw new Error('Gemini file has no URI after processing')
-
-	return file.uri
+// True when an error is Gemini reporting transient unavailability (503/UNAVAILABLE).
+// When every model in VIDEO_MODELS reports this, transcription stops — there is no
+// yt-dlp captions fallback, so a down Gemini means /yt is down.
+function isGeminiUnavailable(error: unknown): boolean {
+	const msg = error instanceof Error ? error.message : String(error)
+	return /UNAVAILABLE|503/i.test(msg)
 }
 
-async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSeconds: number): Promise<{ text: string, model: string }> {
-	const prompt = offsetSeconds > 0
-		? `${EXTRACTION_PROMPT}\n\nNote: this is a segment starting at ${Math.floor(offsetSeconds / 60)}:${String(offsetSeconds % 60).padStart(2, '0')} in the original video. Adjust timestamps accordingly.`
+// ─── Gemini API helpers ─────────────────────────────────────────────────────
+
+// Transcribe a public YouTube URL via Gemini. Gemini fetches the video server-side
+// (no local download), so a datacenter/WSL IP never touches YouTube directly.
+// When startSeconds/endSeconds are given, the video is clipped server-side via the
+// part's videoMetadata offsets — that's how the chunked fallback works. Returns the
+// text, the model that produced it, and the finishReason ('MAX_TOKENS' means the
+// output limit was hit and the transcript is truncated).
+async function transcribeWithGemini(url: string, startSeconds?: number, endSeconds?: number): Promise<{ text: string, model: string, finishReason: string }> {
+	const hasRange = startSeconds != undefined || endSeconds != undefined
+	const start = startSeconds ?? 0
+	const prompt = start > 0
+		? `${EXTRACTION_PROMPT}\n\nNote: this is a segment starting at ${formatMmSs(start)} in the original video. Adjust timestamps accordingly.`
 		: EXTRACTION_PROMPT
+
+	const part: Record<string, unknown> = { fileData: { mimeType: 'video/*', fileUri: url } }
+	if (hasRange) {
+		const vm: Record<string, string> = { startOffset: `${start}s` }
+		if (endSeconds != undefined)
+			vm.endOffset = `${endSeconds}s`
+		part.videoMetadata = vm
+	}
+
+	const contents: any = [{ parts: [part, { text: prompt }] }]
 
 	let lastError: unknown
 	for (const model of VIDEO_MODELS) {
 		try {
 			const stream = await ai.models.generateContentStream({
 				model,
-				contents: [
-					{
-						parts: [
-							{ fileData: { mimeType, fileUri } },
-							{ text: prompt }
-						]
-					}
-				],
+				contents,
 				config: {
 					httpOptions: { timeout: 300_000 }
 				}
 			})
 
 			const chunks: string[] = []
+			let finishReason = ''
 			for await (const chunk of stream) {
 				const text = chunk.candidates?.[0]?.content?.parts?.[0]?.text
 				if (text)
 					chunks.push(text)
+				const fr = chunk.candidates?.[0]?.finishReason
+				if (fr)
+					finishReason = String(fr)
 			}
 
-			return { text: chunks.join('') || 'No response', model }
+			return { text: chunks.join('') || 'No response', model, finishReason }
 		}
 		catch (err) {
 			lastError = err
@@ -579,191 +431,35 @@ async function transcribeWithGemini(mimeType: string, fileUri: string, offsetSec
 	throw lastError instanceof Error ? lastError : new Error(String(lastError))
 }
 
-// Whole-video fallback using YouTube auto-captions via yt-dlp. No Gemini, no
-// segmentation, no visual description — just the spoken text as YouTube saw it.
-// Used when every Gemini model in VIDEO_MODELS has returned UNAVAILABLE.
-async function transcribeWithYtDlp(videoId: string): Promise<string> {
-	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gai-ytdlp-'))
-	try {
-		execFileSync('yt-dlp', [
-			'--write-auto-sub',
-			'--skip-download',
-			'--sub-format', 'vtt',
-			'--sub-lang', 'en',
-			'-o', path.join(tmpDir, `${videoId}.%(ext)s`),
-			`https://www.youtube.com/watch?v=${videoId}`
-		], { timeout: 120_000, stdio: 'pipe' })
-
-		const vttFiles = fs.readdirSync(tmpDir).filter(f => f.endsWith('.vtt'))
-		if (vttFiles.length == 0)
-			throw new Error('yt-dlp produced no .vtt file (captions may not be available)')
-
-		const vtt = fs.readFileSync(path.join(tmpDir, vttFiles[0]), 'utf-8')
-		return cleanVttToText(vtt)
-	}
-	finally {
-		try { fs.rmSync(tmpDir, { recursive: true, force: true }) }
-		catch {}
-	}
-}
-
-// Strip WEBVTT framing, inline timing tags, and consecutive-duplicate lines.
-// YouTube auto-sub format has each caption line appear twice (progressing +
-// finalized) with word-level timing markers inside; we dedupe and clean to plain prose.
-function cleanVttToText(vtt: string): string {
-	const lines = vtt.split(/\r?\n/)
-	const out: string[] = []
-	let prev = ''
-	for (const line of lines) {
-		if (/^WEBVTT/.test(line)) continue
-		if (/^Kind:/.test(line)) continue
-		if (/^Language:/.test(line)) continue
-		if (/^\d\d:\d\d:\d\d/.test(line)) continue
-		if (!line.trim()) continue
-		const clean = line.replace(/<[^>]*>/g, '').trim()
-		if (!clean) continue
-		if (clean == prev) continue
-		out.push(clean)
-		prev = clean
-	}
-	return out.join(' ').replace(/\s+/g, ' ').trim()
-}
-
-// ─── Video pipeline internals ───────────────────────────────────────────────
-//
-// transcribe_video is the single orchestrating tool. Internally it:
-//   1. Checks if a stitched transcript already exists (full cache hit)
-//   2. For any gaps: splits from cached video, uploads, transcribes
-//   3. Quality-gates each segment — retries once if too thin, marks failed if still bad
-//   4. On first uncached segment, runs a 1-min canary to fail fast
-//   5. After each successful segment, stitches contiguous runs into files
-//   6. Returns the assembled transcript or reports what failed
-//
-// Stitching happens on write: each successful segment triggers a re-stitch of
-// contiguous runs. The final transcript is read from the stitched files.
-
-function getVideoDuration(filePath: string): number {
-	const durationStr = execFileSync('ffprobe', [
-		'-v', 'error',
-		'-show_entries', 'format=duration',
-		'-of', 'default=noprint_wrappers=1:nokey=1',
-		filePath
-	], { timeout: 10_000 }).toString().trim()
-	return parseFloat(durationStr) || 0
-}
-
-function cutSegment(sourcePath: string, start: number, duration: number, outputPath: string): void {
-	execFileSync('ffmpeg', [
-		'-ss', String(start),
-		'-i', sourcePath,
-		'-t', String(duration),
-		'-c', 'copy',
-		'-y',
-		outputPath
-	], { timeout: 30_000 })
-}
-
-async function uploadAndTranscribeSegment(
+// Fallback for videos that exceed Gemini's one-shot output limit. Transcribes the
+// video in fixed-length windows via Gemini's server-side range clipping (videoMetadata
+// offsets on the YouTube URL — no download). Advances window by window until one comes
+// back empty, which means we've passed the end of the video, so no duration is needed.
+async function chunkedTranscribe(
 	videoId: string,
-	segIndex: number,
-	seg: SegmentInfo,
-	videoPath: string,
-	manifest: VideoManifest
-): Promise<{ text: string, ok: boolean }> {
-	const segmentDir = path.join(VIDEO_CACHE_DIR, videoId)
-	fs.mkdirSync(segmentDir, { recursive: true })
+	url: string,
+	sendProgress: (progress: number, total: number | undefined, message: string) => Promise<void>
+): Promise<string> {
+	const parts: string[] = []
+	let start = 0
+	let chunkNum = 0
 
-	const segPath = path.join(segmentDir, `seg_${String(segIndex).padStart(3, '0')}.mp4`)
-	const durationMinutes = (seg.end - seg.start) / 60
+	while (chunkNum < MAX_CHUNKS) {
+		const end = start + CHUNK_SECONDS
+		await sendProgress(chunkNum, undefined, `Chunk ${chunkNum + 1} [${formatMmSs(start)}-${formatMmSs(end)}]`)
+		const { text } = await transcribeWithGemini(url, start, end)
+		dlog('chunk', 'done', { videoId, chunkNum, start, end, chars: text.length })
 
-	for (let attempt = 0; attempt <= MAX_TRANSCRIPT_RETRIES; attempt++) {
-		cutSegment(videoPath, seg.start, seg.end - seg.start, segPath)
-		const uri = await uploadAndWaitForFile(segPath, SEGMENT_UPLOAD_TIMEOUT_MS)
-		const { text, model } = await transcribeWithGemini('video/mp4', uri, seg.start)
+		// An empty/near-empty window means we've advanced past the end of the video.
+		if (text.trim().length < MIN_CHUNK_CHARS)
+			break
 
-		const charsPerMin = text.length / durationMinutes
-		if (charsPerMin >= MIN_CHARS_PER_MINUTE) {
-			// Save segment file temporarily, then stitch
-			dlog('seg', 'saving-segment', { videoId, segIndex, bytes: text.length, charsPerMin: Math.round(charsPerMin), model })
-			saveCachedTranscript(`${videoId}_seg${segIndex}`, text)
-			seg.status = 'ok'
-			if (!manifest.source) {
-				manifest.source = `gemini:${model}`
-				enrichManifestFromMeta(manifest)
-			}
-			saveManifest(manifest)
-			dlog('seg', 'calling-stitch', { videoId, segIndex })
-			stitchTranscript(videoId, manifest)
-			dlog('seg', 'stitch-returned', { videoId, segIndex })
-			// Clean up segment video file
-			if (fs.existsSync(segPath))
-				fs.unlinkSync(segPath)
-			return { text, ok: true }
-		}
-
-		// Quality gate failed — retry or give up
-		if (attempt < MAX_TRANSCRIPT_RETRIES)
-			continue
-
-		// Final attempt still bad — don't cache, keep video for future retry
-		return { text, ok: false }
+		parts.push(text)
+		start = end
+		chunkNum++
 	}
 
-	// Unreachable, but TypeScript needs it
-	return { text: '', ok: false }
-}
-
-// planSegments: first segment is a 1-min canary, rest are 2-min segments.
-function planSegments(startSeconds: number, endSeconds: number): SegmentInfo[] {
-	const segments: SegmentInfo[] = []
-	let position = startSeconds
-	let index = 0
-	let isFirst = true
-
-	while (position < endSeconds) {
-		const remaining = endSeconds - position
-		const targetDuration = isFirst ? CANARY_SECONDS : SEGMENT_SECONDS
-		const chunkDuration = Math.min(targetDuration, remaining)
-		segments.push({
-			index,
-			start: Math.round(position),
-			end: Math.round(position + chunkDuration),
-			status: 'ok'
-		})
-		position += chunkDuration
-		index++
-		isFirst = false
-	}
-
-	return segments
-}
-
-// insertCanary: when we hit the first uncached segment on retry, split it so
-// the first piece is a 1-min canary. Reshapes the manifest from that point.
-function insertCanary(manifest: VideoManifest, segIndex: number): void {
-	const seg = manifest.segments[segIndex]
-	const segDuration = seg.end - seg.start
-
-	// Only split if the segment is longer than the canary
-	if (segDuration <= CANARY_SECONDS)
-		return
-
-	const canary: SegmentInfo = {
-		index: seg.index,
-		start: seg.start,
-		end: seg.start + CANARY_SECONDS,
-		status: 'ok'
-	}
-
-	// Shrink the original segment to start after the canary
-	seg.start = canary.end
-
-	// Insert canary before the shrunken segment
-	manifest.segments.splice(segIndex, 0, canary)
-
-	// Re-index all segments from the insertion point
-	for (let i = segIndex; i < manifest.segments.length; i++)
-		manifest.segments[i].index = i
+	return parts.join('\n\n')
 }
 
 // ─── Image generation ───────────────────────────────────────────────────────
@@ -853,32 +549,27 @@ server.registerTool(
 // ─── Video tools ────────────────────────────────────────────────────────────
 //
 // 4-tool API:
-//   1. get_video_info     → lightweight metadata check                         ~2s
-//   2. download_video     → download + compress (separate because it's slow)   ~2-4min
-//   3. transcribe_video   → orchestrates segmenting, uploading, transcribing,
-//                           quality-gates, retries, caching, and stitching
+//   1. get_video_info     → lightweight metadata via YouTube oEmbed            ~1s
+//   2. transcribe_video   → Gemini transcribes the YouTube URL directly
+//                           (server-side fetch — no download, no bot check).
+//                           Falls back to Gemini server-side range chunking
+//                           only when the one-shot output limit is hit.
+//   3. delete_transcript  → clears cached transcript data for a video
 //   4. list_transcripts   → shows all cached videos and their transcript files
 //
-// Short videos (≤10min): get_video_info → transcribe_video (YouTube URL directly)
-// Long videos (>10min):  get_video_info → download_video → transcribe_video
-//
-// Long videos are split into segments: a 1-min canary first, then 2-min segments.
-// The canary provides fail-fast behavior — if the first minute can't be transcribed,
-// we stop immediately instead of making the user wait. On retry, a new canary is
-// inserted at the first uncached segment to re-test before committing.
-//
-// Transcripts are stitched on write: after each segment succeeds, contiguous runs
-// of ok segments are merged into single files. A fully complete video becomes
-// {videoId}.txt. A video with gaps becomes multiple {videoId}_HHMMSS-HHMMSS.txt.
+// All transcription goes through Gemini fetching the public YouTube URL itself.
+// There is no yt-dlp / download path: a datacenter/WSL IP that YouTube would
+// challenge never touches YouTube directly. If every Gemini model is UNAVAILABLE,
+// transcription stops and reports it — there is no captions fallback.
 
 server.registerTool(
 	'get_video_info',
 	{
 		description: [
-			'Fetches YouTube video metadata without downloading.',
-			'Returns duration, title, and the recommended strategy (direct or download+transcribe).',
-			'ALWAYS call this first before transcribe_video to determine the right approach.',
-			'Takes ~2 seconds.'
+			'Fetches YouTube video metadata (title, channel) via the public oEmbed endpoint.',
+			'No download, no yt-dlp — works from any IP. Takes ~1 second.',
+			'Optional: call before transcribe_video to capture the title for provenance.',
+			'Transcription always uses the direct-URL strategy.'
 		].join(' '),
 		inputSchema: {
 			url: z.string().describe('YouTube video URL or video ID')
@@ -886,45 +577,33 @@ server.registerTool(
 	},
 	async ({ url }) => {
 		try {
-			cleanVideoCache()
-
 			const videoId = extractVideoId(url)
+			const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
+			const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`
 
-			// Fetch rich metadata — fields separated by a delimiter to handle multiline description
-			const META_SEP = '<<<META_SEP>>>'
-			const printFormat = [
-				'%(duration)s',
-				'%(title)s',
-				'%(channel)s',
-				'%(upload_date)s',
-				'%(view_count)s',
-				'%(description)s'
-			].join(`${META_SEP}\n`)
+			let title = 'Unknown'
+			let channel = 'Unknown'
+			try {
+				const resp = await fetch(oembedUrl)
+				if (!resp.ok)
+					throw new Error(`oEmbed HTTP ${resp.status}`)
+				const data = await resp.json() as { title?: string, author_name?: string }
+				title = data.title ?? 'Unknown'
+				channel = data.author_name ?? 'Unknown'
+			}
+			catch (err) {
+				// oEmbed fails for private / age-restricted / region-locked videos. Metadata
+				// is best-effort — transcription via the direct URL may still work, so we
+				// record what we have and don't hard-fail here.
+				dlog('get_video_info', 'oembed-failed', { videoId, msg: err instanceof Error ? err.message : String(err) })
+			}
 
-			const output = execFileSync(YT_DLP, [
-				'--print', printFormat,
-				'--no-download',
-				`https://www.youtube.com/watch?v=${videoId}`
-			], { timeout: 30_000 }).toString().trim()
-
-			const parts = output.split(META_SEP).map(s => s.trim())
-			const duration = parseInt(parts[0], 10) || 0
-			const title = parts[1] || 'Unknown'
-			const channel = parts[2] || 'Unknown'
-			const uploadDate = parts[3] || 'Unknown'
-			const viewCount = parts[4] || 'Unknown'
-			const description = parts[5] || ''
-
-			// Persist metadata alongside transcript cache
+			// Persist metadata for kwiki provenance + list_transcripts
 			const meta = {
 				videoId,
 				title,
 				channel,
-				uploadDate,
-				viewCount,
-				description,
-				duration,
-				url: `https://www.youtube.com/watch?v=${videoId}`,
+				url: watchUrl,
 				fetchedAt: new Date().toISOString()
 			}
 			fs.mkdirSync(TRANSCRIPT_CACHE_DIR, { recursive: true })
@@ -932,108 +611,25 @@ server.registerTool(
 				path.join(TRANSCRIPT_CACHE_DIR, `${videoId}_meta.json`),
 				JSON.stringify(meta, null, '\t')
 			)
-			const durationMin = Math.round(duration / 60)
-			const strategy = duration <= DIRECT_URL_MAX_SECONDS ? 'direct' : 'download'
 
-			const videoPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
-			const hasVideo = fs.existsSync(videoPath)
 			const manifest = loadManifest(videoId)
-
 			const info = [
 				`Title: ${title}`,
 				`Channel: ${channel}`,
-				`Uploaded: ${uploadDate}`,
-				`Duration: ${durationMin}min (${duration}s)`,
 				`Video ID: ${videoId}`,
-				`Strategy: ${strategy}`,
-				hasVideo ? 'Video cache: downloaded' : 'Video cache: not cached'
+				'Strategy: direct (Gemini fetches the YouTube URL server-side)'
 			]
 
-			if (manifest) {
-				const okSegs = manifest.segments.filter(s => s.status == 'ok').length
-				const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
-				const total = manifest.segments.length
-				let cacheStatus = `Transcript: ${okSegs}/${total} segments ok`
-				if (failedSegs > 0)
-					cacheStatus += ` (${failedSegs} failed)`
-				if (isTranscriptComplete(videoId, manifest))
-					cacheStatus += ' — complete'
-				info.push(cacheStatus)
-			}
+			if (manifest)
+				info.push(isTranscriptComplete(videoId, manifest) ? 'Transcript: cached — complete' : 'Transcript: cached (partial)')
 			else {
-				// Check for standalone transcript (short video)
 				const standalone = getCachedTranscript(videoId)
-				info.push(standalone ? 'Transcript: cached (standalone)' : 'Transcript: none')
+				info.push(standalone ? 'Transcript: cached' : 'Transcript: none')
 			}
 
-			if (strategy == 'direct')
-				info.push('Next: call transcribe_video with the YouTube URL directly')
-			else if (hasVideo)
-				info.push('Next: call transcribe_video (video already downloaded)')
-			else
-				info.push('Next: call download_video, then transcribe_video')
+			info.push('Next: call transcribe_video with the YouTube URL')
 
 			return { content: [{ type: 'text' as const, text: info.join('\n') }] }
-		}
-		catch (error) {
-			return {
-				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
-				isError: true
-			}
-		}
-	}
-)
-
-server.registerTool(
-	'download_video',
-	{
-		description: [
-			'Downloads a YouTube video and compresses it for transcription.',
-			'Only needed when get_video_info returns strategy "download".',
-			'Skips download if a cached compressed version exists.',
-			'Takes ~2-4 minutes for full videos.'
-		].join(' '),
-		inputSchema: {
-			url: z.string().describe('YouTube video URL or video ID')
-		}
-	},
-	async ({ url }) => {
-		try {
-			const videoId = extractVideoId(url)
-			fs.mkdirSync(VIDEO_CACHE_DIR, { recursive: true })
-
-			const compressedPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
-
-			if (fs.existsSync(compressedPath)) {
-				const sizeMB = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-				return { content: [{ type: 'text' as const, text: `Cached: ${compressedPath} (${sizeMB}MB)\nNext: call transcribe_video` }] }
-			}
-
-			const rawPath = path.join(VIDEO_CACHE_DIR, `${videoId}_raw.mp4`)
-
-			execFileSync(YT_DLP, [
-				'-f', 'worst[ext=mp4]/worst',
-				'--no-playlist',
-				'-o', rawPath,
-				`https://www.youtube.com/watch?v=${videoId}`
-			], { timeout: 300_000 })
-
-			const rawSize = Math.round(fs.statSync(rawPath).size / 1024 / 1024)
-
-			execFileSync('ffmpeg', [
-				'-i', rawPath,
-				'-vf', 'scale=256:-2',
-				'-b:v', '100k',
-				'-b:a', '32k',
-				'-ar', '22050',
-				'-y',
-				compressedPath
-			], { timeout: 300_000 })
-
-			fs.unlinkSync(rawPath)
-
-			const compressedSize = Math.round(fs.statSync(compressedPath).size / 1024 / 1024)
-			return { content: [{ type: 'text' as const, text: `Downloaded (${rawSize}MB) → compressed to ${compressedSize}MB\nSaved: ${compressedPath}\nNext: call transcribe_video` }] }
 		}
 		catch (error) {
 			return {
@@ -1048,15 +644,14 @@ server.registerTool(
 	'transcribe_video',
 	{
 		description: [
-			'Transcribes a video and returns the assembled transcript.',
-			'For short videos (≤10min): pass the YouTube URL directly — transcribes via Gemini in one shot.',
-			'For long videos: requires download_video first. Splits into segments, uploads,',
-			'transcribes, quality-validates, retries failures, and stitches into cache files automatically.',
-			'Uses a 1-min canary on the first uncached segment to fail fast before committing.',
-			'Supports optional startSeconds/endSeconds to transcribe a specific range.',
-			'Uses cached transcripts when available — only does work for missing/failed segments.',
-			'ALWAYS call get_video_info first to determine the right approach.',
-			'Returns the full assembled transcript or an error explaining what failed.'
+			'Transcribes a YouTube video via Gemini and returns the transcript.',
+			'Gemini fetches the public URL server-side — no download, so a datacenter/WSL IP',
+			'never hits YouTube\'s bot check. Transcribes in one shot; if the output limit is',
+			'hit on a very long video, automatically falls back to Gemini server-side range',
+			'chunking (no download) and stitches the windows.',
+			'Optional startSeconds/endSeconds transcribe a specific range (clipped server-side).',
+			'Uses cached transcripts when available.',
+			'If every Gemini model is unavailable, transcription stops and reports it.'
 		].join(' '),
 		inputSchema: {
 			url: z.string().describe('YouTube video URL or video ID'),
@@ -1085,287 +680,73 @@ server.registerTool(
 				throw new Error('GEMINI_API_KEY environment variable is required')
 
 			const videoId = extractVideoId(url)
-			const videoPath = path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`)
+			const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
 
-			// ── Short video: direct YouTube URL transcription ──────────
-			const isShortOrDirect = !fs.existsSync(videoPath)
-			if (isShortOrDirect) {
-				const cacheKey = startSeconds || endSeconds
-					? `${videoId}_${startSeconds ?? 0}-${endSeconds ?? 'end'}`
-					: videoId
-
+			// ── Explicit range request: single server-side clipped call ──
+			if (startSeconds != undefined || endSeconds != undefined) {
+				const cacheKey = `${videoId}_${startSeconds ?? 0}-${endSeconds ?? 'end'}`
 				const cached = getCachedTranscript(cacheKey)
 				if (cached)
 					return { content: [{ type: 'text' as const, text: cached }] }
 
-				await sendProgress(0, 1, `Transcribing ${videoId} via direct YouTube URL`)
+				const label = `[${formatMmSs(startSeconds ?? 0)}-${endSeconds != undefined ? formatMmSs(endSeconds) : 'end'}]`
+				await sendProgress(0, 1, `Transcribing ${videoId} ${label}`)
 
-				const { text, model } = await transcribeWithGemini(
-					'video/*',
-					`https://www.youtube.com/watch?v=${videoId}`,
-					startSeconds ?? 0
-				)
-
+				const { text } = await transcribeWithGemini(watchUrl, startSeconds, endSeconds)
 				saveCachedTranscript(cacheKey, text)
 
-				// Create/update manifest for this direct-path capture so every transcribed
-				// video has a canonical metadata record. For full-video (no range), the
-				// manifest has one segment spanning the whole duration. For range requests,
-				// we skip manifest creation — the transcript is partial and doesn't match
-				// the manifest's "whole video" semantics.
-				if (!startSeconds && !endSeconds) {
-					let manifest = loadManifest(videoId)
-					if (!manifest) {
-						manifest = {
-							videoId,
-							duration: 0,
-							segments: [{ index: 0, start: 0, end: 0, status: 'ok' }]
-						}
-					}
-					manifest.source = `gemini:${model}`
-					enrichManifestFromMeta(manifest)
-					// Sync segment end to whatever duration ended up (from meta, or 0 if unknown)
-					if (manifest.segments.length > 0 && manifest.duration > 0)
-						manifest.segments[0].end = manifest.duration
-					saveManifest(manifest)
-				}
-
-				await sendProgress(1, 1, `Transcribed ${videoId} (${text.length} chars)`)
+				await sendProgress(1, 1, `Transcribed ${videoId} ${label} (${text.length} chars)`)
 				return { content: [{ type: 'text' as const, text }] }
 			}
 
-			// ── Long video: segmented pipeline ────────────────────────
-			const duration = getVideoDuration(videoPath)
-			const rangeStart = startSeconds ?? 0
-			const rangeEnd = endSeconds ?? Math.round(duration)
-			dlog('transcribe', 'segmented-path-entry', { videoId, duration, rangeStart, rangeEnd })
+			// ── Full video: cache hit ──
+			const cached = getCachedTranscript(videoId)
+			if (cached)
+				return { content: [{ type: 'text' as const, text: cached }] }
 
-			// Load or create manifest
+			// ── Full video: one-shot direct-URL transcription ──
+			await sendProgress(0, 1, `Transcribing ${videoId} via direct YouTube URL`)
+			const first = await transcribeWithGemini(watchUrl)
+
+			let fullText = first.text
+			const model = first.model
+
+			// Output limit hit → fall back to Gemini server-side range chunking (no download).
+			// The one-shot output is discarded and the video is re-transcribed in clean
+			// windows so chunk boundaries line up instead of inheriting a truncated tail.
+			if (first.finishReason == 'MAX_TOKENS') {
+				await sendProgress(0, undefined, 'Output limit hit — switching to chunked transcription via Gemini ranges')
+				dlog('transcribe', 'truncated-one-shot', { videoId, oneShotChars: first.text.length })
+				fullText = await chunkedTranscribe(videoId, watchUrl, sendProgress)
+			}
+
+			saveCachedTranscript(videoId, fullText)
+
+			// Manifest: one ok segment spanning the (estimated) whole video, for
+			// list_transcripts + kwiki provenance. Duration is estimated from the
+			// transcript's timestamps since there's no yt-dlp metadata source.
+			const estDuration = estimateDurationFromTranscript(fullText)
 			let manifest = loadManifest(videoId)
-			if (!manifest) {
-				manifest = {
-					videoId,
-					duration,
-					segments: planSegments(0, Math.round(duration))
-				}
-				saveManifest(manifest)
-				dlog('transcribe', 'created-manifest', { videoId, segCount: manifest.segments.length })
-			}
+			if (!manifest)
+				manifest = { videoId, duration: estDuration, segments: [{ index: 0, start: 0, end: estDuration, status: 'ok' }] }
 			else {
-				dlog('transcribe', 'loaded-manifest', { videoId, segCount: manifest.segments.length, statuses: manifest.segments.map(s => s.status) })
+				manifest.duration = estDuration
+				manifest.segments = [{ index: 0, start: 0, end: estDuration, status: 'ok' }]
 			}
+			manifest.source = `gemini:${model}`
+			enrichManifestFromMeta(manifest)
+			saveManifest(manifest)
 
-			// yt-dlp fallback short-circuit: if a prior run already fell back to yt-dlp
-			// captions, return the cached whole-video text without re-trying Gemini.
-			// Use delete_transcript to force a fresh attempt if Gemini has recovered.
-			if (manifest.source == 'yt-dlp' && !startSeconds && !endSeconds) {
-				const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
-				if (fs.existsSync(fullPath)) {
-					const text = fs.readFileSync(fullPath, 'utf-8')
-					dlog('transcribe', 'ytdlp-cache-hit', { videoId, bytes: text.length })
-					return { content: [{ type: 'text' as const, text }] }
-				}
-			}
-
-			// Check for full cache hit via stitched file
-			if (!startSeconds && !endSeconds && isTranscriptComplete(videoId, manifest)) {
-				const fullPath = path.join(TRANSCRIPT_CACHE_DIR, `${videoId}.txt`)
-				const text = fs.readFileSync(fullPath, 'utf-8')
-				dlog('transcribe', 'full-cache-hit', { videoId, bytes: text.length, path: fullPath })
-				return { content: [{ type: 'text' as const, text }] }
-			}
-
-			// Find segments that overlap the requested range and need work
-			const neededSegments = manifest.segments.filter(
-				s => s.end > rangeStart && s.start < rangeEnd
-			)
-
-			if (neededSegments.length == 0)
-				throw new Error(`No segments cover range ${rangeStart}-${rangeEnd}s (video is ${Math.round(duration)}s)`)
-
-			// Find which segments actually need transcription (not already in a stitched file)
-			const uncachedSegments = neededSegments.filter(seg => {
-				const segKey = `${videoId}_seg${seg.index}`
-				// Check if individual segment file exists (shouldn't after stitch, but just in case)
-				if (getCachedTranscript(segKey)) return false
-				// Check if this segment is covered by a stitched file
-				const runs = findContiguousRuns(manifest!)
-				for (const run of runs) {
-					if (seg.start >= run.start && seg.end <= run.end) {
-						const p = getStitchedPath(videoId, run.start, run.end, manifest!.duration)
-						if (fs.existsSync(p)) return false
-					}
-				}
-				return true
-			})
-			dlog('transcribe', 'uncached-segments', { videoId, totalNeeded: neededSegments.length, uncachedCount: uncachedSegments.length, uncachedIdxs: uncachedSegments.map(s => s.index) })
-
-			// All segments already cached in stitched files — just return the transcript
-			if (uncachedSegments.length == 0) {
-				const text = getFullTranscript(videoId, manifest)
-				dlog('transcribe', 'all-cached-branch', { videoId, bytesReturned: text ? text.length : 0 })
-				if (text)
-					return { content: [{ type: 'text' as const, text }] }
-			}
-
-			// Process uncached segments
-			const failures: string[] = []
-			let canaryDone = false
-			const totalWork = uncachedSegments.length
-			let completedWork = 0
-
-			await sendProgress(0, totalWork, `Starting segmented transcription of ${videoId}: ${totalWork} segment(s)`)
-
-			for (const seg of uncachedSegments) {
-				// First uncached segment — insert canary if needed
-				if (!canaryDone) {
-					canaryDone = true
-
-					const manifestIdx = manifest.segments.findIndex(s => s.index == seg.index)
-					if (manifestIdx >= 0 && (seg.end - seg.start) > CANARY_SECONDS) {
-						insertCanary(manifest, manifestIdx)
-						saveManifest(manifest)
-
-						// Process canary
-						const canarySeg = manifest.segments[manifestIdx]
-
-						await sendProgress(completedWork, totalWork, `Canary [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}] — fail-fast probe`)
-
-						try {
-							const result = await uploadAndTranscribeSegment(videoId, canarySeg.index, canarySeg, videoPath, manifest)
-							if (!result.ok) {
-								canarySeg.status = 'failed'
-								saveManifest(manifest)
-								return {
-									content: [{ type: 'text' as const, text: `Canary failed — transcription not viable at [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}]: ${result.text.length} chars for 1min (${Math.round(result.text.length / (CANARY_SECONDS / 60))} chars/min, need ${MIN_CHARS_PER_MINUTE})` }],
-									isError: true
-								}
-							}
-						}
-						catch (err) {
-							canarySeg.status = 'failed'
-							saveManifest(manifest)
-							return {
-								content: [{ type: 'text' as const, text: `Canary failed at [${formatMmSs(canarySeg.start)}-${formatMmSs(canarySeg.end)}]: ${err instanceof Error ? err.message : String(err)}` }],
-								isError: true
-							}
-						}
-
-						// Re-query uncached segments since manifest changed
-						const remaining = manifest.segments.filter(s => {
-							if (s.start < rangeStart || s.end > rangeEnd) return false
-							if (s.index == canarySeg.index) return false // already done
-							const runs = findContiguousRuns(manifest!)
-							for (const run of runs) {
-								if (s.start >= run.start && s.end <= run.end) {
-									const p = getStitchedPath(videoId, run.start, run.end, manifest!.duration)
-									if (fs.existsSync(p)) return false
-								}
-							}
-							return true
-						})
-
-						completedWork++
-						await sendProgress(completedWork, totalWork, `Canary passed — ${remaining.length} segment(s) remaining`)
-
-						for (let ri = 0; ri < remaining.length; ri++) {
-							const remSeg = remaining[ri]
-							if (remSeg.status == 'failed')
-								remSeg.status = 'ok'
-
-							await sendProgress(completedWork, totalWork, `Segment ${ri + 1}/${remaining.length} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}] — uploading`)
-
-							try {
-								const result = await uploadAndTranscribeSegment(videoId, remSeg.index, remSeg, videoPath, manifest)
-								if (!result.ok) {
-									remSeg.status = 'failed'
-									saveManifest(manifest)
-									failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: transcript too short`)
-								}
-							}
-							catch (err) {
-								remSeg.status = 'failed'
-								saveManifest(manifest)
-								failures.push(`Segment ${remSeg.index + 1} [${formatMmSs(remSeg.start)}-${formatMmSs(remSeg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
-							}
-
-							completedWork++
-							await sendProgress(completedWork, totalWork, `Segment ${ri + 1}/${remaining.length} done`)
-						}
-
-						// Done — break out of the loop (canary path processes everything)
-						break
-					}
-				}
-
-				// Normal segment processing (no canary needed)
-				if (seg.status == 'failed')
-					seg.status = 'ok'
-
-				await sendProgress(completedWork, totalWork, `Segment [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}] — uploading`)
-
-				try {
-					const result = await uploadAndTranscribeSegment(videoId, seg.index, seg, videoPath, manifest)
-					if (!result.ok) {
-						seg.status = 'failed'
-						saveManifest(manifest)
-						failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: transcript too short`)
-					}
-				}
-				catch (err) {
-					seg.status = 'failed'
-					saveManifest(manifest)
-					failures.push(`Segment ${seg.index + 1} [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}]: ${err instanceof Error ? err.message : String(err)}`)
-				}
-
-				completedWork++
-				await sendProgress(completedWork, totalWork, `Segment [${formatMmSs(seg.start)}-${formatMmSs(seg.end)}] done`)
-			}
-
-			cleanVideoCache()
-
-			// yt-dlp last-resort fallback: if every Gemini model in the chain returned
-			// UNAVAILABLE for every segment (zero successful transcriptions), fall back
-			// to YouTube auto-captions for the whole video. Records source='yt-dlp' in
-			// the manifest so subsequent calls short-circuit via the cache.
-			const okSegs = manifest.segments.filter(s => s.status == 'ok').length
-			if (okSegs == 0 && failures.length > 0 && !startSeconds && !endSeconds) {
-				await sendProgress(totalWork, totalWork, 'All Gemini models unavailable — falling back to yt-dlp captions')
-				dlog('transcribe', 'ytdlp-fallback-start', { videoId, failureCount: failures.length })
-				try {
-					const ytdlpText = await transcribeWithYtDlp(videoId)
-					saveCachedTranscript(videoId, ytdlpText)
-					manifest.source = 'yt-dlp'
-					saveManifest(manifest)
-					dlog('transcribe', 'ytdlp-fallback-done', { videoId, bytes: ytdlpText.length })
-					return { content: [{ type: 'text' as const, text: ytdlpText }] }
-				}
-				catch (err) {
-					const msg = err instanceof Error ? err.message : String(err)
-					dlog('transcribe', 'ytdlp-fallback-failed', { videoId, msg: msg.slice(0, 200) })
-					failures.push(`yt-dlp fallback also failed: ${msg}`)
-				}
-			}
-
-			// Read the final transcript from stitched files
-			const finalText = getFullTranscript(videoId, manifest)
-
-			if (failures.length > 0) {
-				const partial = finalText
-					? `\n\nPartial transcript (from cached segments):\n${finalText}`
-					: ''
-				return {
-					content: [{ type: 'text' as const, text: `Transcription incomplete — ${failures.length} segment(s) failed:\n${failures.join('\n')}${partial}` }],
-					isError: true
-				}
-			}
-
-			if (!finalText)
-				throw new Error('No transcript available after processing')
-
-			return { content: [{ type: 'text' as const, text: finalText }] }
+			await sendProgress(1, 1, `Transcribed ${videoId} (${fullText.length} chars)`)
+			return { content: [{ type: 'text' as const, text: fullText }] }
 		}
 		catch (error) {
+			// Gemini down = /yt down. Say so plainly and stop — no captions fallback.
+			if (isGeminiUnavailable(error))
+				return {
+					content: [{ type: 'text' as const, text: 'Gemini is currently unavailable — every model returned UNAVAILABLE/503. Transcription cannot proceed right now; try again later.' }],
+					isError: true
+				}
 			return {
 				content: [{ type: 'text' as const, text: `Error: ${detailedError(error)}` }],
 				isError: true
@@ -1379,16 +760,15 @@ server.registerTool(
 	{
 		description: [
 			'Deletes cached transcript data for a video so the next transcribe_video call redoes the work.',
-			'By default removes: stitched transcript files, segment transcripts, manifest, and the segment working directory.',
-			'Keeps the downloaded .mp4 and _meta.json unless includeVideo is true.',
-			'Use this when you want to force re-transcription (e.g. after changing prompts or testing the pipeline).'
+			'Removes the transcript files and manifest. Keeps _meta.json unless includeMeta is true.',
+			'Use this when you want to force re-transcription (e.g. after changing prompts or testing).'
 		].join(' '),
 		inputSchema: {
 			url: z.string().describe('YouTube video URL or video ID'),
-			includeVideo: z.boolean().optional().describe('Also delete the cached compressed video (.mp4) and metadata. Default: false.')
+			includeMeta: z.boolean().optional().describe('Also delete the cached metadata (_meta.json). Default: false.')
 		}
 	},
-	async ({ url, includeVideo }) => {
+	async ({ url, includeMeta }) => {
 		try {
 			const videoId = extractVideoId(url)
 			const removed: string[] = []
@@ -1403,21 +783,14 @@ server.registerTool(
 				removed.push(path.basename(p))
 			}
 
-			// Transcript files for this video: {id}.txt, {id}_*.txt, {id}_manifest.json, {id}_seg*.txt
+			// Transcript files for this video: {id}.txt, {id}_*.txt, {id}_manifest.json
 			if (fs.existsSync(TRANSCRIPT_CACHE_DIR)) {
 				for (const f of fs.readdirSync(TRANSCRIPT_CACHE_DIR)) {
 					if (!f.startsWith(videoId)) continue
-					if (f == `${videoId}_meta.json` && !includeVideo) continue
+					if (f == `${videoId}_meta.json` && !includeMeta) continue
 					tryRemove(path.join(TRANSCRIPT_CACHE_DIR, f))
 				}
 			}
-
-			// Segment working directory (cut .mp4 chunks)
-			tryRemove(path.join(VIDEO_CACHE_DIR, videoId))
-
-			// Downloaded compressed video
-			if (includeVideo)
-				tryRemove(path.join(VIDEO_CACHE_DIR, `${videoId}.mp4`))
 
 			if (removed.length == 0)
 				return { content: [{ type: 'text' as const, text: `Nothing to delete for ${videoId}` }] }
@@ -1438,7 +811,7 @@ server.registerTool(
 	{
 		description: [
 			'Lists all cached videos and their transcription status.',
-			'Shows each video ID, duration, segment progress, and transcript files.',
+			'Shows each video ID, title, channel, and transcript file.',
 			'Use this to see what data is available before requesting a transcription.'
 		].join(' '),
 		inputSchema: {}
@@ -1447,17 +820,9 @@ server.registerTool(
 		try {
 			const lines: string[] = []
 
-			// Every transcribed video has a manifest. Single loop, no separate
-			// "standalone" branch — unified model per manifest.
+			// Every transcribed video has a manifest. Single loop, one entry per manifest.
 			const manifests = loadAllManifests()
 			for (const manifest of manifests) {
-				const videoPath = path.join(VIDEO_CACHE_DIR, `${manifest.videoId}.mp4`)
-				const hasVideo = fs.existsSync(videoPath)
-				const videoSize = hasVideo ? Math.round(fs.statSync(videoPath).size / 1024 / 1024) : 0
-
-				const okSegs = manifest.segments.filter(s => s.status == 'ok').length
-				const failedSegs = manifest.segments.filter(s => s.status == 'failed').length
-				const total = manifest.segments.length
 				const complete = isTranscriptComplete(manifest.videoId, manifest)
 
 				// Fall back to reading _meta.json on the fly for any field not yet on
@@ -1479,11 +844,10 @@ server.registerTool(
 				parts2.push(manifest.videoId)
 				lines.push(`  ${parts2.join(' · ')}`)
 
-				// Line 3: source · segments status · video cache
+				// Line 3: source · status
 				const parts3: string[] = []
 				if (manifest.source) parts3.push(manifest.source)
-				parts3.push(`${okSegs}/${total} segments ok${failedSegs > 0 ? `, ${failedSegs} failed` : ''}${complete ? ' — complete' : ''}`)
-				if (hasVideo) parts3.push(`video: ${videoSize}MB`)
+				parts3.push(complete ? 'complete' : 'partial')
 				lines.push(`  ${parts3.join(' · ')}`)
 
 				// Transcript files (indented, with sizes)

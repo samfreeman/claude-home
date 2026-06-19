@@ -7,16 +7,15 @@ description: "Transcribe a YouTube video via google-ai and capture it into kwiki
 
 Transcribe a YouTube video and capture it into kwiki. Reuses cached transcripts. Surfaces existing kwiki entries instead of re-capturing.
 
+Transcription runs entirely through Gemini fetching the public YouTube URL server-side — no download, no yt-dlp, so YouTube's bot check never fires. Long videos that exceed Gemini's one-shot output limit are chunked automatically inside `transcribe_video` (server-side Gemini range clipping); you don't manage that.
+
 ## Workflow
 
 ### Step 1 — Resolve the video
 
-`$ARGUMENTS` is a YouTube URL or video ID. Extract the **11-character video ID** (the string after `v=`, `youtu.be/`, or `/shorts/`). You'll need it for cache lookups.
+`$ARGUMENTS` is a YouTube URL or video ID. Extract the **11-character video ID** (the string after `v=`, `youtu.be/`, or `/shorts/`). You'll need it for cache and kwiki lookups.
 
-Call `mcp__google-ai-mcp__get_video_info` with the URL/ID. Record:
-- `title`
-- `duration` (seconds)
-- Recommended strategy (direct vs download+transcribe)
+Optionally call `mcp__google-ai-mcp__get_video_info` with the URL/ID to capture the **title** and **channel** (via YouTube oEmbed — lightweight, no download). You'll want the title for kwiki provenance. If oEmbed fails (private/age-restricted video), it returns `Unknown` — transcription may still work, so continue.
 
 ### Step 2 — Check kwiki first (MANDATORY)
 
@@ -30,23 +29,15 @@ Search existing wiki entries for this video ID. Grep `$KWIKI_ROOT/wiki/*.md` (de
 
 Only proceed to Step 3 if no entry has this video ID.
 
-### Step 3 — Check for an existing transcript
+### Step 3 — Transcribe
 
-Call `mcp__google-ai-mcp__list_transcripts`. Find the entry for this video ID, if any. Inspect its segment progress.
+Call `mcp__google-ai-mcp__transcribe_video` with the YouTube URL.
 
-Decide what to do based on cache state and duration:
+- It returns a cached transcript instantly if one exists.
+- Otherwise Gemini transcribes the URL directly. Long videos are chunked internally and stitched — no action needed from you.
+- If it reports that **Gemini is unavailable** (every model returned UNAVAILABLE/503), stop and tell the user transcription can't proceed right now. There is no fallback — try again later.
 
-| Cache state | Duration | Action |
-|---|---|---|
-| No cache | any | Transcribe the full video |
-| Complete | any | Use the cached transcript (call `transcribe_video`, returns fast) |
-| Partial, beginning only, no gaps | > 40 min | Use what's cached. Don't fill the tail. |
-| Partial with gaps in the middle | ≤ 40 min | Fill missing segments before capturing |
-| Partial with gaps in the middle | > 40 min | Use what's cached. Don't fill gaps. |
-
-For long videos with no cache, the `get_video_info` strategy will tell you to download first. In that case, call `mcp__google-ai-mcp__download_video` before `transcribe_video`.
-
-`transcribe_video` handles caching internally — it only does work for missing/failed segments. For the "use cached partial range" case on long videos, call it with `startSeconds: 0` and `endSeconds` set to the end of the already-cached range so it doesn't try to transcribe the missing tail.
+To inspect what's already cached before transcribing, call `mcp__google-ai-mcp__list_transcripts`.
 
 ### Step 4 — Hand off to kwiki:capture
 
@@ -70,6 +61,6 @@ Make sure the entries written include `source_url` and `source_type: youtube` in
 ## Principles
 
 1. **Kwiki is the first check.** If the video is already captured, surface the entries — don't redo the work.
-2. **Cached transcripts are the second check.** Don't re-transcribe what google-ai already has.
-3. **Long videos with gaps stay partial.** Filling gaps on a 2-hour video is expensive. Only short videos (≤40 min) get gap-filled automatically.
+2. **Cached transcripts are the second check.** `transcribe_video` reuses them automatically; don't force re-transcription.
+3. **Gemini fetches the URL — nothing is downloaded.** No yt-dlp, no bot check, no segment management. If Gemini is down, transcription is down; say so and stop.
 4. **Capture always goes through kwiki:capture.** Atomic entries with wikilinks is the whole point — don't write a single monolithic "video summary" entry.
