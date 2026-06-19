@@ -23,7 +23,17 @@
       "mcp__google-ai-mcp__download_video",
       "WebFetch(domain:github.com)",
       "Bash(npm view:*)",
-      "mcp__kwiki__wiki_update"
+      "mcp__kwiki__wiki_update",
+      "WebFetch(domain:dpal.info)",
+      "Bash(/usr/local/bin/yt-dlp --no-update --extractor-args \"youtube:player_client=web_safari\" --print \"%\\(duration\\)s|%\\(title\\)s\" --no-download \"https://www.youtube.com/watch?v=iJVJwmCKW9o\")",
+      "Bash(/usr/local/bin/yt-dlp --version)",
+      "Bash(pip index *)",
+      "Bash(pip download *)",
+      "Bash(curl -s \"https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest\")",
+      "Skill(deep-research)",
+      "Skill(deep-research:*)",
+      "Workflow(deep-research)",
+      "WebFetch(domain:medium.com)"
     ],
     "additionalDirectories": [
       "/home/samfr/.claude/mcp-servers/google-ai-mcp/cache/transcripts"
