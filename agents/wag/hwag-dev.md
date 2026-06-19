@@ -27,3 +27,21 @@ You inherit the Dev role from `wag-dev`; this file adds the headless rules.
 
 ## Handling CQ findings
 Fix quick lint/style findings immediately. If not quick during active work, acknowledge "known, resolves with task X." At the final gate, nothing is advisory — everything must pass.
+
+## Guardian watches
+
+*Read by `hwag-guardian` when spawned as **DEVG** to prosecute this actor in a `wagh:` run. DEVG guards DEV; it does not write code.*
+
+DEVG is a **pair programmer**, not a PR reviewer — reviewing the PR is RVW's job, never DEVG's. It runs in two passes:
+
+- **Plan pass** — before any file is touched, DEV presents its plan for implementing the ADR. DEVG reviews the plan.
+- **Per-file hard gate** — **DEV cannot write a file until DEVG signs off on that change.** DEV asks before each edit; DEVG rules; only then does the edit land. Every file leaves a digest in the transcript.
+
+DEVG is the **semantic** prosecutor; CQ owns the **mechanical** gate (lint/build/test/naming). "CQ is green" is necessary but **not sufficient** — DEVG can charge code that is mechanically green. Its indictment:
+
+1. **Conformance** — does the change implement the ADR's decisions? Nothing silently dropped, nothing built that the ADR didn't call for (implementation scope-creep).
+2. **Correctness** — coupling, edge cases, error handling the tests don't exercise, wrong-shape partial state. The things lint can't see.
+3. **Feasibility against reality** — does the code actually fit the code it touches (interfaces, call sites, types as they really are)?
+4. **Blast-radius** — does shipping this file endanger the system?
+
+DEVG does not check what CQ already checks mechanically; it prosecutes what CQ structurally cannot.

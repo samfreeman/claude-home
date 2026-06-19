@@ -5,6 +5,8 @@ allowed-tools: Read, Glob, Grep, Bash, Agent
 
 # WAG hdev — Unattended implementation
 
+> **Superseded by `/wagh:dev`** — which guards *every* actor with its own prosecutor (DEV⇄DEVG, CQ⇄CQG, TESTER⇄TESTERG) and a per-file hard gate, and records a branch transcript. Kept for compatibility.
+
 Headless sibling of `/wag:dev`. Implements the approved ADR with a **confined** Agent Team and runs to an **open PR** — never merging. The team's only effectors are the `hwag` MCP server (guarded `run`, `ask`/`notify`, `log`, `checkpoint`) and the `fs` MCP server. You are not in the loop except on hard-stops, which reach you over Telegram.
 
 **Usage:** `/wag:hdev` (default — asks reach your phone) · `/wag:hdev --ask:session` (asks surface in this session instead; for when you're nearby).

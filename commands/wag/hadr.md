@@ -5,6 +5,8 @@ allowed-tools: Read, Glob, Grep, Bash, Edit, Write, Agent
 
 # WAG hadr — Unattended ADR design + log-grill
 
+> **Design-run mode is superseded by `/wagh:adr`** — the guarded two-agent court (ADR ⇄ ADRG) generalizes this command's self-play with a real prosecutor and a branch transcript. **Log-grill mode (`--grill-log`) is not superseded** — it remains the way to train precedent into the reasoning docs. Kept for compatibility.
+
 Headless sibling of `/wag:adr`. Two faces of one design-decision system:
 
 - **Design run (default):** a confined `hwag-architect` self-plays the grill — reads the reasoning docs, picks each design call and justifies it, logs every decision, escalates only the genuinely hard ones to you over Telegram, and writes the ADR on a feature branch. Finishes at an ADR + branch (no PR — that's `/wag:hdev`).
