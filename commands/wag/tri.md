@@ -42,6 +42,8 @@ Glob `.wag/snags/SNAG-*.md`. For each, drive the resolution protocol at `~/.clau
 
 On close, **delete the snag file** (`git rm .wag/snags/SNAG-NNN.md`). The protocol file has the full step detail.
 
+**Naming drift is a defect class.** When a resolution touches a name — a synonym slipped into a doc, the backlog, or the code; a referent acquired a second word; a bounded context got carved without a forcing function — reconcile it to the **one true term** across `.wag/docs/`, the backlog, and (local fixes) the code, and update Architecture's `Ubiquitous language` section so the glossary stays the authority. Disposition as usual (local / global / both); a global fix lands as a template rule or command check, not prose. See `~/.claude/wag/references/ubiquitous-language.md`. Reconcile *all* affected names at once — don't headline a single rename as "the fix."
+
 ## Phase 2: Disposition review snag-candidates
 
 Read the latest review report (`.wag/reviews/REVIEW-EEE.PPP-*.md`, highest number) if one exists for the round. For each entry in its `Snag candidates` section:

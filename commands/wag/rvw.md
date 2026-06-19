@@ -84,7 +84,7 @@ Wait for the report.
 The reviewer evaluates on five axes. Each gets a per-axis verdict and specific findings with file:line cites:
 
 1. **ADR conformance** — does the code implement what the ADR specified? Are all PBI acceptance criteria demonstrably satisfied? Any ADR decisions silently dropped?
-2. **Architecture conformance** — does it respect patterns in `Architecture.md`? Tech stack, layering, module boundaries?
+2. **Architecture conformance** — does it respect patterns in `Architecture.md`? Tech stack, layering, module boundaries? Does the code **speak the ubiquitous language** — names (types, fields, columns, functions) match Architecture's `Ubiquitous language` section, one name per referent, with no divergent synonyms and no artificially-introduced bounded context? (See `~/.claude/wag/references/ubiquitous-language.md`.) A name that diverges from a project-owned term is a finding here; a wrong term in Architecture's section itself is a snag candidate.
 3. **Learning compliance** — for each applicable learning, is the code compliant?
 4. **Design and code quality** — coupling, abstractions, edge cases, error handling, test coverage proportional to risk.
 5. **Security** — injection, exposed secrets, auth/authz gaps, unsafe defaults.

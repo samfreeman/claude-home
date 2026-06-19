@@ -93,6 +93,7 @@ For PRD or Architecture edits, follow the standard pattern:
 2. **Version the change.** Update the document's version number in the header (e.g., `Version: 1.3` → `Version: 1.4`).
 3. **Record the change.** Append a line to the Provenance / Changelog section at the bottom of the document.
 4. **Consistency check.** After a PRD change, scan Architecture for contradictions. After an Architecture change, scan the backlog — PBIs or epics may be affected. Surface anything that should become a snag.
+5. **Speak the ubiquitous language.** Author every PRD / Architecture / backlog edit in the terms defined in Architecture's `Ubiquitous language` section — one name per referent. If the edit introduces a genuinely new referent, name it once and add it to that section (versioned like any Architecture change); if you catch a second word for something already named, reconcile it to the one term rather than letting a synonym in. Don't introduce a bounded context without a forcing function. See `~/.claude/wag/references/ubiquitous-language.md`.
 
 If a change invalidates an active ADR or an approved PBI's acceptance criteria, **capture a snag** via `.wag/snags/SNAG-NNN.md` and flag it to the user.
 

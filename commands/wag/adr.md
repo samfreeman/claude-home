@@ -134,6 +134,7 @@ Design the solution with the user. Iterative:
 - Challenge assumptions — yours and theirs
 - Reference Architecture.md and applicable learnings
 - Push for specificity — vague designs produce vague implementations
+- **Design in the ubiquitous language** — decisions, interfaces, and code examples use the terms in Architecture's `Ubiquitous language` section, one name per referent. A genuinely new referent extends that section (via `/wag:docs`); a *synonym* for something already named is a snag candidate, not a new term. Don't carve a bounded context without a forcing function. See `~/.claude/wag/references/ubiquitous-language.md`.
 - Resolve one decision at a time — surface the list of open decisions once, then work through them
 
 ### Inline snag capture

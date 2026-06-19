@@ -30,6 +30,7 @@ These are areas to cover through natural conversation, not a sequential question
 - **The outcome** — What does success look like? How would you know it's working?
 - **The context** — Is there existing work? Prior attempts? Related systems?
 - **The constraints** — Timeline, budget, team, compliance, platforms — but only what they volunteer or what's clearly relevant.
+- **The language** — the domain words the user keeps using for the core things. As they surface, note them and pin **one name per referent**: when the user (or you) reaches for a second word for something already named, settle on the single term then and there. This is the seed of the project's ubiquitous language, which Architecture later defines as a section. Don't interrogate for a glossary — capture the vocabulary that falls out of the conversation, and resist inventing synonyms. See `~/.claude/wag/references/ubiquitous-language.md`.
 
 ## Questions to avoid during intake
 

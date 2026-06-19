@@ -8,6 +8,7 @@ Checked at authoring (/wag:init, /wag:docs) and at /wag:adr pre-flight. Never co
 3. Data model & storage — what the data is and where it lives
 4. Key decisions — the load-bearing choices, alternatives considered, rationale
 5. Open questions / risks
+6. Ubiquitous language — the project's core domain terms, one name per referent (the glossary every layer and the code follow). See `~/.claude/wag/references/ubiquitous-language.md`.
 
 The headings below are a suggested starting shape for new projects — NOT a conformance requirement.
 -->
@@ -16,6 +17,14 @@ The headings below are a suggested starting shape for new projects — NOT a con
 **Created:** {{DATE}}
 **Version:** 1.0
 **Derived from:** [PRD.md](./PRD.md) + [RESEARCH.md](./RESEARCH.md)
+
+## Ubiquitous language
+
+One name per referent, everywhere — these docs, the contract/interfaces, the data model, and the code. See `~/.claude/wag/references/ubiquitous-language.md`. Don't introduce bounded contexts without a forcing function.
+
+| Term | Meaning |
+|------|---------|
+| {{TERM}} | {{ONE_LINE_MEANING}} |
 
 ## Tech stack
 
