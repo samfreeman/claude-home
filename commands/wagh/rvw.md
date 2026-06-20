@@ -1,11 +1,13 @@
 ---
-description: Headless review — the cold senior-architect review (RVW) of the feature branch, double-checked by its guardian (RVWG) before the verdict is accepted. The loop-control signal of the headless cycle.
-allowed-tools: Read, Glob, Grep, Bash, Agent
+description: Headless review — the cold senior-architect review (RVW) of the feature branch, double-checked by its guardian (RVWG) before the verdict is accepted. Native wag2 tools. The loop-control signal of the headless cycle.
+allowed-tools: Read, Glob, Grep, Bash, Write, Agent
 ---
 
 # WAGH RVW — guarded, unattended review
 
 **Base + delta.** This runs `/wag:rvw`'s senior-architect review as its base, with the reviewer's verdict gated by a guardian. **Read `/wag:rvw` for the substance** (target resolution, the five review dimensions, the report format, capture, PR comment) and `~/.claude/wag/references/branch-transcript.md` for the court contract. This file is **only the headless delta**.
+
+**wag2 is not confined.** Both agents use **native tools**; escalations reach you over **Telegram** by default (`--ask:session` to keep them in-session).
 
 This is the `(RVW → RVWG)` segment that closes each pass of the iterated `[impl → RVW]*` bracket. **In-loop RVW is a loop-control signal** — a clean, RVWG-accepted verdict **exits** the bracket; a `REQUEST_CHANGES` verdict **remands to DEV** (`/wagh:dev`) and the bracket repeats. It is distinct from the human's back-gate review.
 
@@ -22,10 +24,10 @@ Exactly `/wag:rvw`'s pre-flight and context-gather (snag halt, target resolve, f
 
 ## Phase 2: The court — reviewer + guardian
 
-Spawn **two** agents:
+Spawn **two** agents via `Agent`:
 
-- **RVW** — the cold senior architect, exactly as base `/wag:rvw` Phase 2 (a fresh independent reviewer; pulls the diff itself; produces the five-dimension report and verdict). **It alone writes the Review.**
-- **RVWG** — `hwag-guardian` spawned as **RVWG**. It is briefed with the indictment below (RVW has no standing actor def, so the indictment rides here).
+- **RVW** — the cold senior architect, exactly as base `/wag:rvw` Phase 2 (a fresh independent reviewer; pulls the diff itself with native `Bash`; produces the five-dimension report and verdict). **It alone writes the Review.**
+- **RVWG** — `wag-guardian` spawned as **RVWG**. RVW has no standing actor def, so its indictment is briefed inline below.
 
 ### RVWG's indictment (`## Guardian watches`, briefed inline)
 
@@ -35,12 +37,12 @@ Both RVW and RVWG review the PR. **RVWG writes no review of its own** — it dou
 2. **Verdict-evidence consistency** — does the verdict follow from the findings? An `APPROVE` sitting above unaddressed `fail`/`concerns` findings is incoherent; a `REQUEST_CHANGES` resting only on taste (no functional impact) is over-blocking.
 3. **Earned exit** — because RVW is the loop-exit signal, a **false `APPROVE` ships dirty code to the back-gate**. That is the blast radius RVWG guards: it must be satisfied the `APPROVE` is *earned* before the bracket is allowed to exit.
 
-**The loop:** `(RVW → RVWG)`. RVWG agrees → the verdict is accepted. RVWG charges → RVW re-reviews (re-pull, re-justify, or correct the verdict). N is per-contestation (resets on each resolved charge). A single charge deadlocked at N, or high blast-radius → escalate via `hwag.ask`; `[hwag:no-answer]` → PBI-scoped snag + STOP.
+**The loop:** `(RVW → RVWG)`. RVWG agrees → the verdict is accepted. RVWG charges → RVW re-reviews (re-pull, re-justify, or correct the verdict). N is per-contestation (resets on each resolved charge). A single charge deadlocked at N, or high blast-radius → escalate via `hwag.ask` (Telegram); no answer → PBI-scoped snag + STOP.
 
 ## Phase 3: Capture + record
 
-- Capture the Review exactly as base `/wag:rvw` Phase 3 (`.wag/reviews/REVIEW-EEE.PPP-NNN.md`), post to the PR (Phase 4), commit (Phase 6) — **only after RVWG accepts**.
-- Write the `(RVW → RVWG)` digest to the transcript (terse on a clean accept, verbatim if RVWG charged).
+- Capture the Review exactly as base `/wag:rvw` Phase 3 (`.wag/reviews/REVIEW-EEE.PPP-NNN.md`), post to the PR (Phase 4), commit (Phase 6) with native `Bash` — **only after RVWG accepts**.
+- Write the `(RVW → RVWG)` digest to the transcript with native `Write` (terse on a clean accept, verbatim if RVWG charged).
 
 ## Phase 4: Signal
 

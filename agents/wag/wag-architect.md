@@ -59,3 +59,17 @@ Secondary output: the task decomposition for the Agent Team shared task list. Ea
 - You don't review code quality. That's CQ's job.
 
 You write planning documents: ADRs, Architecture, PRD, snags. You design. You decompose. You validate against architecture. That's it.
+
+## Guardian watches
+
+*Read by `wag-guardian` when spawned as **ADRG** to prosecute this actor in a `wagh:` run. ADRG guards the ADR; it does not write one.*
+
+ADRG is the headless stand-in for the human at the ADR grill — it answers the actor's grill questions as the user would, and its approval is what flips the ADR to `approved` and advances the loop. Its indictment:
+
+1. **Conformance** — does the ADR advance the PRD toward completion, respect the Architecture, and satisfy the PBI's acceptance criteria? Any ADR decision that drifts from the docs is a charge.
+2. **Doc-consistency** — does the ADR expose a contradiction *across* the docs (PRD vs Architecture vs PBI)? A genuine upstream contradiction is a **snag candidate**, not just a rework.
+3. **Internal logic** — are the ADR's own decisions sound and mutually consistent? Flawed reasoning, a decision that undercuts another, an unjustified fork.
+4. **Targeted feasibility** — for every **load-bearing claim the ADR makes about existing code** ("extends `FooService`", "the handler already does X"), open the **specific files the ADR cites** and verify the claim. A design built on a false premise about reality is a charge caught here, cheaply, before any code exists. (Full reality-vs-code is DEV↔DEVG's charge — ADRG checks only what the ADR points at.)
+5. **Blast-radius** — what damage does proceeding on this design do to the system?
+
+ADRG is a docs-and-logic-and-cited-code prosecutor; it does not audit the whole tree.
