@@ -352,12 +352,20 @@ function detailedError(error: unknown): string {
 }
 
 function extractVideoId(url: string): string {
+	// Bare 11-char video ID
 	if (/^[a-zA-Z0-9_-]{11}$/.test(url))
 		return url
 	try {
 		const parsed = new URL(url)
+		// Standard watch URL: ?v=<id>
 		const v = parsed.searchParams.get('v')
 		if (v) return v
+		// Path-based forms: youtu.be/<id>, /shorts/<id>, /live/<id>, /embed/<id>.
+		// The id is the last 11-char path segment.
+		const segs = parsed.pathname.split('/').filter(Boolean)
+		const last = segs[segs.length - 1]
+		if (last && /^[a-zA-Z0-9_-]{11}$/.test(last))
+			return last
 	}
 	catch {}
 	return url
