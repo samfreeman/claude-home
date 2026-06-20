@@ -25,9 +25,12 @@ On any failure, **do not spawn** — stop and tell the user:
 2. **No open snag** in `.wag/snags/`. Any → halt, surface ids, stop. (Resolve attended via `/wag:tri`.)
 3. **No template drift** (per `/wag:adr`'s drift rules). Drift → halt, stop.
 
-## Phase 1: PBI + channel
+## Phase 1: PBI + branch + channel
 
 - **PBI:** arg if given, else auto-pick the highest-priority **eligible** (all deps closed) open PBI; record which. Write `active_epic`/`active_pbi` to `state.json`.
+- **Branch up front.** Create `feature/PBI-EEE.PPP` off `dev` now and write it to `state.json.feature_branch`. **This is the headless delta from base `/wag:adr`** (which branches at approval): the `(ADR → ADRG)` court writes a transcript turn at *every* step, so the branch must exist **before** the court starts — otherwise the transcript has nowhere to land (you'd still be on `dev`). The court and its transcript live on this branch from turn one.
+
+  **Git discipline (all phases):** run **plain git from the repo root** — the working directory *is* the project root. The branch command is exactly `git checkout -b feature/PBI-EEE.PPP dev`. **Never `git -C <path> …`** — baking an absolute path defeats the allow-list (forcing a per-project rule and a permission prompt on every call) and violates rule #9. Same for every later `git add` / `git commit` / `gh` call: plain, from the cwd.
 - **Channel:** `--ask:session` → `session`, else `sms` (Telegram). Pass into both agents' prompts.
 
 ## Phase 2: Stand up the court and wait
@@ -49,7 +52,7 @@ Spawn **two** agents via `Agent` and let them run the loop:
 
 **Recording:** every step writes a transcript digest to `.wag/transcripts/PBI-EEE.PPP.md` via native `Write` (terse on agreement, verbatim on a fight). Decisions are also logged to `.wag/decisions/ADR-EEE.PPP.md`.
 
-**On ADRG approval:** the actor writes the ADR with `Write`, sets status `approved`, and via native `Bash` creates `feature/PBI-EEE.PPP` and commits the ADR + state + transcript. **No PR** — that's `/wagh:dev`.
+**On ADRG approval:** the actor writes the ADR with `Write`, sets status `approved`, and via native `Bash` commits the ADR + state + transcript **onto the already-created `feature/PBI-EEE.PPP`** (the branch exists from Phase 1; approval doesn't create it). **No PR** — that's `/wagh:dev`.
 
 ## Phase 3: Surface outcome
 

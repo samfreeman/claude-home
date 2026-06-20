@@ -30,7 +30,13 @@
       "Bash(grep -rn \"buildDemoScan\\\\|buildDemo\" /home/symfr/source/git-clones/dpal-front-end/src/components --include=\"*.tsx\" | grep -i \"ecology\\\\|water\")",
       "Read(//home/symfr/source/git-clones/dpal-front-end/src/**)",
       "Bash(find /home/samfr -maxdepth 5 -type d -name \"*google-ai*\" 2>/dev/null)",
-      "Read(//home/samfr/**)"
+      "Read(//home/samfr/**)",
+      "Skill(wagh:adr)",
+      "Skill(wagh:adr:*)",
+      "mcp__fs__fs_read",
+      "Bash(echo *)",
+      "Bash(ps *)",
+      "Bash(pgrep *)"
     ],
     "deny": [
       "Bash(git revert*)",
