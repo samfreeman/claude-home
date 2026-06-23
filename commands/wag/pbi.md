@@ -103,7 +103,7 @@ Implements the canonical procedure from `wag/references/close-pbi-and-epic.md`. 
 1. **Pick the PBI to close.** Show open PBIs grouped by epic; user picks one.
 2. **Add the closure note.** Edit the PBI file:
    - Add a `**Status:** Closed <date> — <short reason>` line in the header. Use today's date.
-   - Add a `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs or LEARNINGs produced.
+   - Add a `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs produced.
 3. **Move to the mirror.** `git mv .wag/backlog/<epic>/PBI-PPP.md .wag/backlog/_completed/<epic>/PBI-PPP.md`.
 4. **Remove `.gitkeep` from the mirror** if this is the first closure into that mirror.
 5. **Epic drain check** (skip for special buckets — `epic-000-general` and any `200+` bucket like `epic-501-future`, which are ongoing and never drain). If the active epic folder now contains only `epic.md` (no remaining PBI files), ask the user: *"All PBIs in `epic-NNN-word` are complete. Mark the epic done?"*

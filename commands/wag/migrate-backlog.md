@@ -91,7 +91,7 @@ The user decides per PBI. Same logic applies to completed standalones in `_compl
 For each epic (legacy or new), build a clean per-epic sequence that reflects chronology — earlier work gets lower numbers. Closed PBIs happened before any still-open PBIs in the same epic, so they take the low slots. Concretely:
 
 1. **Number completed PBIs first**, in completion order (oldest closure → newest). The original legacy PBI number is usually a good chronological proxy; otherwise fall back to file mtime in `_completed/` or `git log --diff-filter=A` for the file.
-2. **Number active PBIs next**, in dependency order (LEARNING-005), taking the slots immediately after the last completed PBI.
+2. **Number active PBIs next**, in dependency order (same-epic deps reference lower local numbers), taking the slots immediately after the last completed PBI.
 
 This is the one and only window where completed PBIs can be renumbered. After migration the immutability rule reapplies, and new PBIs always take the next free slot — which guarantees that in a mixed epic the active PBIs sit above the closed ones, matching the order work actually happened.
 

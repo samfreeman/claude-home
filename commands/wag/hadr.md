@@ -35,7 +35,7 @@ Headless sibling of `/wag:adr`. Two faces of one design-decision system:
 
 ### Phase 2: Spawn the confined lead and wait
 Spawn one `hwag-architect` in **hadr mode**. Prompt must include:
-- The selected PBI path + canonical ID; Architecture.md + PRD.md + epic.md; applicable learnings.
+- The selected PBI path + canonical ID; Architecture.md (including its conformance manifest) + PRD.md + epic.md.
 - **Read the reasoning docs first:** `~/.claude/wag/reasoning/global.md` + `.wag/reasoning/local.md`.
 - Self-play the grill; **log every decision** via `hwag.log_decision` to `.wag/decisions/ADR-EEE.PPP.md` (confidence + blastRadius + source). Stop rule: low-confidence + high-blast-radius → `hwag.ask` (channel as given), loop for discussion; `[hwag:no-answer]` → `checkpoint` + `notify` + STOP.
 - Apply **G-004** (prefer up-front correctness over deferral when it shapes future work).
@@ -54,10 +54,10 @@ You are present — this is a normal interactive grill, **not** confined, run in
 1. **Locate the log.** Use the named file, else glob `.wag/decisions/*.md` and pick the most recent. Read it.
 2. **Triage.** Surface the decisions worth your attention **first**: `confidence: low`, `blastRadius: high`, or `disposition: escalated-sms`. Skim the rule-sourced, high-confidence ones.
 3. **Grill.** For each questionable call: was the pick right? Was the reasoning sound? Reverse-grill — you challenge, the agent defends or concedes.
-4. **Promote corrections.** For each correction, write it to the right reasoning doc (same judgment as snag→learning):
+4. **Promote corrections.** For each correction, route it by kind:
    - cross-project heuristic → `~/.claude/wag/reasoning/global.md` (next `G-NNN`).
    - this-project convention → `.wag/reasoning/local.md` (next `L-NNN`).
-   - a **checkable** standard (greppable) → it belongs as a **learning** (`~/.claude/wag/learnings/`), not a reasoning heuristic.
+   - a **checkable** standard (greppable) → **embed it mechanically** as a template authoring-rule or a command pre-flight check (the TRI substrate-fix path), not a reasoning heuristic.
    Cite provenance (the log + decision id).
 5. **Record** that the log was grilled (note at the top of the log file).
 

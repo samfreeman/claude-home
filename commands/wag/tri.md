@@ -81,14 +81,13 @@ Then tell the user: "Round closed. Next `/wag:adr` is clear."
 
 If open snags remain (user stopped mid-drain), say so plainly — the next WAG command will halt on them.
 
-## One-time migration: draining the legacy corpuses
+## One-time migration: draining the legacy `_resolved/` archive
 
-Pre-TRI wag accumulated two corpuses. They are **frozen** — nothing writes to them anymore. When the user wants, drain them in a TRI session:
+Pre-TRI wag kept a per-project resolved-snag archive. It is **frozen** — nothing writes to it anymore. When the user wants, drain it in a TRI session:
 
-- **`~/.claude/wag/learnings/LEARNING-*.md`** — for each: embed it mechanically (template rule or command check), fold it into the relevant project docs, or delete it as no longer worth its keep. Entries marked `pending` in "Embedded into" either embed now or die with the file.
 - **`.wag/snags/_resolved/`** (per project) — history only. Optionally `git rm -r` it; the resolutions live in git history and doc changelogs.
 
-When `learnings/` is empty, the corpus reads in `/wag:adr`, `/wag:dev`, and `/wag:rvw` naturally no-op and can be stripped.
+(The global `~/.claude/wag/learnings/` corpus was drained and removed on 2026-06-23 — its standards now live as template authoring-rules and command pre-flight checks, and the commands no longer read it.)
 
 ## Key rules
 

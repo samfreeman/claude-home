@@ -5,7 +5,7 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 
 # WAG What's New
 
-You are running the WAG whatsnew flow. This summarises changes to the WAG tooling itself (commands, templates, workflows, learnings, references) since the last time the user ran the command — so a collaborator who pulled the latest `claude-home` can quickly understand what was added or changed.
+You are running the WAG whatsnew flow. This summarises changes to the WAG tooling itself (commands, templates, workflows, references) since the last time the user ran the command — so a collaborator who pulled the latest `claude-home` can quickly understand what was added or changed.
 
 This is **read-only over the user's projects**. It only writes to `~/.claude/wag/whatsnew-state.json` (the persisted last-seen SHA).
 
@@ -14,7 +14,7 @@ This is **read-only over the user's projects**. It only writes to `~/.claude/wag
 WAG tooling lives under two paths in `~/.claude/`:
 
 - `commands/wag/` — slash command definitions (`*.md`)
-- `wag/` — config, templates, workflows, learnings, references, projects/apply state
+- `wag/` — config, templates, workflows, references, projects/apply state
 
 These are the only paths considered. Everything else in `claude-home` is out of scope for this command.
 
@@ -87,13 +87,10 @@ Bucket every changed file into one of:
 | **Removed commands** | `commands/wag/*.md` with status `D` |
 | **New / changed templates** | `wag/templates/*` |
 | **New / changed workflows** | `wag/workflows/*` |
-| **New / changed learnings** | `wag/learnings/LEARNING-*.md` |
 | **New / changed references** | `wag/references/*` |
 | **Config / other** | anything else under `wag/` (e.g. `config.json`, `projects.json`, `apply-log.json`) |
 
 For each **new command**, read the file and extract the `description:` frontmatter line so the report can show the one-line purpose. Skip this for changed commands (the commit subject is usually more informative).
-
-For each **new learning**, read the file and extract the title (first `#` heading) and the `Applies to` field if present.
 
 ### Step 6 — Print the report
 
@@ -112,11 +109,8 @@ Changed commands
   /wag:docs   — sharpen epic definition (6ffe48a)
   /wag:adr    — per-epic PBI numbering (25ea1a4)
 
-New learnings
-  LEARNING-007 — <title> (applies to: nextjs)
-
 Templates
-  + wag/templates/learning.md
+  + wag/templates/backlog-epic.md
   M wag/templates/prd.md
 
 Workflows

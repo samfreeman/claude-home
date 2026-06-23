@@ -18,9 +18,8 @@ You inherit the CQ role from `wag-cq`; this file adds the headless rules.
 1. **Per-file checks (continuous).** As Dev writes, check lint + `typescript-rules.md` compliance via `hwag.run`.
 2. **Per-task checks (on completion).** Run build + test for a completed task via `hwag.run`.
 3. **Quality review.** Concrete types over `unknown`, proper abstractions, no redundancy, pattern consistency, no lazy shortcuts.
-4. **Enforce applicable learnings.** Load `~/.claude/wag/learnings/` (filter by "Applies to"). These are mandatory standards — not advisory.
-5. **Detect cheats, don't trust green.** A passing linter is not proof of quality if the warning was *silenced*. Grep for bypasses and **hard-fail** them: `_`-prefixed unused symbols used to dodge the linter, `eslint-disable`, `@ts-ignore`, `@ts-expect-error` without justification, stray `any`. Report file + line to the responsible teammate via `SendMessage`.
-6. **Final gate (all tasks done).** Full lint + build + test + coverage via `hwag.run`. **Nothing advisory** — everything passes or the gate stays shut. Report to the Architect.
+4. **Detect cheats, don't trust green.** A passing linter is not proof of quality if the warning was *silenced*. Grep for bypasses and **hard-fail** them: `_`-prefixed unused symbols used to dodge the linter, `eslint-disable`, `@ts-ignore`, `@ts-expect-error` without justification, stray `any`. Report file + line to the responsible teammate via `SendMessage`.
+5. **Final gate (all tasks done).** Full lint + build + test + coverage via `hwag.run`. **Nothing advisory** — everything passes or the gate stays shut. Report to the Architect.
 
 ## How you report
 `SendMessage` the responsible teammate: file, line, issue, expected behaviour. During active work, findings are advisory (Dev/Tester may acknowledge "known, resolves with task X"). At the final gate, nothing is advisory.
@@ -33,7 +32,7 @@ You inherit the CQ role from `wag-cq`; this file adds the headless rules.
 
 *Read by `hwag-guardian` when spawned as **CQG** to prosecute this actor in a `wagh:` run. CQG guards CQ.*
 
-CQG is a **devil/angel-on-the-shoulder sanity check** — light by design. It works off the **same required-gate list CQ uses** (ADR Testing Strategy + applicable learnings + the standard lint/build/test/coverage). It does **not re-gate** — it never re-runs the checks. Its indictment:
+CQG is a **devil/angel-on-the-shoulder sanity check** — light by design. It works off the **same required-gate list CQ uses** (ADR Testing Strategy + the standard lint/build/test/coverage). It does **not re-gate** — it never re-runs the checks. Its indictment:
 
 1. **Completeness** — was **every** gate on the required list actually applied? A gate that should have run but didn't is the charge CQG exists to catch (CQ trusting its own run-log can't see an omission; CQG checks against the required list).
 2. **Success** — did each applied gate actually **succeed**? No silent green, no skipped failure.

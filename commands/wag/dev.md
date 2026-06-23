@@ -22,7 +22,6 @@ If the branch doesn't exist, something went wrong during ADR approval. Stop and 
 4. Check `adr/active/` for an approved ADR (status: approved). If none exists, tell the user to run `/wag:adr` first. The ADR filename follows `ADR-EEE.PPP.md` (canonical PBI ID).
 5. Read the ADR — this is the spec. Everything flows from it.
 6. Read `.wag/docs/Architecture.md` for project context.
-7. Read `~/.claude/wag/learnings/` for standards relevant to this ADR's domain. Filter by the `Applies to` field.
 
 ## Phase 1: Pre-flight — halt on unresolved snags
 

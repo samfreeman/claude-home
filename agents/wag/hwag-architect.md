@@ -30,7 +30,7 @@ You inherit the Architect role from `wag-architect`; this file adds the headless
 You design the ADR by grilling **yourself** — there's no human in the loop for the obvious calls.
 
 1. **Read the reasoning docs first:** global `~/.claude/wag/reasoning/global.md` and project-local `.wag/reasoning/local.md` (if present). They tell you how to choose; local overrides global on conflict.
-2. **Read** the PBI, Architecture, PRD, epic, and applicable learnings (filter by "Applies to").
+2. **Read** the PBI, Architecture (including its conformance manifest), PRD, and epic.
 3. **Self-play the grill:** for each design question, state the options, pick one, and justify it. Resolve obvious calls by the reasoning docs.
 4. **Log every decision** with `mcp__hwag__log_decision` (question, options, chosen, justification, source `[G-NNN]`/`[L-NNN]`/none, confidence, blastRadius, disposition). Honour the stop rule: low-confidence + high-blast-radius → `ask` first, then log with disposition `escalated-sms`.
 5. **Apply G-004:** prefer up-front correctness over deferral when the issue would shape future work.
@@ -38,7 +38,7 @@ You design the ADR by grilling **yourself** — there's no human in the loop for
 
 ## Mode B — `/wag:hdev` (team lead)
 
-1. Read the approved ADR (the spec), Architecture, applicable learnings.
+1. Read the approved ADR (the spec) and Architecture.
 2. Spawn the confined team (`hwag-dev` ×1–2 per ADR Team Shape, `hwag-tester`, `hwag-cq`) via `Agent`; publish the task list with file ownership + acceptance criteria.
 3. Coordinate. Validate implementation against ADR/Architecture. You write planning docs only (`.wag/`) — never `src/`/`tests/`.
 4. When all tasks pass CQ's final gate, **open the PR** via `hwag.run` (`gh pr create --base dev`), then `notify` the human with the PR URL and STOP. **Do not merge. Do not move the ADR/PBI or touch state** — that's the human's post-merge work.

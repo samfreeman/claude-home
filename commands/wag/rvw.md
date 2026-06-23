@@ -5,7 +5,7 @@ allowed-tools: Read, Write, Bash, Glob, Grep, Agent
 
 # WAG RVW — Senior Architect Review
 
-Bring in an independent senior architect for a fresh review of the active feature branch. They read the ADR, the diff, Architecture, applicable learnings, and the PR (if one exists), then return a structured verdict.
+Bring in an independent senior architect for a fresh review of the active feature branch. They read the ADR, the diff, Architecture, and the PR (if one exists), then return a structured verdict.
 
 The senior architect is deliberately **not** the in-team Architect from `/wag:dev`. The embedded Architect watched the code being written; this reviewer arrives cold. Both perspectives have value — `/wag:rvw` is the cold one.
 
@@ -57,8 +57,6 @@ This is the RVW step of the cycle: `ADR → [DEV → RVW]* → TRI`. (`/wag:revi
 
 5. Identify the PBI file from the ADR's `**PBI:**` link.
 
-6. Identify applicable learnings: glob `~/.claude/wag/learnings/*.md`, filter by `Applies to` matching this PBI's domain. Collect the matching paths.
-
 ## Phase 2: Spawn the senior architect
 
 Invoke the senior architect via the Agent tool. **Use a fresh subagent** — independence is the entire point. Don't summarise the diff for them; let them pull it.
@@ -72,8 +70,7 @@ Invoke as `Agent` with `subagent_type: "general-purpose"` and a prompt that brie
 - `.wag/docs/Architecture.md` path
 - `.wag/docs/PRD.md` path
 - The PBI path
-- The list of applicable learning paths
-- The five review dimensions (see below)
+- The review dimensions (see below)
 - The exact output format (see below)
 - Instructions to read the diff themselves via `git diff origin/dev...<branch>` and `gh pr view`/`gh pr diff` if a PR exists
 
@@ -81,13 +78,12 @@ Wait for the report.
 
 ### Review dimensions to brief into the prompt
 
-The reviewer evaluates on five axes. Each gets a per-axis verdict and specific findings with file:line cites:
+The reviewer evaluates on four axes. Each gets a per-axis verdict and specific findings with file:line cites:
 
 1. **ADR conformance** — does the code implement what the ADR specified? Are all PBI acceptance criteria demonstrably satisfied? Any ADR decisions silently dropped?
-2. **Architecture conformance** — does it respect patterns in `Architecture.md`? Tech stack, layering, module boundaries? Does the code **speak the ubiquitous language** — names (types, fields, columns, functions) match Architecture's `Ubiquitous language` section, one name per referent, with no divergent synonyms and no artificially-introduced bounded context? (See `~/.claude/wag/references/ubiquitous-language.md`.) A name that diverges from a project-owned term is a finding here; a wrong term in Architecture's section itself is a snag candidate.
-3. **Learning compliance** — for each applicable learning, is the code compliant?
-4. **Design and code quality** — coupling, abstractions, edge cases, error handling, test coverage proportional to risk.
-5. **Security** — injection, exposed secrets, auth/authz gaps, unsafe defaults.
+2. **Architecture conformance** — does it respect patterns in `Architecture.md`? Tech stack, layering, module boundaries? Does it satisfy Architecture's conformance manifest — including the validation-boundary policy (every external→typed value runs through `safeParse`) where a runtime schema library is in use? Does the code **speak the ubiquitous language** — names (types, fields, columns, functions) match Architecture's `Ubiquitous language` section, one name per referent, with no divergent synonyms and no artificially-introduced bounded context? (See `~/.claude/wag/references/ubiquitous-language.md`.) A name that diverges from a project-owned term is a finding here; a wrong term in Architecture's section itself is a snag candidate.
+3. **Design and code quality** — coupling, abstractions, edge cases, error handling, test coverage proportional to risk.
+4. **Security** — injection, exposed secrets, auth/authz gaps, unsafe defaults.
 
 ### Snag candidates
 
@@ -115,10 +111,6 @@ A snag is a defect in an upstream doc whose consequences have leaked downstream.
 ## Architecture conformance
 **Axis verdict:** pass | concerns | fail
 [As above.]
-
-## Learning compliance
-**Axis verdict:** pass | concerns | fail | n/a
-[As above. If no learnings apply, write "No applicable learnings."]
 
 ## Design and code quality
 **Axis verdict:** pass | concerns | fail

@@ -127,10 +127,9 @@ Read only what's needed:
 2. `.wag/docs/Architecture.md`.
 3. `.wag/docs/PRD.md`.
 4. `.wag/backlog/<active_epic>/epic.md`.
-5. `~/.claude/wag/learnings/` — filter by the `Applies to` field; surface learnings that match this PBI's domain.
-6. `.wag/backlog/epic-501-future/` (if it exists) — the future bucket. Read its PBIs and filter to those whose domain touches this PBI's area (same instinct as learnings). Surface them as **forward-looking design constraints**: envisioned-but-deferred outcomes that should shape today's design even though they aren't being built now (e.g. a future PBI "publish the schema as a versioned package" means today's schema should be designed decoupled and version-clean). Don't design the future work — let it inform the present decision.
+5. `.wag/backlog/epic-501-future/` (if it exists) — the future bucket. Read its PBIs and filter to those whose domain touches this PBI's area. Surface them as **forward-looking design constraints**: envisioned-but-deferred outcomes that should shape today's design even though they aren't being built now (e.g. a future PBI "publish the schema as a versioned package" means today's schema should be designed decoupled and version-clean). Don't design the future work — let it inform the present decision.
 
-Do not pre-load the full backlog or every learning. Phase 1 has already verified template conformance; trust it.
+Do not pre-load the full backlog. Phase 1 has already verified template conformance; trust it.
 
 ### Grill session
 
@@ -138,7 +137,7 @@ Design the solution with the user. Iterative:
 
 - Propose approaches, discuss trade-offs
 - Challenge assumptions — yours and theirs
-- Reference Architecture.md and applicable learnings
+- Reference Architecture.md and the standards embedded in the templates (PBI authoring rules, Architecture's conformance manifest)
 - Push for specificity — vague designs produce vague implementations
 - **Design in the ubiquitous language** — decisions, interfaces, and code examples use the terms in Architecture's `Ubiquitous language` section, one name per referent. A genuinely new referent extends that section (via `/wag:docs`); a *synonym* for something already named is a snag candidate, not a new term. Don't carve a bounded context without a forcing function. See `~/.claude/wag/references/ubiquitous-language.md`.
 - Resolve one decision at a time — surface the list of open decisions once, then work through them
@@ -192,9 +191,6 @@ Write the ADR to `.wag/adr/active/ADR-EEE.PPP.md` where `EEE.PPP` is the canonic
 
 ### Decision 2: [title]
 ...
-
-## Applicable Learnings
-[List learnings from ~/.claude/wag/learnings/ that apply, and how the design complies]
 
 ## Implementation Plan
 
@@ -250,7 +246,7 @@ git push -u origin feature/PBI-EEE.PPP
 3. **Templates are authoritative.** ADR follows the current templates for every doc it reads or modifies. Deviation requires a snag.
 4. **User approves every phase.** Don't auto-advance.
 5. **ADR quality is non-negotiable.** If it's not specific enough for a developer to implement without questions, it's not done.
-6. **Learnings are standards.** The design must comply with applicable learnings or explicitly justify why not.
+6. **Embedded standards are binding.** The design must comply with the standards embedded in the templates — PBI authoring rules, Architecture's conformance manifest (including the validation-boundary and platform-tier rules) — or explicitly justify the deviation.
 7. **Feature branches.** Work happens on `feature/PBI-EEE.PPP`, not directly on dev.
 8. **No implementation.** `/wag:adr` designs; `/wag:dev` implements.
 9. **Pick across all epics.** Every open, unblocked PBI is selectable in Phase 1 — the previous `active_epic` in `state.json` is a tiebreaker for the default suggestion, not a filter on what's offered. `active_epic` is the *result* of picking a PBI, not a precondition.

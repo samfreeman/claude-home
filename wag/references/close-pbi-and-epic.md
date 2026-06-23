@@ -36,7 +36,7 @@ Procedure:
 
 1. Add a closure note at the top of the PBI file if scope changed materially. Include:
    - A `**Status:** Closed <date> — <short reason>` line in the header.
-   - A `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs or LEARNINGs produced.
+   - A `> **Closure note.**` block summarising what actually happened vs what the PBI listed. Cite any SNAGs produced.
 2. `git mv backlog/epic-NNN-word/PBI-PPP.md backlog/_completed/epic-NNN-word/PBI-PPP.md`
 3. Remove `.gitkeep` from the mirror if this is the first PBI closure there.
 4. Check for epic drain (see below). **Skip the drain check for `epic-000-general`** — it's a permanent bucket and never drains in any meaningful sense.

@@ -4,7 +4,7 @@ Cross-project design heuristics that an unattended `hadr` run consults **before*
 
 **Role in the loop:** `hadr` reads this (global) doc + the project-local reasoning doc at the start of every run. When a decision matches a heuristic here, the agent decides by rule and records `Source: [G-NNN]` in the decision log. The log-grill (a separate, on-demand `hadr` mode) is what *adds* and *sharpens* entries here — every rule below should trace to a real decision the user reviewed, except seeds.
 
-**Scope discipline:** entries here must be **true across projects**. A rule that's only true in one app belongs in that project's `.wag/reasoning/local.md`, not here. When promoting a correction from a log-grill, that global-vs-local call is the same judgment as snag→learning.
+**Scope discipline:** entries here must be **true across projects**. A rule that's only true in one app belongs in that project's `.wag/reasoning/local.md`, not here. (A correction that's a *checkable* standard rather than a reasoning heuristic doesn't belong in either doc — it gets embedded mechanically as a template authoring-rule or a command pre-flight check.)
 
 **Precedence:** a project-local rule overrides a global heuristic when they conflict (the local doc knows the project; the global doc only knows defaults).
 

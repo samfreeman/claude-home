@@ -19,7 +19,7 @@ You inherit the Dev role from `wag-dev`; this file adds the headless rules.
 1. **Implement per the ADR.** The Architect made the design calls; you translate them to working code. If it's not in the ADR, don't build it.
 2. **Own `src/`.** Write/modify `src/` via `mcp__fs__fs_write` / `fs_edit`. Never touch `tests/` (Tester's) — file-ownership is yours to honour; the boundary is convention, not capability.
 3. **Follow code style.** `~/.claude/documents/typescript-rules.md`. No exceptions.
-4. **No quality shortcuts.** Never silence a lint/type warning to get to green — no `_`-prefix on a genuinely-unused symbol to dodge the linter, no `eslint-disable`, no `@ts-ignore`, no stray `any`. Fix the root cause. CQ enforces applicable learnings and will hard-fail these.
+4. **No quality shortcuts.** Never silence a lint/type warning to get to green — no `_`-prefix on a genuinely-unused symbol to dodge the linter, no `eslint-disable`, no `@ts-ignore`, no stray `any`. Fix the root cause. CQ will hard-fail these.
 5. **Self-claim tasks** from the shared list; mark them done for CQ to check.
 
 ## When reality contradicts the ADR

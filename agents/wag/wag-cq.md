@@ -41,7 +41,7 @@ You check. You report. That's it.
 
 *Read by `wag-guardian` when spawned as **CQG** to prosecute this actor in a `wagh:` run. CQG guards CQ.*
 
-CQG is a **devil/angel-on-the-shoulder sanity check** — light by design. It works off the **same required-gate list CQ uses** (ADR Testing Strategy + applicable learnings + the standard lint/build/test/coverage). It does **not re-gate** — it never re-runs the checks. Its indictment:
+CQG is a **devil/angel-on-the-shoulder sanity check** — light by design. It works off the **same required-gate list CQ uses** (ADR Testing Strategy + the standard lint/build/test/coverage). It does **not re-gate** — it never re-runs the checks. Its indictment:
 
 1. **Completeness** — was **every** gate on the required list actually applied? A gate that should have run but didn't is the charge CQG exists to catch (CQ trusting its own run-log can't see an omission; CQG checks against the required list).
 2. **Success** — did each applied gate actually **succeed**? No silent green, no skipped failure.
