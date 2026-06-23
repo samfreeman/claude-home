@@ -28,6 +28,7 @@ This is a conversational command — a working session with the user, not a one-
 | `.wag/docs/RESEARCH.md` | Add research findings that informed architecture changes (optional) |
 | `.wag/backlog/` | Author epics (`epic-NNN-word/epic.md`) and PBIs (`epic-NNN-word/PBI-PPP.md`) |
 | `.wag/stash/` | Triage stashed thoughts — promote to PBI, fold into PRD/Architecture, or discard |
+| `.wag/docs/PENDING.md` | Apply TRI's deferred local-docs fixes — already-decided, picked up at pre-flight |
 
 **Not covered by this command:**
 - Picking a PBI to work on → `/wag:adr`
@@ -65,6 +66,16 @@ If `.wag/adr/active/` contains an ADR, there's work in flight. Surface this:
 > "PBI EEE.PPP has an active ADR. If the docs change meaningfully, the ADR may need revisiting or a snag should be captured."
 
 Don't block on it — the user may know the ADR is unaffected. Just make it visible.
+
+### Apply pending docs fixes
+
+Read `.wag/docs/PENDING.md` if it exists. It holds **already-decided** local-docs reconciliations that `/wag:tri` deferred here — decided fixes, not triage items. For each unchecked entry:
+
+1. Surface it: target doc + section, the change, its source.
+2. Apply it as a normal Phase 2 edit — discuss only if the target moved since the breadcrumb was written; then bump the doc's version and append a one-line changelog pointer.
+3. Delete the entry's line. When the file is empty, `git rm .wag/docs/PENDING.md`.
+
+These are pre-decided — apply them, don't re-litigate the disposition. If applying one reveals it's wrong or stale, that's a new snag (or a dismissal with a stated reason), never a silent drop. This runs before "Determine focus" so the docs are reconciled before new authoring begins.
 
 ### Surface the stash
 

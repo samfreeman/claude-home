@@ -13,9 +13,9 @@ ADR → [DEV → RVW]* → TRI
 
 TRI is where issues get **resolved, not catalogued**. Whatever the round surfaced — snags, review snag-candidates, stashed thoughts — gets tackled head-on here, and each resolution lands where it belongs:
 
-- **Local** — this project: `.wag/docs/`, the backlog, the project's code.
-- **Global** — the WAG system itself: `~/.claude/wag/templates/`, `~/.claude/commands/wag/`, references and workflows. A global fix is **mechanically embedded** — a template authoring-rule or a command pre-flight check — never prose someone must remember to read.
-- **Both** — the project doc gets fixed *and* the rule that would have prevented the defect embeds upstream.
+- **Local** — this project: `.wag/docs/`, the backlog, the project's code. TRI doesn't *own* these planning surfaces — `/wag:docs` does. So a **blocking snag's** source fix lands in-session (it can't wait — it's halting all work), but a **non-blocking** cycle-end reconciliation (a review candidate that's a doc fix, a stash fold, a naming drift) is **breadcrumbed** to `.wag/docs/PENDING.md` for the next `/wag:docs` to apply. TRI *decides* the fix; DOCS *makes* the edit. The disposition is discovered here; the application happens where that surface lives.
+- **Global** — the WAG system itself: `~/.claude/wag/templates/`, `~/.claude/commands/wag/`, references and workflows. **Only TRI can write the substrate** — that is its irreducible capability — so a global fix is **mechanically embedded here, now**: a template authoring-rule or a command pre-flight check, never prose someone must remember to read, never deferred.
+- **Both** — the global rule embeds in the substrate now *and* the local doc reconciliation breadcrumbs to the next `/wag:docs`.
 
 **There are no corpuses.** No learning files, no resolved-snag archive. The resolution *is* the doc change, template rule, or check. The record is the doc's changelog line plus git history. When a snag closes, its file is deleted.
 
@@ -48,8 +48,14 @@ On close, **delete the snag file** (`git rm .wag/snags/SNAG-NNN.md`). The protoc
 
 Read the latest review report (`.wag/reviews/REVIEW-EEE.PPP-*.md`, highest number) if one exists for the round. For each entry in its `Snag candidates` section:
 
-1. Surface it: target doc + section, what's wrong, why it matters.
-2. With the user: **capture and resolve it now** (it becomes a snag, loop through Phase 1), or **dismiss it** (state the reason; it leaves no artifact).
+1. Surface it: target doc + section, what's wrong, why it matters. **Check it's still live** — a review can lag the round (a docs pass may already have fixed what it flags); if the current doc no longer has the defect, dismiss it as already-resolved.
+2. With the user, pick a disposition:
+   - **Blocking** (invalidates an active ADR or an approved PBI's acceptance criteria) → capture a snag, resolve it now via Phase 1.
+   - **Non-blocking local-docs fix** → **breadcrumb it** to `.wag/docs/PENDING.md`; the next `/wag:docs` applies it. Don't edit the doc here.
+   - **Needs a global rule** → embed the template/command fix in the substrate now.
+   - **Dismiss** → state the reason; it leaves no artifact.
+
+**The breadcrumb (`.wag/docs/PENDING.md`)** is TRI's hand-off channel to DOCS for *already-decided* local-docs reconciliations — distinct from the stash (a triage queue DOCS re-litigates). Append one checklist line per deferred fix (`- [ ] **<doc> § <section>** — <change>. _(Source, date)_`), creating the file if absent. DOCS applies and clears it. Blocking snags are never breadcrumbed.
 
 ## Phase 3: Triage the stash
 
@@ -87,7 +93,7 @@ When `learnings/` is empty, the corpus reads in `/wag:adr`, `/wag:dev`, and `/wa
 ## Key rules
 
 1. **Resolution, not cataloguing.** An issue leaves TRI resolved into a living artifact or deliberately dismissed — never parked in a corpus.
-2. **Local, global, or both.** Every resolution gets the disposition question. Global means mechanical embedding, done in-session.
+2. **Local, global, or both.** Every resolution gets the disposition question. **Global** embeds in the substrate in-session — only TRI can write the machinery, so it never defers. **Local** planning-surface work isn't done in TRI: a non-blocking reconciliation breadcrumbs to `.wag/docs/PENDING.md` for the next `/wag:docs` to apply; only a blocking snag's source fix lands in-session (a blocker can't wait).
 3. **No new corpus entries, ever.** No learning files, no `_resolved/` archive. Closed snag files are deleted; git history is the archive.
 4. **Snags block; TRI unblocks.** Any open snag halts all dev work and routes here. Mid-cycle TRI is snags-only; cycle-end TRI is the full drain.
 5. **User + Claude together.** Claude proposes, user approves. No unilateral resolutions, no unilateral dismissals.
