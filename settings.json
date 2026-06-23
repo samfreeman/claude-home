@@ -36,7 +36,14 @@
       "mcp__fs__fs_read",
       "Bash(echo *)",
       "Bash(ps *)",
-      "Bash(pgrep *)"
+      "Bash(pgrep *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_evaluate",
+      "mcp__claude-inbox__inbox_list",
+      "mcp__claude-inbox__inbox_read"
     ],
     "deny": [
       "Bash(git revert*)",
