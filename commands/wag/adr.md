@@ -58,6 +58,12 @@ Proceed only on explicit user direction.
 
 If the project's backlog still uses the legacy scheme (global PBI numbering, standalone PBIs at the backlog root, descriptive slugs in filenames), template drift will flag it. Resolution is `/wag:migrate-backlog` — run that first, then return to `/wag:adr`.
 
+### Verify platform-tier assumptions
+
+Before designing, scan the selected PBI's deliverables and acceptance criteria for platform-feature verbs and nouns — **protect**, **enforce**, **require**, **gate**, **schedule**, **cron**, **run on**, **deploy to**, **limit**, **reserve**, **domain**, **seat**, **member**, **edge function**, **preview**, **branch**, **connection pool**, **build minute**, **function invocation** (GitHub, Vercel, Turso, Neon, Supabase, Cloudflare, npm, etc.).
+
+For each hit: is the plan/tier named (PBI, epic, or Architecture), and is the feature documented as available on that tier? If either answer is "no" or "unclear", the deliverable may be unachievable as written (e.g. GitHub branch protection is Pro-only for private repos; Vercel Hobby cron is once/day). The defect is upstream in the PBI's assumption, so **capture a SNAG against the PBI** (not the ADR) and route to TRI before entering Phase 2. The resolution amends the PBI to the achievable form on the actual tier; the ADR then documents the substituted mechanism with explicit "do not restore without re-verifying tier" rationale.
+
 ### Check for active ADR
 
 If `adr/active/` already contains an ADR, previous work is in progress. Present it and ask whether the user is resuming or starting fresh.

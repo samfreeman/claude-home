@@ -54,7 +54,7 @@ Conduct each op as a conversation. Confirm before any write. Show diffs before a
    Zero-pad to three digits.
 3. **Collision guard.** Before writing, check `test -f .wag/backlog/_completed/<epic>/PBI-PPP.md`. If the file exists, halt — closed PBI numbers are immutable. The compute step above should prevent this, but the guard is a backstop in case state is inconsistent.
 4. **Gather fields.** Walk the user through title, priority (P1/P2/P3), dependencies (other PBIs by full `PBI EEE.PPP` form, or "None"), description, deliverables, acceptance criteria, testing requirements, technical notes. Reference the PBI template for the exact shape.
-5. **Verify dependency direction (within-epic).** Same-epic deps must reference lower local numbers (LEARNING-005). Cross-epic deps are unconstrained.
+5. **Verify dependency direction (within-epic).** Same-epic deps must reference lower local numbers. Cross-epic deps are unconstrained.
 6. **Verify dependencies resolve.** Every `PBI EEE.PPP` referenced must exist somewhere — active or `_completed/`. If a referenced PBI doesn't exist, halt and ask the user to either fix the reference or stop.
 7. **Write the file** to `.wag/backlog/<epic>/PBI-PPP.md` using the Write tool against the template. Header: `# PBI EEE.PPP: [title]` (full canonical ID).
 8. **Stage and commit.** Show the diff. On user confirmation, `git add` the file and commit with message `backlog: create PBI EEE.PPP — [title]`.
@@ -128,7 +128,7 @@ Read-only validation of the entire backlog. Run all checks and report findings. 
 Checks:
 
 1. **PBI number collisions across active and `_completed/`.** For each epic, intersect the set of local PBI numbers in the active folder with the set in `_completed/<epic>/`. Any non-empty intersection is a defect. *(This is the dragonpay-api `PBI-015` failure mode — closed PBI numbers must never be reused.)*
-2. **Dependency direction (within-epic).** For every open PBI, every same-epic dependency must reference a strictly lower local number. (LEARNING-005)
+2. **Dependency direction (within-epic).** For every open PBI, every same-epic dependency must reference a strictly lower local number.
 3. **Cross-epic dependencies resolve.** Every `PBI EEE.PPP` referenced as a dependency must exist somewhere — under an active epic folder or in `_completed/`.
 4. **Epic mirror exists.** Every `epic-NNN-word/` folder under `.wag/backlog/` must have a matching `_completed/epic-NNN-word/` folder (with at least a `.gitkeep` if empty).
 5. **Filename shape.** PBI files must be `PBI-PPP.md` exactly — no descriptive-slug suffixes (`PBI-PPP-something.md`). Legacy-scheme drift; suggest `/wag:migrate-backlog`.

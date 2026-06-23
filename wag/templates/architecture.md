@@ -9,6 +9,7 @@ Checked at authoring (/wag:init, /wag:docs) and at /wag:adr pre-flight. Never co
 4. Key decisions — the load-bearing choices, alternatives considered, rationale
 5. Open questions / risks
 6. Ubiquitous language — the project's core domain terms, one name per referent (the glossary every layer and the code follow). See `~/.claude/wag/references/ubiquitous-language.md`.
+7. Validation policy (only if the project adopts a runtime schema library — Zod, effect.Schema, valibot, io-ts, yup) — stated as a **trust boundary, not a venue list**: every value that arrives from outside the process and is given a typed identity runs through the schema's `safeParse` (mount boundary, form inputs, service responses, decoded JWT/SAML/JWS payloads, parsed webhook bodies, deserialised cache reads, IPC messages). Enumerating three or four venues and trusting everything else is the classic leak — `signed != shape-valid`. Projects with no runtime schema library answer "n/a".
 
 The headings below are a suggested starting shape for new projects — NOT a conformance requirement.
 -->
