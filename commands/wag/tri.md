@@ -17,7 +17,7 @@ TRI is where issues get **resolved, not catalogued**. Whatever the round surface
 - **Global** — the WAG system itself: `~/.claude/wag/templates/`, `~/.claude/commands/wag/`, references and workflows. **Only TRI can write the substrate** — that is its irreducible capability — so a global fix is **mechanically embedded here, now**: a template authoring-rule or a command pre-flight check, never prose someone must remember to read, never deferred.
 - **Both** — the global rule embeds in the substrate now *and* the local doc reconciliation breadcrumbs to the next `/wag:docs`.
 
-**There are no corpuses.** No learning files, no resolved-snag archive. The resolution *is* the doc change, template rule, or check. The record is the doc's changelog line plus git history. When a snag closes, its file is deleted.
+The resolution *is* the doc change, template rule, or check. The record is the doc's changelog line plus git history. When a snag closes, its file is deleted. Nothing accumulates.
 
 ## Two entry modes
 
@@ -38,7 +38,7 @@ Glob `.wag/snags/SNAG-*.md`. For each, drive the resolution protocol at `~/.clau
 1. **Resolve** — fix the defect at its source. No resolution, no progression.
 2. **Propagate to docs** — scan-read-edit across `.wag/docs/`.
 3. **Propagate to backlog** — scan-read-edit across `.wag/backlog/`.
-4. **Disposition** — where does this resolution belong: **local, global, or both?** If global (or both), embed the rule mechanically into the wag template or command *now* — there is no "pending" state and no learning file to defer to.
+4. **Disposition** — where does this resolution belong: **local, global, or both?** If global (or both), embed the rule mechanically into the wag template or command *now* — there is no "pending" state to defer to.
 
 On close, **delete the snag file** (`git rm .wag/snags/SNAG-NNN.md`). The protocol file has the full step detail.
 
@@ -87,13 +87,10 @@ Pre-TRI wag kept a per-project resolved-snag archive. It is **frozen** — nothi
 
 - **`.wag/snags/_resolved/`** (per project) — history only. Optionally `git rm -r` it; the resolutions live in git history and doc changelogs.
 
-(The global `~/.claude/wag/learnings/` corpus was drained and removed on 2026-06-23 — its standards now live as template authoring-rules and command pre-flight checks, and the commands no longer read it.)
-
 ## Key rules
 
 1. **Resolution, not cataloguing.** An issue leaves TRI resolved into a living artifact or deliberately dismissed — never parked in a corpus.
 2. **Local, global, or both.** Every resolution gets the disposition question. **Global** embeds in the substrate in-session — only TRI can write the machinery, so it never defers. **Local** planning-surface work isn't done in TRI: a non-blocking reconciliation breadcrumbs to `.wag/docs/PENDING.md` for the next `/wag:docs` to apply; only a blocking snag's source fix lands in-session (a blocker can't wait).
-3. **No new corpus entries, ever.** No learning files, no `_resolved/` archive. Closed snag files are deleted; git history is the archive.
-4. **Snags block; TRI unblocks.** Any open snag halts all dev work and routes here. Mid-cycle TRI is snags-only; cycle-end TRI is the full drain.
-5. **User + Claude together.** Claude proposes, user approves. No unilateral resolutions, no unilateral dismissals.
-6. **The doc changelog points, it doesn't narrate.** One line per resolution, pointing at the commit. Stop writing the same change four ways.
+3. **Snags block; TRI unblocks.** Any open snag halts all dev work and routes here. Mid-cycle TRI is snags-only; cycle-end TRI is the full drain.
+4. **User + Claude together.** Claude proposes, user approves. No unilateral resolutions, no unilateral dismissals.
+5. **The doc changelog points, it doesn't narrate.** One line per resolution, pointing at the commit. Stop writing the same change four ways.
