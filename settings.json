@@ -43,7 +43,9 @@
       "mcp__playwright__browser_click",
       "mcp__playwright__browser_evaluate",
       "mcp__claude-inbox__inbox_list",
-      "mcp__claude-inbox__inbox_read"
+      "mcp__claude-inbox__inbox_read",
+      "mcp__hwag__notify",
+      "mcp__hwag__ask"
     ],
     "deny": [
       "Bash(git revert*)",
