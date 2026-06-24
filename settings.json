@@ -45,7 +45,9 @@
       "mcp__claude-inbox__inbox_list",
       "mcp__claude-inbox__inbox_read",
       "mcp__hwag__notify",
-      "mcp__hwag__ask"
+      "mcp__hwag__ask",
+      "Bash(git remote *)",
+      "Bash(grep -rinE \"registerAgent|fluent|tools/list_changed|list_changed|hateoas|held scope|effects nothing|indivisible|dynamic.{0,15}advertis\" .wag/backlog/epic-002-commands/)"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -79,6 +81,18 @@
     "fs",
     "hwag"
   ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /home/samfr/.claude/hooks/kwiki-catalog.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "vercel-plugin@vercel-vercel-plugin": true
   },
