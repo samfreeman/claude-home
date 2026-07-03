@@ -47,7 +47,15 @@
       "mcp__hwag__notify",
       "mcp__hwag__ask",
       "Bash(git remote *)",
-      "Bash(grep -rinE \"registerAgent|fluent|tools/list_changed|list_changed|hateoas|held scope|effects nothing|indivisible|dynamic.{0,15}advertis\" .wag/backlog/epic-002-commands/)"
+      "Bash(grep -rinE \"registerAgent|fluent|tools/list_changed|list_changed|hateoas|held scope|effects nothing|indivisible|dynamic.{0,15}advertis\" .wag/backlog/epic-002-commands/)",
+      "Bash(node -e \"console.log\\(require\\('/home/samfr/source/wag3/node_modules/.modules.yaml'\\) ? 'x':'x'\\)\")",
+      "Bash(pnpm --version)",
+      "Bash(node -e \"console.log\\(require\\('/home/samfr/.claude/mcp-servers/fs-mcp/node_modules/@modelcontextprotocol/sdk/package.json'\\).version\\)\")",
+      "mcp__wag__fs_read",
+      "Skill(wag:stash)",
+      "Skill(wag:stash:*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)"
     ],
     "deny": [
       "Bash(git revert*)",
@@ -71,6 +79,7 @@
       "/mnt/c/Users/samfr/Dropbox/Claude/kwiki"
     ]
   },
+  "model": "claude-fable-5[1m]",
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",
