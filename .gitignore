@@ -72,6 +72,9 @@ mcp-servers/kwiki
 # Machine-local settings
 settings.local.json
 
+# proj:* active-project state (machine-local)
+proj/current
+
 # Lathe (WIP) runtime state
 .last-cleanup
 hooks/lathe-test/events.jsonl
