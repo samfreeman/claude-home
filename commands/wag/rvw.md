@@ -187,16 +187,35 @@ The review is an artifact of the PBI's lifecycle, same as the ADR. It belongs on
 > - Report: `.wag/reviews/REVIEW-EEE.PPP-NNN.md`
 > - PR: <URL> (or 'no PR')
 >
-> [If REQUEST_CHANGES] Required actions are in the report. Address them on `feature/PBI-EEE.PPP`, then re-run `/wag:rvw` for a follow-up.
+> [If REQUEST_CHANGES] Required actions are in the report. Entering the grill to converge on them before anything moves.
 > [If APPROVE] Implementation looks ready to merge. Tell `/wag:dev` 'merge' when you're ready."
+
+## Phase 8: Grill on REQUEST_CHANGES
+
+If the verdict is `REQUEST_CHANGES`, invoke the `grill-me` skill with the review findings as the subject. The reviewer's word is not final — findings are claims to interrogate, and convergence with the user decides what actually happens.
+
+1. Enter the grill over the report: each required action and each `concerns`/`fail` axis finding is a claim either side can challenge. One question at a time. The user decides when convergence is reached.
+2. Converge each required action to exactly one disposition:
+   - **Fix** — agreed; it goes on the branch.
+   - **Reject** — the finding doesn't hold; record the basis.
+   - **Snag** — it traces upstream; capture per Phase 5 routes.
+3. After convergence, append a `## Grill dispositions` section to the review file (never alter the reviewer's own text), listing each required action with its disposition and one-line basis. Commit it on the feature branch (`review: PBI EEE.PPP — dispositions`).
+4. If a PR exists, post the dispositions as a follow-up comment, tagged:
+
+   ```
+   <!-- /wag:rvw — grill dispositions, converged with the user -->
+   ```
+
+5. Agreed fixes are handed to `/wag:dev` to implement on `feature/PBI-EEE.PPP`, then `/wag:rvw` re-runs for a follow-up review. RVW itself never touches the code — not one line, grill or no grill.
 
 ## Key rules
 
 1. **Independence is the point.** The reviewer reads the source artifacts and forms their own view. Never hand them a summary the in-team Architect wrote.
-2. **Read-only review.** The reviewer does not write to `.wag/`, `src/`, or `tests/`. The command captures the report; the reviewer just produces it.
+2. **RVW CANNOT MODIFY CODE.** Not the reviewer, not the command, not the grill — no phase of `/wag:rvw` writes to `src/`, `tests/`, or any product code, ever. The only files RVW may write are review artifacts in `.wag/reviews/` (the report, and grill dispositions appended to it). Fixes — even trivial ones agreed in the grill — are `/wag:dev`'s job. The reviewer additionally writes nothing at all; the command captures the report it produces.
 3. **Snag candidates are not snags.** The reviewer flags; the command and user decide whether a candidate becomes a snag — immediately if it blocks, otherwise at the cycle-end `/wag:tri` drain.
 4. **Each review is preserved.** Reviews are numbered (`-001`, `-002`, …) per PBI — iteration history matters for the audit trail. Never overwrite.
 5. **Verdict is structural, not advisory.** `APPROVE` = ready to merge as-is. `REQUEST_CHANGES` = do not merge until Required actions are addressed. User can override.
 6. **The PR comment matches the report.** Don't paraphrase the verdict in the PR comment and write something different to the file. What's on disk is what was posted.
 7. **`--comment` always.** GitHub blocks self-PR approvals and change-requests. The verdict lives in the report header.
 8. **One feature branch can be reviewed many times.** Each iteration adds a new numbered report.
+9. **REQUEST_CHANGES enters the grill.** Findings are claims, not orders — no fix work starts until the user has converged on a disposition (fix / reject / snag) for every required action. The reviewer's report stays untouched; dispositions append below it.
