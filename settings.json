@@ -124,7 +124,27 @@
       "mcp__fs__fs_grep",
       "mcp__fs__fs_list",
       "mcp__claude-inbox__inbox_send",
-      "Bash(node -e \"const s=require\\('/home/samfr/.claude/settings.json'\\); console.log\\(s.permissions.allow.length\\)\")"
+      "Bash(node -e \"const s=require\\('/home/samfr/.claude/settings.json'\\); console.log\\(s.permissions.allow.length\\)\")",
+      "mcp__claude_ai_Dropbox__list_folder",
+      "mcp__claude_ai_Dropbox__create_file",
+      "mcp__claude_ai_Dropbox__delete",
+      "mcp__claude_ai_Dropbox__check_job_status",
+      "mcp__claude_ai_Dropbox__move",
+      "mcp__claude_ai_Gmail__search_threads",
+      "mcp__claude_ai_Gmail__get_thread",
+      "Bash(ls -d /mnt/*/Users/*/Dropbox/Claude/V*RSANN/attachments /mnt/*/Dropbox/Claude/V*RSANN/attachments /mnt/*/Users/*/*Dropbox*/Claude/V*RSANN/attachments 2>/dev/null)",
+      "Read(//mnt/**)",
+      "Bash(python3 -)",
+      "Bash(git -C /home/samf/.claude push origin dev)",
+      "Bash(git -C /home/samf/.claude status -sb)",
+      "Bash(getent hosts *)",
+      "Bash(git --version)",
+      "Bash(git -C /home/samf/.claude config --get-all credential.helper)",
+      "Bash(git config *)",
+      "Bash(git fetch *)",
+      "Bash(git branch *)",
+      "Bash(git -C /home/samf/.claude status --short)",
+      "Bash(git -C /home/samf/.claude add .gitignore settings.json)"
     ],
     "deny": [
       "Bash(find*)",
@@ -139,7 +159,7 @@
       "Bash(git commit*)",
       "Bash(git -C * commit*)"
     ],
-    "defaultMode": "default",
+    "defaultMode": "auto",
     "additionalDirectories": [
       "/home/samfr/.claude",
       "/home/samfr/source/cs-bounce/.wag/adr/active",
@@ -148,7 +168,8 @@
       "/tmp",
       "/home/samfr/source/chatr/.wag/adr",
       "/mnt/c/Users/samfr/Dropbox/Claude/kwiki",
-      "/home/samfr/source/wag3/.wag/reviews"
+      "/home/samfr/source/wag3/.wag/reviews",
+      "/mnt/d/Dropbox/Claude/VÖRSANN/attachments"
     ]
   },
   "model": "claude-fable-5[1m]",
