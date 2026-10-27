@@ -144,7 +144,26 @@
       "Bash(git fetch *)",
       "Bash(git branch *)",
       "Bash(git -C /home/samf/.claude status --short)",
-      "Bash(git -C /home/samf/.claude add .gitignore settings.json)"
+      "Bash(git -C /home/samf/.claude add .gitignore settings.json)",
+      "mcp__fs__fs_tree",
+      "mcp__fs__fs_read_many",
+      "Bash(gh auth *)",
+      "Bash(vercel whoami *)",
+      "Bash(git -C /home/samfr/source/claude-mcps rev-parse --show-toplevel --abbrev-ref HEAD)",
+      "Bash(git -C /home/samfr/source/claude-mcps add package.json package-lock.json tsconfig.json .gitignore README.md app lib)",
+      "Bash(ls /mnt/c/Users/samfr/Dropbox)",
+      "Read(//mnt/c/Users/samfr/Dropbox/**)",
+      "Skill(wag:init)",
+      "Skill(wag:init:*)",
+      "Bash(git -C /home/samfr/source/vorsann config user.email)",
+      "Bash(git -C /home/samfr/source/vorsann remote -v)",
+      "Bash(git -C /home/samfr/source/vorsann config user.name)",
+      "Bash(ls ~/.ssh)",
+      "Read(//home/samfr/.ssh/**)",
+      "Bash(vercel teams *)",
+      "Bash(vercel project *)",
+      "Bash(vercel logout *)",
+      "Bash(vercel ls *)"
     ],
     "deny": [
       "Bash(find*)",
@@ -172,7 +191,7 @@
       "/mnt/d/Dropbox/Claude/VÖRSANN/attachments"
     ]
   },
-  "model": "claude-fable-5[1m]",
+  "model": "opus",
   "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "playwright",
@@ -206,5 +225,6 @@
       }
     }
   },
-  "theme": "dark-ansi"
+  "theme": "dark-ansi",
+  "agentPushNotifEnabled": true
 }

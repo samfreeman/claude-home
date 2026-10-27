@@ -19,6 +19,7 @@ skills/synced/
 stats-cache.json
 mcp-needs-auth-cache.json
 tasks/
+state/
 
 # Vercel plugin state
 vercel-plugin-device-id

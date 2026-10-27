@@ -18,5 +18,15 @@
     "name": "gigger",
     "path": "/home/samfr/source/gigger",
     "type": "nextjs"
+  },
+  {
+    "name": "vorsann",
+    "path": "/home/samfr/source/vorsann",
+    "type": "nextjs"
+  },
+  {
+    "name": "claude-mcps",
+    "path": "/home/samfr/source/claude-mcps",
+    "type": "nextjs"
   }
 ]
