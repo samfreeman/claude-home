@@ -27,7 +27,15 @@ Every response starts with:
 
 ## Phase 1: Detection
 
-Detect the current state of the working directory:
+**Host Node pre-flight — run before anything else.** The baseline test toolchain (vitest 5, jsdom 30) declares a Node floor of 22; Next itself only needs 20.9, so on an older host `dev`, `build` and `lint` all pass and nothing surfaces the mismatch until the first `pnpm test`. Check the host now:
+
+```bash
+node --version
+```
+
+If the major version is below 22, **stop**. Tell the user the toolchain this command is about to install will not run on the host Node, and that the fix is to move the host to the current LTS (Node 24) before scaffolding — on a NodeSource-based install that is repointing the apt source at `node_24.x` and reinstalling `nodejs`. Do not pin older test dependencies to fit the host; the house baseline is one version set.
+
+Then detect the current state of the working directory:
 
 1. **cwd has `package.json` with Next.js** -> Existing Next.js app. Skip scaffold, proceed to Phase 3 (Baseline Install).
 2. **Otherwise** -> Need to scaffold. Proceed to Phase 2.
@@ -279,6 +287,20 @@ Add test scripts to `package.json`:
         "test:e2e": "playwright test"
     }
 }
+```
+
+**Pin the Node floor mechanically.** Add `engines` to `package.json` and create `.npmrc` with `engine-strict=true`, so an install on a host below the floor fails at install time instead of at the first `pnpm test`:
+
+```json
+{
+    "engines": {
+        "node": ">=22"
+    }
+}
+```
+
+```
+engine-strict=true
 ```
 
 ---
