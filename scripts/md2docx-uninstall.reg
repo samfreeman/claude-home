@@ -1,0 +1,7 @@
+Windows Registry Editor Version 5.00
+
+; md2docx — removes the "Convert to Word (.docx)" Explorer right-click entry
+; installed by md2docx-install.reg.
+
+[-HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\md2docx]
+

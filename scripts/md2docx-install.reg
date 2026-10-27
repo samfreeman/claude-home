@@ -1,0 +1,13 @@
+Windows Registry Editor Version 5.00
+
+; md2docx — adds "Convert to Word (.docx)" to the Explorer right-click menu
+; for any .md file. Runs ~/.claude/scripts/md2docx.py inside WSL via the
+; md2docx-explorer.sh wrapper. Current-user only; no admin rights needed.
+; Remove with md2docx-uninstall.reg.
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\md2docx]
+@="Convert to Word (.docx)"
+
+[HKEY_CURRENT_USER\Software\Classes\SystemFileAssociations\.md\shell\md2docx\command]
+@="wsl.exe bash ~/.claude/scripts/md2docx-explorer.sh \"%1\""
+
