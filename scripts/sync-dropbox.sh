@@ -5,13 +5,13 @@
 # claude-home. It is a plain file copy, not a git clone, and is refreshed only
 # when this script is run. Dropbox then syncs it on its own schedule.
 #
-#   ~/.claude/scripts/sync-dropbox.sh            copy changed files
+#   ~/.claude/scripts/sync-dropbox.sh            sync the Dropbox copy to dev
 #   ~/.claude/scripts/sync-dropbox.sh --dry-run  show what would change
-#   ~/.claude/scripts/sync-dropbox.sh --delete   also remove files no longer in dev
 #
-# Copies exactly what is on origin/dev (fetched first), so uncommitted or
-# unpushed work never lands in Dropbox. Only files whose content changed are
-# rewritten, so a routine run touches a handful of files.
+# Mirrors exactly what is on origin/dev (fetched first), so uncommitted or
+# unpushed work never lands in Dropbox, and files no longer in dev are removed.
+# Only files whose content changed are rewritten, so a routine run touches a
+# handful of files.
 #
 # The Dropbox folder differs per machine (C:\Users\samfr\Dropbox here,
 # D:\Dropbox elsewhere). It is resolved in order:
@@ -23,13 +23,12 @@ set -euo pipefail
 
 repo="$HOME/.claude"
 branch="origin/dev"
-rsync_flags=(-rc --no-perms --itemize-changes)
+rsync_flags=(-rc --no-perms --delete --itemize-changes)
 
 for arg in "$@"
 do
 	case "$arg" in
 		--dry-run) rsync_flags+=(-n) ;;
-		--delete) rsync_flags+=(--delete) ;;
 		*) echo "unknown option: $arg" >&2; exit 2 ;;
 	esac
 done
