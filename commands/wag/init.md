@@ -1,5 +1,5 @@
 ---
-description: Initialise a new project — intake, research, scaffold the baseline app, backlog. Creates a running baseline plus populated .wag/ planning infrastructure; the app to build falls out of init's discovery.
+description: Initialise a new project — intake, viability, mockups, research, scaffold the baseline app, backlog. Creates a running baseline plus populated .wag/ planning infrastructure; the app to build falls out of init's discovery.
 allowed-tools: Read, Write, Bash, Agent, WebSearch, WebFetch, Grep, Glob, Skill
 ---
 
@@ -25,6 +25,7 @@ A few rules govern the whole flow; the workflow explains the *why*:
 - **One git repo at the root.** The scaffolder establishes it and discards its own `.git`; `.wag/` + app live under it.
 - **No infrastructure PBI.** Init scaffolds the baseline (Phase C) before the backlog, so every PBI is a vertical feature slice. Non-app projects skip Phase C.
 - **Approval-gated phases.** No auto-advancing — each phase ends with user approval before the next begins.
+- **Viability before mockups, mockups before architecture.** Phase B is B1 viability (go/no-go) → B2 mockups (web UI only; `wag/references/mockups.md`) → B3 research + Architecture.
 
 ## When you're done
 

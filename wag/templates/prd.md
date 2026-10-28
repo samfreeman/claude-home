@@ -10,6 +10,7 @@ Checked at authoring (/wag:init, /wag:docs) and at /wag:adr pre-flight. Never co
 5. Out of scope / non-goals
 6. Constraints — technical, platform, budget, timeline
 7. Open questions
+8. UI pages (web UI only) — a table listing each route with a description, then one subsection per route holding its mockup screenshot as a linked image: [![<page name>](<png path>)](<html path>). Landing-page routes get one image per section. See `~/.claude/wag/references/mockups.md`. Projects with no web UI answer "n/a".
 
 The headings below are a suggested starting shape for new projects — NOT a conformance requirement.
 -->
@@ -41,6 +42,16 @@ The headings below are a suggested starting shape for new projects — NOT a con
 ## User stories
 
 {{USER_STORIES}}
+
+## UI pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `{{ROUTE}}` | {{PAGE_NAME}} | {{DESCRIPTION}} |
+
+### `{{ROUTE}}` — {{PAGE_NAME}}
+
+[![{{PAGE_NAME}}](../mockups/screens/{{ROUTE_SLUG}}.png)](../mockups/mockup.html)
 
 ## Constraints
 

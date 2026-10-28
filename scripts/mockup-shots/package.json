@@ -1,0 +1,9 @@
+{
+  "name": "mockup-shots",
+  "private": true,
+  "type": "module",
+  "description": "Screenshot every data-route section of a WAG mockup to PNG — see wag/references/mockups.md",
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}
