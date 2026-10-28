@@ -135,7 +135,8 @@ project that settles one well is the input for settling it here.
 
 | Mode | Use |
 |------|-----|
-| **INIT** | Phase B2 **writes** the `Design direction` section (builds to this standard, names the brand as a tweakcn theme, states departures) and then **builds the mockups to it** (`~/.claude/wag/references/mockups.md`): the chosen signed-in look and the landing page per this spec. Theming ships in the baseline for any web app with a UI. |
+| **INIT** | Architecture (Phase B2) **writes** the `Design direction` section: builds to this standard, names the brand (tweakcn theme), states departures. Theming ships in the baseline for any web app with a UI. |
+| **POC** | `/wag:poc` builds its mockups and its POC to this standard (`~/.claude/wag/workflows/poc.md`). The chosen look is recorded in `Design direction`, and the POC's `theme.css` carries the theme into the real app. |
 | **DOCS** | Keeps `Design direction` current; a new departure is recorded there with its reason. |
 | **ADR** | A UI PBI's design names the sections/components it builds and how they meet the standard; a departure not already in `Design direction` is raised, not slipped in. |
 | **DEV** | Builds to the standard — theme tokens only, shadcn first, reduced-motion respected, both modes checked. |

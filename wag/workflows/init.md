@@ -14,12 +14,12 @@ Init establishes the git repo at the project root, and that single WAG repo is t
 
 The `.wag/docs/` output is four things:
 
-- **PRD.md** — product requirements document. Seeded from intake (Phase A); its UI pages section gets a picture per route in B2.
-- **RESEARCH.md** — research provenance. "We evaluated X, Y, Z — here's what we found." Queryable when revisiting decisions. Viability first (B1), completed in B3.
-- **Architecture.md** — technical architecture decisions derived from research. `Design direction` written in B2, the rest in B3.
+- **PRD.md** — product requirements document. Seeded from intake (Phase A).
+- **RESEARCH.md** — research provenance. "We evaluated X, Y, Z — here's what we found." Queryable when revisiting decisions. Viability first (B1), completed in B2.
+- **Architecture.md** — technical architecture decisions derived from research. Seeded from research (B2).
 - **backlog/** — epics and PBIs. Derived from requirements discussion (Phase D).
 
-A web app also gets **`.wag/mockups/`** (B2): the round-one options, `mockup.html` with every route, and the screenshots the PRD embeds. Alongside sits **`docs/PRD.docx`**, the PRD with those images, for sending to stakeholders.
+A project that wants a clickable showcase before the real build runs `/wag:poc` instead of init (`wag/workflows/poc.md`). It reuses Phases 0, A, B1, B2, C, D and E from this file and adds mockups, the POC and its deploy.
 
 PRD is the living product document. RESEARCH.md preserves evaluation context. Architecture.md captures the decisions.
 
@@ -54,9 +54,9 @@ Confirm the chosen root back to the user. This folder is where `.wag/` is built 
 
 ---
 
-### Phase B: Viability → Mockups → Research + Architecture
+### Phase B: Viability → Research + Architecture
 
-Phase B runs in three steps, in this order: **B1** checks the idea can be built at all, **B2** draws it (web UI only), and **B3** does the rest of the research and writes Architecture. Don't mock up an app that hasn't passed viability, and don't write Architecture before the mockups have shaken out the flow.
+Phase B runs in two steps, in this order: **B1** checks the idea can be built at all, and **B2** does the rest of the research and writes Architecture. (`/wag:poc` runs its mockups between the two.)
 
 **Reference:** `wag/workflows/research.md`
 
@@ -78,39 +78,18 @@ Phase B runs in three steps, in this order: **B1** checks the idea can be built 
 
 **Transition:** User says go.
 
-#### B2: Mockups → a picture of every page
-
-**Goal:** Show the user, and the people they share the PRD with, what's being built before it's built, and expose flow problems while they're cheap. **Projects with no web UI skip B2.**
-
-**Reference:** `~/.claude/wag/references/mockups.md` is the procedure: each step's voice part and CC part, the `.wag/mockups/` layout, the markup contract and the screenshot script. Follow it; don't restate it here.
-
-**Process (in brief):**
-1. Settle Architecture's `Design direction` with the user.
-2. Build 4–5 looks of one representative signed-in page.
-3. The user picks one and tweaks it.
-4. Build every route in the PRD's UI pages table in that look, plus the landing page, fixing the PRD wherever a mockup exposes a flow problem.
-5. Write the PRD's UI pages section with a linked image per route.
-6. CC screenshots each route.
-7. CC builds `PRD.docx`.
-
-The house UI standard (`~/.claude/wag/references/ui-standard.md`) and `Design direction` are inputs to the mockups; Design direction stays in Architecture.
-
-**Output:** `.wag/mockups/` (options, `mockup.html`, `screens/`), the PRD's UI pages section with images, `.wag/docs/PRD.docx`, and Architecture.md's `Design direction` section
-
-**Transition:** User approves the mockups and any PRD changes they caused.
-
-#### B3: Research + Architecture (and the baseline decision)
+#### B2: Research + Architecture (and the baseline decision)
 
 **Goal:** Investigate the remaining unknowns before committing to a plan. Preserve evaluation context in RESEARCH.md, then write Architecture.md with the decisions — including the **baseline**: what kind of app this is, its baseline deps, and which layers (db/auth/theme) ship in ground 0. This is the decision Phase C acts on.
 
 **Process:**
-1. Read the approved PRD.md (as B2 left it) and RESEARCH.md's Viability section.
+1. Read the approved PRD.md and RESEARCH.md's Viability section.
 2. Identify the remaining research questions per axis (ecosystem, feasibility, architecture patterns). B1 already answered buildability; don't repeat it.
 3. Launch parallel research sub-agents (or run sequentially as fallback).
 4. Complete RESEARCH.md — the full evaluation context: what was investigated, what was found, alternatives considered, and rationale for each choice. This is the provenance doc — "why not X?" is answered here.
 5. Write the rest of Architecture.md from research findings — tech stack choices, architecture patterns, and key decisions are pre-filled. Architecture captures the decisions; RESEARCH captures the journey.
    - **Define the `Ubiquitous language` section:** crystallise the vocabulary captured in Phase A into a glossary of core domain terms, one name per referent — the names every later layer and the code follow. Grill it for synonyms and resist artificial bounded contexts (see `~/.claude/wag/references/ubiquitous-language.md`).
-   - **`Design direction`:** for a web app with a UI, B2 already wrote it against the house UI standard (`~/.claude/wag/references/ui-standard.md`): the app builds to the standard, the brand (the tweakcn theme's primary and accent), the chosen mockup look, and any deliberate departure with its reason. Keep it, and don't restate the standard. A web app that skipped B2 writes it now and settles the brand with the user.
+   - **Write the `Design direction` section** for a web app with a UI, against the house UI standard (`~/.claude/wag/references/ui-standard.md`): state that the app builds to it, settle the brand (the tweakcn theme — primary and accent) with the user, and record any deliberate departure with its reason. Don't restate the standard. (Under `/wag:poc` it also records the chosen mockup look.)
    - **Check the manifest:** author freely, then check the draft against the **required-content manifest** at the top of `~/.claude/wag/templates/architecture.md` (the ubiquitous-language, validation-policy and design-direction items among them). Every item must be answered somewhere, or resolved before approval. The doc must leave init ADR-ready.
 6. **Settle the baseline.** Pin down ground 0 explicitly so Phase C has something concrete to scaffold:
    - what kind of app (Next.js web app, Node service, CLI, library — this selects the scaffolder);
@@ -202,14 +181,9 @@ An epic is a **business objective** — a coherent outcome that delivers value t
    .wag/
    ├── state.json
    ├── docs/
-   │   ├── PRD.md             (from Phase A; UI page images from B2)
-   │   ├── PRD.docx           (from B2 — web UI only)
-   │   ├── RESEARCH.md        (from B1 + B3)
-   │   └── Architecture.md    (from B2 + B3)
-   ├── mockups/               (from B2 — web UI only)
-   │   ├── options/
-   │   ├── mockup.html
-   │   └── screens/
+   │   ├── PRD.md             (from Phase A)
+   │   ├── RESEARCH.md        (from B1 + B2)
+   │   └── Architecture.md    (from B2)
    ├── backlog/
    │   ├── epic-000-general/
    │   │   └── epic.md        (stub — bucket for ungrouped present work)
@@ -318,4 +292,4 @@ When init finishes the baseline is already standing and the backlog is authored 
 5. **The user drives scope.** You propose, they decide. Especially for v1 vs v2 and non-goals.
 6. **Every PBI lives in an epic.** `epic-000-general/` exists from Phase E onward and absorbs all ungrouped work. There is no "standalone PBI at backlog root."
 7. **Slice vertically.** Backlog PBIs should be thin end-to-end increments that leave the project demonstrable, not horizontal layers split by tier. See Phase D.
-8. **Viability, then pictures, then architecture.** B1's go comes before any mockup; a web app's mockups (B2) come before Architecture (B3), and a flow problem a mockup exposes is fixed in the PRD on the spot.
+8. **Viability before architecture.** B1's go/no-go comes before the rest of the research and Architecture.

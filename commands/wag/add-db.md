@@ -280,18 +280,89 @@ async function deploySchema() {
 deploySchema().catch(console.error)
 ```
 
+**`seeds/seed.ts`** — the fake data set dev and QA start from:
+
+```typescript
+import type { Client } from '@libsql/client'
+
+// Insert the fake data set here, table by table. After a /wag:poc handoff it is
+// .wag/poc/data.js — the data the POC showed — so dev and QA start where the POC left off.
+export async function seed(client: Client) {
+}
+```
+
+**`scripts/db-env.ts`** — the guard that keeps seed and reset away from production:
+
+```typescript
+import { createClient } from '@libsql/client'
+
+export function seedableClient() {
+	const env = process.env.DB_ENV
+	if (env != 'dev' && env != 'qa')
+		throw new Error(`Refusing: DB_ENV is ${env ?? 'unset'}. Seed and reset run only against dev or qa, never production.`)
+	return createClient({
+		url: process.env.TURSO_APP_DATABASE_URL!,
+		authToken: process.env.TURSO_GROUP_AUTH_TOKEN
+	})
+}
+```
+
+**`scripts/db-seed.ts`** — seed dev or QA:
+
+```typescript
+import { seedableClient } from './db-env'
+import { seed } from '../seeds/seed'
+
+const client = seedableClient()
+seed(client)
+	.then(() => console.log('Seeded.'))
+	.catch(console.error)
+	.finally(() => client.close())
+```
+
+**`scripts/db-reset.ts`** — put dev or QA back to the fake data set (drop every table, migrate, seed):
+
+```typescript
+import { execSync } from 'child_process'
+import { seedableClient } from './db-env'
+import { seed } from '../seeds/seed'
+
+async function resetDb() {
+	const client = seedableClient()
+	// Foreign keys can block a drop; repeat passes until every table is gone.
+	for (let pass = 0; pass < 10; pass++) {
+		const { rows } = await client.execute(
+			`select name from sqlite_master where type = 'table' and name not like 'sqlite_%'`)
+		if (rows.length == 0)
+			break
+		for (const row of rows)
+			await client.execute(`drop table if exists "${row.name}"`).catch(() => null)
+	}
+	execSync('pnpm db:deploy', { stdio: 'inherit' })
+	await seed(client)
+	console.log('Reset: migrated and seeded.')
+	client.close()
+}
+
+resetDb().catch(console.error)
+```
+
+Add `DB_ENV=dev` to `.env.local`. QA sets `DB_ENV=qa` in its own environment; production never sets `DB_ENV`, so seed and reset refuse to run there.
+
 ---
 
 ## Step 5: Add Scripts
 
 Update `package.json` scripts. Read the existing `package.json`, merge these changes, and write it back.
 
-Add the `db:deploy` script:
+Add the `db:deploy`, `db:seed` and `db:reset` scripts:
 
 ```json
 {
     "scripts": {
-        "db:deploy": "tsx scripts/deploy-schema.ts"
+        "db:deploy": "tsx scripts/deploy-schema.ts",
+        "db:seed": "tsx scripts/db-seed.ts",
+        "db:reset": "tsx scripts/db-reset.ts"
     }
 }
 ```
@@ -325,6 +396,8 @@ After all steps, summarize what was created:
    - tests/helpers/test-db.ts (in-memory test helper)
    - migrations/ (SQL migration files dir)
    - scripts/deploy-schema.ts (migration runner)
-   - .env.local (connection credentials)
-   - package.json (db:deploy script added, dev script updated)
+   - seeds/seed.ts (the fake data set dev and QA start from)
+   - scripts/db-env.ts, db-seed.ts, db-reset.ts (seed and reset, dev/qa only)
+   - .env.local (connection credentials, DB_ENV=dev)
+   - package.json (db:deploy, db:seed, db:reset scripts added, dev script updated)
 ```

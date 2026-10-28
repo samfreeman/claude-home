@@ -23,7 +23,12 @@ pnpm add next-themes lucide-react
 
 ## Step 3: Theme Selection
 
-Ask the user:
+**If `.wag/poc/theme.css` exists** (a `/wag:poc` handoff), the theme is already chosen. Don't ask. Read its first line:
+
+- **`tweakcn: <preset>`:** use that preset name in Step 4.
+- **`tweakcn: custom`:** skip Step 4. Replace the `:root` and `.dark` blocks in `globals.css` with the ones in `theme.css`, keeping everything else in `globals.css` as it is.
+
+Otherwise, ask the user:
 
 > Browse [tweakcn.com](https://tweakcn.com/editor/theme) and pick a theme you like. Click "Code", then give me the preset name from the install command (e.g. `claude`, `catppuccin`, `rose-pine`).
 
