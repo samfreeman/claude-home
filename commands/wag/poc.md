@@ -45,6 +45,9 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   and it's written in the real app's vocabulary (Tailwind, theme tokens, shadcn `data-slot`,
   Lucide).
 - **Approval-gated.** No step advances without the user's approval.
+- **Voice keeps a readable copy of every `.html` it writes.** Each one gets an `.html.md`
+  sibling with `<` and `>` written as `‹` and `›`, rewritten on every edit, because voice's
+  Dropbox reader strips tags. See the workflow's readable-copy rule.
 
 ## When you're done
 

@@ -30,6 +30,22 @@ Every step below is marked **Voice** or **CC**.
 
 When the user works in CC alone, CC does the voice steps too.
 
+### The readable-copy rule (voice)
+
+The same reader stops voice from reading back HTML it wrote. So **every time voice writes or
+edits an `.html` file** in the project, under `.wag/mockups/` (every option, the chosen one
+included) or `.wag/poc/` (including `poc/docs/`), it also writes a sibling `<name>.html.md`.
+The sibling holds the same source with every `<` written as `‹` (U+2039) and every `>` as
+`›` (U+203A), and nothing else.
+
+- **Keep the pair in step.** Every edit to the `.html` rewrites its `.html.md` in the same
+  turn. A sibling that's out of date is worse than none.
+- **Read the sibling, write the original.** To look at or change a page, voice reads the
+  `.html.md` and turns `‹›` back into `<>`. It then writes the result to the `.html`, and the
+  re-encoded version to the `.html.md`.
+- **The siblings are for voice only.** The site never links to them, and they aren't
+  deployed: `.vercelignore` excludes `*.html.md` (see Step 6).
+
 ## Where it lives
 
 The project is a folder in **Dropbox**, so voice can reach it. There's **no git repo** until
@@ -44,16 +60,19 @@ the POC is approved.
     │   ├── RESEARCH.md
     │   └── Architecture.md
     ├── mockups/
-    │   └── option-1.html … option-5.html    the round-one looks
+    │   └── option-1.html … option-5.html    the round-one looks (+ .html.md siblings)
     └── poc/                    the site — this folder is what gets deployed
-        ├── index.html
+        ├── index.html          (+ index.html.md)
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set
         ├── vercel.json
+        ├── .vercelignore       keeps the .html.md siblings off the site
         └── docs/
-            ├── PRD.html            self-contained, downloadable
-            └── Architecture.html   self-contained, downloadable
+            ├── PRD.html            self-contained, downloadable (+ .html.md)
+            └── Architecture.html   self-contained, downloadable (+ .html.md)
 ```
+
+Every `.html` has a readable `.html.md` sibling for voice (the readable-copy rule above).
 
 `state.json`'s `poc` field tracks the stage: `building` → `deployed` → `approved` →
 `handed-off`. It's how voice and CC know where the project is, and the approval signal.
@@ -115,6 +134,9 @@ Build **4–5 looks** in `.wag/mockups/option-N.html`.
 The user picks one, then you go back and forth on it until they're happy. The other options
 stay in `mockups/` as the record of what was considered.
 
+**Readable copies:** every option file, and every edit to one (the chosen look's tweaks
+included), gets its `.html.md` sibling written in the same turn.
+
 **Transition:** the user picks and approves a look.
 
 ### Step 4: Research + Architecture — Voice
@@ -159,6 +181,9 @@ markup contract; follow it. The POC is:
   - Lucide icons by name;
   - the signed-in shell as one region (it becomes the real app's `layout.tsx`).
 
+**Readable copies:** `index.html`, `docs/PRD.html` and `docs/Architecture.html` each get
+their `.html.md` sibling, rewritten on every edit.
+
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
 that disagree. When that happens, fix the PRD in the same session, alongside the POC,
@@ -178,6 +203,9 @@ vercel deploy --prod --yes --cwd .wag/poc
 - **The URL.** The first deploy creates the Vercel project. A production deploy is public at
   `https://<project>-poc.vercel.app`; previews sit behind a Vercel login by default, so they
   won't open for business people.
+- **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `*.html.md`
+  (copy it from `~/.claude/wag/templates/poc/` if not), so voice's readable copies stay off
+  the site.
 - **Unlisted, not protected.** The URL is open to anyone who has it. The POC asks not to be
   indexed (a `noindex` meta tag, plus the `X-Robots-Tag` header in `vercel.json`).
 - **Record it.** Write the URL to `state.json`'s `poc_url` and set `poc` to `deployed`.
