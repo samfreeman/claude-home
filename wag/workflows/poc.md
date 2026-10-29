@@ -22,8 +22,9 @@ Every step below is marked **Voice** or **CC**.
 - **Voice** (Claude voice) reads and writes the project's files in Dropbox, reads these WAG
   files from the claude-home copy in Dropbox, and renders HTML. It can't run commands. Voice
   gets the project all the way to a working HTML site. Voice's Dropbox reader strips HTML
-  tags, so it reads the starter's `index.html` and `data.js` through their unmodified copies,
-  `index.html.md` and `data.js.md`, in the same folder.
+  tags (even inside code fences), so it reads the starter through copies in the same folder:
+  `data.js.md` is `data.js` unmodified, and `index.html.md` is `index.html` with every `<`
+  written as `‹` and every `>` as `›`. Voice turns them back when it writes `.wag/poc/index.html`.
 - **CC** (Claude Code) runs commands: it deploys the POC, and after approval it does the
   handoff to the real build.
 
