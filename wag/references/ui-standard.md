@@ -44,6 +44,25 @@ persists the choice. No flash of the wrong theme on load.
 **Responsive.** 1 column on mobile, 2 on tablet (`md`), 3 on desktop (`lg`). No
 horizontal scroll at any width.
 
+**Nested accordions** (Sam's preference):
+
+- **One open per level.** Opening an accordion closes its open siblings, and nothing else.
+  In HTML that's the `details` element's `name` attribute: each level's siblings share a
+  name (shadcn's single-open Accordion does the same).
+- **Opening scrolls to what opened.** If closing a long sibling above leaves the opened
+  accordion's header above the screen, scroll that header back into view, just under any
+  sticky top bar, so the reader lands at the top of what they opened, not in its middle.
+- **Nesting shows by colour, not one flat colour throughout.** An open header gets the
+  theme's accent tint (with its chevron in the accent colour), and each level's open content
+  is a shade darker than its parent, so you can tell at a glance which level you're in.
+  Theme tokens only: for example, the card colour, then the page background mixed a little
+  darker, then darker still. Step from the background itself rather than from a second token,
+  so the levels stay apart even in a theme whose card and background are the same colour.
+
+**Visual changes are shown, not described** (Sam's preference). A change to how something
+looks is shown to the user, as the page itself or a screenshot of it, before it's called
+done. A description of the change isn't a substitute.
+
 ## Landing pages
 
 The landing page should **reward scrolling**. Each section reveals with intentional

@@ -70,22 +70,21 @@ every greater-than sign (U+003E) by U+203A, and nothing else.
 
 ### The docs copies (voice)
 
-`.wag/docs/PRD.md`, `.wag/docs/Architecture.md` and `.wag/docs/Backlog.md` are the sources
-of truth. The POC shows them on its Project Documents page from **generated copies**,
-`.wag/poc/docs/PRD.js`, `Architecture.js` and `Backlog.js`. These are build output: never
-edit them by hand.
+`.wag/docs/PRD.md`, `.wag/docs/Architecture.md` and the epic folders under `.wag/backlog/`
+are the sources of truth. The POC shows them on its Project Documents page from **generated
+copies**: `.wag/poc/docs/PRD.js` and `Architecture.js`, and the backlog's copies in
+`.wag/poc/docs/backlog/`. These are build output: never edit them by hand.
 
 - **Why a `.js` copy.** A page opened from disk (`file://`) can't fetch a `.md` file, and
   there's no local server. A script tag can load a `.js` file from disk.
-- **Every write regenerates.** Any step that writes `PRD.md`, `Architecture.md` or
-  `Backlog.md` regenerates its copy in the same step, never one without the other. Create
-  `.wag/poc/docs/` first if it doesn't exist yet.
+- **Every write regenerates.** Any step that writes `PRD.md` or `Architecture.md`
+  regenerates its copy in the same step, never one without the other. The same goes for the
+  backlog (below). Create `.wag/poc/docs/` first if it doesn't exist yet.
 - **No readable sibling.** Like `data.js`, they carry no markup, so voice reads them back
   intact.
-- **The format.** `PRD.js` sets `prd`, from `.wag/docs/PRD.md`; `Architecture.js` sets
-  `architecture`, from `.wag/docs/Architecture.md`; `Backlog.js` sets `backlog`, from
-  `.wag/docs/Backlog.md`. `generated` is the date written as `Mon D, YYYY`, and `markdown`
-  is the whole source:
+- **The format.** `PRD.js` sets `prd`, from `.wag/docs/PRD.md`, and `Architecture.js` sets
+  `architecture`, from `.wag/docs/Architecture.md`. `generated` is the date written as
+  `Mon D, YYYY`, and `markdown` is the whole source:
 
   ```js
   // GENERATED from .wag/docs/PRD.md — DO NOT EDIT. PRD.md is the source of truth; this is a copy
@@ -102,6 +101,54 @@ edit them by hand.
 - **Escaping the markdown into the template literal,** in this order: each backslash becomes
   two backslashes (so a table's `\|` becomes `\\|`), each backtick becomes a backslash and a
   backtick, and each `${` becomes `\${`. Nothing else changes.
+- **The backlog's copies** are one file per epic folder, plus an index, in
+  `.wag/poc/docs/backlog/`. Regenerate an epic's file whenever any file in its folder
+  changes, and `index.js` whenever an epic is added or removed. `index.js` lists the epic
+  files in order and loads them:
+
+  ```js
+  // GENERATED from .wag/backlog/ — DO NOT EDIT. The epic folders under .wag/backlog/ are the source of truth;
+  // these files are copies so the Project Documents page can show the backlog when opened from disk (a page
+  // opened from disk cannot read .wag/backlog/ itself). One file per epic, named after its folder. Regenerate
+  // an epic's file every time any file in its folder changes, and this index whenever an epic is added or removed.
+  window.POC_BACKLOG = {
+  	source: '.wag/backlog/',
+  	generated: 'Oct 29, 2026',
+  	files: [
+  		'epic-000-general.js',
+  		'epic-001-word.js',
+  		'epic-501-future.js'
+  	],
+  	epics: []
+  }
+
+  // Load each epic's file in order, synchronously, before the page renders. Paths are relative to the page,
+  // which lives in pages/.
+  for (const file of window.POC_BACKLOG.files)
+  	document.write(`<script src="../docs/backlog/${file}"><\/script>`)
+  ```
+
+  Each epic's file, named after its folder (`epic-001-word.js`), adds the epic, its
+  `epic.md` and each of its PBIs in number order, with the same escaping:
+
+  ```js
+  // GENERATED from .wag/backlog/epic-001-word/ — DO NOT EDIT. That folder is the source of truth; regenerate
+  // this file every time any file in it changes. See index.js.
+  window.POC_BACKLOG.epics.push({
+  	id: '001',
+  	title: 'Name',
+  	folder: 'epic-001-word',
+  	markdown: `…the whole of epic.md…`,
+  	pbis: [
+  		{
+  			id: '001.001',
+  			title: 'Title',
+  			file: 'PBI-001.md',
+  			markdown: `…the whole of PBI-001.md…`
+  		}
+  	]
+  })
+  ```
 
 ## Where it lives
 
@@ -115,8 +162,13 @@ the POC is approved and PBI 000.001 stands up the app.
     ├── docs/
     │   ├── PRD.md
     │   ├── RESEARCH.md
-    │   ├── Architecture.md
-    │   └── Backlog.md          the draft backlog, one file until the handoff
+    │   └── Architecture.md
+    ├── backlog/                the real build's backlog, WAG's epic folders (Step 5)
+    │   ├── epic-000-general/
+    │   │   ├── epic.md
+    │   │   └── PBI-001.md …        one file per PBI, numbered within the epic
+    │   ├── epic-NNN-word/ …        one folder per feature epic
+    │   └── epic-501-future/
     ├── mockups/
     │   └── option-1.html … option-5.html    the round-one looks (+ .html.md siblings)
     └── poc/                    the site — this folder is what gets deployed
@@ -136,7 +188,9 @@ the POC is approved and PBI 000.001 stands up the app.
         └── docs/
             ├── PRD.js              generated copy of docs/PRD.md, never edited
             ├── Architecture.js     generated copy of docs/Architecture.md, never edited
-            └── Backlog.js          generated copy of docs/Backlog.md, never edited
+            └── backlog/            generated copies of backlog/, never edited
+                ├── index.js            lists and loads the epic files
+                └── epic-NNN-word.js …  one per epic folder
 ```
 
 Every HTML file (the mockups, the pages, the root redirect) has a readable `NAME.md` sibling
@@ -249,56 +303,30 @@ Write `.wag/poc/docs/Architecture.js` with the Architecture, and again on every 
 
 **Transition:** the user approves the architecture.
 
-### Step 5: Draft the backlog → Backlog.md — Voice
+### Step 5: Draft the backlog → the epic folders — Voice
 
 The real build's backlog, drafted now so the business people see the plan beside the POC.
-Write it to `.wag/docs/Backlog.md`, and `.wag/poc/docs/Backlog.js` with it (the docs-copies
-rule). It's **one file**, not WAG's backlog folders; the handoff converts it (Step 8).
+It's written straight into **WAG's backlog folders** under `.wag/backlog/`, the same layout
+every WAG project uses, so the handoff just copies it. Write its copies in
+`.wag/poc/docs/backlog/` with it (the docs-copies rule).
 
+- **One folder per epic:** `.wag/backlog/epic-NNN-word/` (a one-word folder name, as init
+  names them), holding `epic.md` and one `PBI-PPP.md` per PBI. PBIs are numbered within
+  their epic, from `001`, and referred to as `PBI EEE.PPP` (for example, PBI 002.004 is
+  `epic-002-…/PBI-004.md`).
+- **The templates, in full:** each `epic.md` follows `~/.claude/wag/templates/backlog-epic.md`
+  (`# Epic EEE: Name`) and each PBI follows `backlog-pbi.md` (`# PBI EEE.PPP: Title`), with
+  all their sections, not just names. Every epic's `**Status:**` is `Ready`: nothing is done
+  at POC time.
 - **Init's backlog principles** (`wag/workflows/init.md`, Phase D): an epic is a business
   outcome, a PBI is a vertical slice, and there are no horizontal-layer PBIs. Epic numbers
   follow init too: `000` General, `001`–`199` for feature epics, `501` Future for deferred
   work. Every PBI traces to the PRD or the Architecture.
-- **Full epics and PBIs,** with the sections of `~/.claude/wag/templates/backlog-epic.md` and
-  `backlog-pbi.md`, not just names. **No status lines:** nothing is done at POC time.
 - **Feature PBIs build on the POC.** Each one turns a feature's fake data into real data and
   names the POC pages it builds on.
 
-**The fixed shape.** The Project Documents page parses it, so keep to it exactly:
-
-- **An epic** is `## Epic EEE — Name`, its one-line business goal on the next line, then its
-  detail: the `**Priority:**` and `**Depends on:**` lines, and `#### Deliverables`,
-  `#### Design Input Required` and `#### Non-goals`.
-- **A PBI** is `### PBI EEE.PPP — Title`, its one-line description on the next line, then
-  its detail: the `**Priority:**` and `**Dependencies:**` lines, and `#### Description`,
-  `#### Deliverables`, `#### Acceptance Criteria`, `#### Testing Requirements` and, if
-  there's anything to note, `#### Technical Notes`.
-- **Before the first epic,** only the title `# Backlog — PROJECT` and an optional short
-  intro.
-
-```markdown
-# Backlog — PROJECT
-
-## Epic 000 — General
-Standing up the real app from the approved POC, plus loose work with no epic of its own.
-
-**Priority:** P1
-**Depends on:** None
-
-#### Deliverables
-…
-
-### PBI 000.001 — Stand up the app
-The real app runs locally on the Architecture's tech stack, in its own GitHub repo.
-
-**Priority:** P1
-**Dependencies:** None
-
-#### Description
-…
-```
-
-**Epic 000 General always starts with these three PBIs,** written out in full for the
+**Epic 000 General** is standing up the real app from the approved POC, plus loose work with
+no epic of its own. It always starts with these three PBIs, written out in full for the
 project:
 
 1. **PBI 000.001 — Stand up the app.**
@@ -324,8 +352,8 @@ project:
    using the latest `vercel` CLI. **Production is out of scope:** it's a separate, rare,
    manual process.
 
-**Epic 501 Future** holds the PRD's later items as PBIs, each with a deferral dependency, as
-init does.
+**Epic 501 Future** has one PBI per item the PRD defers (its later or v2 items), each with a
+deferral dependency, as init does.
 
 **Transition:** the user approves the backlog. The POC isn't built until they do.
 
@@ -438,10 +466,10 @@ The POC is:
   - sign out;
   - the light/dark toggle;
   - a **Development** section holding **Project Documents**.
-- **Project Documents** is the starter's `pages/project-documents.html`, an accordion:
-  - **PRD**, **Architecture** and **Backlog**, each rendered in place from its docs copy (see
-    *The docs on the page* below), with a Download button that saves the markdown as
-    `PRD.md`, `Architecture.md` or `Backlog.md`.
+- **Project Documents** is the starter's `pages/project-documents.html`, an accordion of
+  **PRD**, **Architecture** and **Backlog**, each rendered in place from its docs copies (see
+  *The docs on the page* below). The PRD and Architecture each have a Download button that
+  saves the markdown as `PRD.md` or `Architecture.md`.
 - **Written in the real app's vocabulary**, so porting it is translation rather than redesign:
   - Tailwind classes, theme tokens only, no hardcoded colors;
   - every control marked `data-slot` (plus `data-variant`) with the shadcn component it
@@ -451,18 +479,28 @@ The POC is:
 
 **The docs on the page.** Project Documents doesn't use `/wag:html-prd` or
 `/wag:html-architecture`, and has no frames or links to rendered HTML docs. It loads `marked`
-from the CDN, then `../docs/PRD.js`, `../docs/Architecture.js` and `../docs/Backlog.js`, and
-renders each doc's markdown into its accordion item, in the POC's own theme. The starter page
-does all of this; keep its script and its `.doc` styles (they restore the heading, list,
-table and code styling that Tailwind strips), and restyle only to the chosen look.
+from the CDN, then `../docs/PRD.js`, `../docs/Architecture.js` and
+`../docs/backlog/index.js`, and renders each doc's markdown into its accordion item, in the
+POC's own theme. The starter page does all of this; keep its script and its styles (the
+`.doc` styles restore the heading, list, table and code styling that Tailwind strips), and
+restyle only to the chosen look.
 
-- **A note above each doc:** "Rendered from SOURCE · generated DATE · a copy, do not edit
-  here". A missing copy shows "Not generated yet."
-- **Download** saves the markdown itself, under the source's name (`PRD.md`,
-  `Architecture.md`, `Backlog.md`).
-- **The backlog nests.** Built from its fixed shape (Step 5), each epic is a collapsible item
-  showing its name and one-line goal; open, it shows its detail and its PBIs. Each PBI is a
-  collapsible item showing its one-line description; open, it shows the whole PBI.
+- **A note above each doc,** and above the backlog: "Rendered from SOURCE · generated DATE ·
+  a copy, do not edit here". A missing copy shows "Not generated yet."
+- **Download** saves the PRD's or the Architecture's markdown itself, under the source's name.
+  The backlog is many files, so it has none.
+- **The backlog is three levels of accordion:** Backlog, then each epic (closed, "Epic EEE —
+  Name" and its PBI count; open, its `epic.md`), then each of that epic's PBIs (closed, "PBI
+  EEE.PPP — Title"; open, the whole PBI). It follows the house rules for nested accordions
+  (`~/.claude/wag/references/ui-standard.md`, *Nested accordions*):
+  - **One open per level,** by the `details` `name` attribute: the top three share one name,
+    all the epics share another, and each epic's PBIs share a name of their own.
+  - **Opening scrolls to it.** When opening an accordion closes a long sibling above it and
+    leaves its header above the screen, the page scrolls that header back into view, just
+    under the sticky top bar.
+  - **Nesting shows by colour.** An open header gets the theme's accent tint and an accent
+    chevron, and each level's open content is a shade darker than its parent: the card colour,
+    then the page background darkened a little, then darkened more.
 - **Directory trees are drawn, not printed.** A code block containing `├──` or `└──` is shown
   as a two-column tree: the names in monospace, indented by depth, with a Lucide `folder`
   icon (filled) or `file` icon (outline) in the same muted colour, and the comment after
@@ -516,18 +554,8 @@ that's PBI 000.001.
 
 1. **Copy `.wag/` into the project folder.** Create `~/source/<project>/` and copy the
    project's `.wag/` into it, leaving `poc/.vercel/` behind.
-2. **Convert the backlog.** Turn the approved `.wag/docs/Backlog.md` into WAG's backlog
-   folders under `.wag/backlog/`, as init's Phase D and E define them, rather than writing a
-   backlog from scratch:
-   - each `## Epic EEE — Name` becomes `epic-EEE-word/epic.md` (one-word folder name, as
-     init names them), headed `# Epic EEE: Name`. Its one-line goal opens `## Goal`, and it
-     gains `**Status:** Ready` under its priority;
-   - each `### PBI EEE.PPP — Title` becomes `PBI-PPP.md` in its epic's folder, headed
-     `# PBI EEE.PPP: Title`. Its one-line description opens `## Description`;
-   - every `####` section becomes `##`, as in the templates, and nothing else changes;
-   - then delete `.wag/docs/Backlog.md` from the copy. The folders are the backlog now; the
-     approved draft stays in Dropbox.
-3. **Finalise `.wag/`.** Init's **Phase E**, with the backlog already in place.
+   The approved backlog comes with it, already in WAG's epic folders.
+2. **Finalise `.wag/`.** Init's **Phase E**, with the backlog already in place.
    `state.json` keeps its `poc` and `poc_url` fields; set `poc` to `handed-off`.
 
 **From here on `~/source/<project>/.wag/` is the source of truth.** The Dropbox folder stays

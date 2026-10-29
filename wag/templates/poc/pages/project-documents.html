@@ -1,12 +1,18 @@
 <!doctype html>
 <!-- WAG POC starter: the standard Development page, "/project-documents". Every POC has it.
-     The PRD, the Architecture and the draft backlog are rendered in place, not in frames:
-     ../docs/PRD.js, Architecture.js and Backlog.js are generated copies of .wag/docs/PRD.md,
-     Architecture.md and Backlog.md (the sources of truth — never edit the copies, regenerate them),
-     and marked turns their markdown into the page's own HTML, in the page's own theme. The backlog
-     nests: each epic and each PBI collapses to its one line. A plain-text directory tree in a code block is
+     The PRD and the Architecture are rendered in place, not in frames: ../docs/PRD.js and
+     ../docs/Architecture.js are generated copies of .wag/docs/PRD.md and .wag/docs/Architecture.md
+     (the sources of truth — never edit the copies, regenerate them), and marked turns their markdown
+     into the page's own HTML, in the page's own theme. A plain-text directory tree in a code block is
      drawn as a real tree here; the markdown keeps its text tree. Download saves the markdown under the
-     source's name. The markup contract is the comment at the top of shell.js. -->
+     source's name. The backlog is rendered the same way, from ../docs/backlog/: index.js lists one
+     generated file per epic folder under .wag/backlog/ and loads them; the page shows a three-level
+     accordion — Backlog, then each epic (its epic.md), then each of its PBIs. Accordions at the same
+     level share a name, so opening one closes the others: the top three, the epics, and each epic's
+     PBIs. When closing a long sibling leaves the newly opened accordion's header above the screen, the
+     page scrolls that header back into view, just under the top bar (--top-bar). An open accordion's
+     header takes the accent tint, and each level's open content is a shade darker than the level around
+     it, so the nesting reads at a glance. The markup contract is the comment at the top of shell.js. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -20,7 +26,7 @@
   <script src="../data.js"></script>
   <script src="../docs/PRD.js"></script>
   <script src="../docs/Architecture.js"></script>
-  <script src="../docs/Backlog.js"></script>
+  <script src="../docs/backlog/index.js"></script>
   <script src="../shell.js"></script>
   <style type="text/tailwindcss">
     @custom-variant dark (&:where(.dark, .dark *));
@@ -47,7 +53,6 @@
     .doc h2 { font-size: 1.5rem; margin: 2rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border); }
     .doc h3 { font-size: 1.2rem; margin: 1.5rem 0 0.5rem; }
     .doc h4 { font-size: 1rem; font-weight: 600; margin: 1.25rem 0 0.25rem; }
-    .doc details > div > :first-child { margin-top: 0; }
     .doc p { margin: 0.5rem 0; line-height: 1.65; }
     .doc ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
     .doc ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
@@ -66,6 +71,30 @@
     .doc .tree-name svg { flex: none; color: var(--muted-foreground); }
     .doc .tree-name .tree-folder { fill: currentColor; }
     .doc .tree-note { color: var(--muted-foreground); }
+    /* Epics and PBIs sit inside accordions, so their headings step down a size. */
+    .doc-nested h1 { font-size: 1.35rem; }
+    .doc-nested h2 { font-size: 1.1rem; margin-top: 1.25rem; }
+    .doc-nested ul:has(input[type="checkbox"]) { list-style: none; padding-left: 0.25rem; }
+    .doc-nested input[type="checkbox"] { margin-right: 0.4rem; }
+    /* The height of the shell's sticky top bar, if it has one: scrolling an accordion's header into
+       view stops just under it. The starter's shell has none. */
+    :root { --top-bar: 0px; }
+    details[name] > summary { scroll-margin-top: calc(var(--top-bar) + 1rem); }
+
+    /* Telling the levels apart. An open accordion's header takes the accent tint, with an accent chevron,
+       so it's clear which header the content below belongs to. Each level's open content is a shade
+       darker than the level around it: the top three open onto the card colour, an epic onto the page
+       background darkened a little, and a PBI onto it darkened more. Stepping from the background
+       itself keeps the levels apart even in a theme whose card and background are the same colour.
+       Dark mode steps down further, since a dark background needs more to show the change. */
+    details[name] { overflow: hidden; }
+    details[name][open] > summary { background: var(--accent); }
+    details[name][open] > summary > svg.lucide-chevron-right { color: var(--accent-foreground); }
+    .level-1-body { background: var(--card); }
+    .level-2-body { background: color-mix(in srgb, var(--background), black 3%); }
+    .level-3-body { background: color-mix(in srgb, var(--background), black 6%); }
+    .dark .level-2-body { background: color-mix(in srgb, var(--background), black 20%); }
+    .dark .level-3-body { background: color-mix(in srgb, var(--background), black 40%); }
   </style>
 </head>
 <body class="bg-background text-foreground antialiased" data-auth="in">
@@ -74,84 +103,101 @@
     <h1 class="text-2xl font-semibold">Project Documents</h1>
     <p class="mt-1 text-sm text-muted-foreground">The documents behind this POC.</p>
     <div class="mt-6 space-y-3">
-      <details data-slot="accordion-item" class="group rounded-xl border bg-card">
+      <details name="project-docs" data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
           <i data-lucide="chevron-right" class="size-4 transition-transform group-open:rotate-90"></i>
           <span class="flex-1">PRD</span>
           <button type="button" data-download="prd" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</button>
         </summary>
-        <div class="border-t px-6 py-5">
+        <div class="level-1-body border-t px-6 py-5">
           <p data-doc-note="prd" class="mb-4 text-xs text-muted-foreground"></p>
           <article data-doc="prd" class="doc"></article>
         </div>
       </details>
-      <details data-slot="accordion-item" class="group rounded-xl border bg-card">
+      <details name="project-docs" data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
           <i data-lucide="chevron-right" class="size-4 transition-transform group-open:rotate-90"></i>
           <span class="flex-1">Architecture</span>
           <button type="button" data-download="architecture" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</button>
         </summary>
-        <div class="border-t px-6 py-5">
+        <div class="level-1-body border-t px-6 py-5">
           <p data-doc-note="architecture" class="mb-4 text-xs text-muted-foreground"></p>
           <article data-doc="architecture" class="doc"></article>
         </div>
       </details>
-      <details data-slot="accordion-item" class="group rounded-xl border bg-card">
+      <details name="project-docs" data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
           <i data-lucide="chevron-right" class="size-4 transition-transform group-open:rotate-90"></i>
           <span class="flex-1">Backlog</span>
-          <button type="button" data-download="backlog" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</button>
         </summary>
-        <div class="border-t px-6 py-5">
-          <p data-doc-note="backlog" class="mb-4 text-xs text-muted-foreground"></p>
-          <article data-doc="backlog" class="doc"></article>
+        <div class="level-1-body border-t px-6 py-5">
+          <p data-backlog-note class="mb-4 text-xs text-muted-foreground"></p>
+          <div data-backlog class="space-y-2"></div>
         </div>
       </details>
     </div>
   </main>
 
   <script>
-    // The backlog nests, from its fixed shape: "## Epic EEE — Name" then a one-line goal, and
-    // "### PBI EEE.PPP — Title" then a one-line description. Each epic and each PBI is its own
-    // collapsible item: closed, it shows its name and its one line; open, the rest.
-    function split(text) {
-      const [heading, ...rest] = text.trim().split('\n')
-      const at = rest.findIndex(line => line.trim())
-      return { title: heading.replace(/^#+\s*/, ''), line: rest[at]?.trim() ?? '', detail: rest.slice(at + 1).join('\n') }
-    }
-    const collapsible = (group, part, body) => `
-      <details class="group/${group} my-2 rounded-lg border bg-background">
-        <summary class="flex cursor-pointer list-none items-start gap-3 px-4 py-3">
-          <i data-lucide="chevron-right" class="mt-0.5 size-4 shrink-0 transition-transform group-open/${group}:rotate-90"></i>
-          <span><span class="font-medium">${esc(part.title)}</span>
-            <span class="block text-sm text-muted-foreground">${marked.parseInline(part.line)}</span></span>
-        </summary>
-        <div class="border-t px-4 py-4">${body}</div>
-      </details>`
-    function renderBacklog(markdown) {
-      const epics = markdown.split(/^(?=## Epic )/m)
-      const intro = epics[0].startsWith('## Epic ') ? '' : epics.shift()
-      return marked.parse(intro) + epics.map(text => {
-        const [head, ...pbis] = text.split(/^(?=### PBI )/m)
-        const epic = split(head)
-        return collapsible('epic', epic, marked.parse(epic.detail) + pbis.map(pbi => {
-          const part = split(pbi)
-          return collapsible('pbi', part, marked.parse(part.detail))
-        }).join(''))
-      }).join('')
-    }
-
     // Render each generated doc in place, and say where it came from.
     const docs = window.POC_DOCS ?? {}
-    const renderers = { backlog: renderBacklog }
     for (const el of document.querySelectorAll('[data-doc]'))
       el.innerHTML = docs[el.dataset.doc]
-        ? (renderers[el.dataset.doc] ?? (md => marked.parse(md)))(docs[el.dataset.doc].markdown)
+        ? marked.parse(docs[el.dataset.doc].markdown)
         : '<p>Not generated yet.</p>'
     for (const el of document.querySelectorAll('[data-doc-note]'))
       el.textContent = docs[el.dataset.docNote]
         ? `Rendered from ${docs[el.dataset.docNote].source} · generated ${docs[el.dataset.docNote].generated} · a copy, do not edit here`
         : ''
+
+    // The backlog: one accordion per epic, showing its epic.md, with one accordion per PBI inside it.
+    // Named groups (group/epic, group/pbi) keep each chevron turning with its own accordion only.
+    // The name attribute makes each level exclusive: all epics share one name, and each epic's PBIs share
+    // a name of their own, so opening one closes its siblings and nothing else.
+    const backlog = window.POC_BACKLOG
+    const backlogEl = document.querySelector('[data-backlog]')
+    const chevron = group => `<i data-lucide="chevron-right" class="size-4 transition-transform group-open/${group}:rotate-90"></i>`
+    if (backlog?.epics.length) {
+      document.querySelector('[data-backlog-note]').textContent =
+        `Rendered from ${backlog.source} · generated ${backlog.generated} · a copy, do not edit here`
+      backlogEl.innerHTML = backlog.epics.map(epic => `
+        <details name="backlog-epics" data-slot="accordion-item" class="group/epic rounded-lg border">
+          <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-2 font-medium">
+            ${chevron('epic')}
+            <span class="flex-1">Epic ${esc(epic.id)} — ${esc(epic.title)}</span>
+            <span class="text-xs text-muted-foreground">${epic.pbis.length} PBIs</span>
+          </summary>
+          <div class="level-2-body border-t px-5 py-4">
+            <article class="doc doc-nested">${marked.parse(epic.markdown)}</article>
+            <div class="mt-4 space-y-2">${epic.pbis.map(pbi => `
+              <details name="epic-${esc(epic.id)}-pbis" data-slot="accordion-item" class="group/pbi rounded-lg border">
+                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm font-medium">
+                  ${chevron('pbi')}
+                  <span class="flex-1">PBI ${esc(pbi.id)} — ${esc(pbi.title)}</span>
+                </summary>
+                <article class="level-3-body doc doc-nested border-t px-5 py-4">${marked.parse(pbi.markdown)}</article>
+              </details>`).join('')}
+            </div>
+          </div>
+        </details>`).join('')
+    }
+    else
+      backlogEl.innerHTML = '<p class="text-sm text-muted-foreground">Not generated yet.</p>'
+
+    // Opening an accordion closes its open sibling. If that sibling was long and sat above it, the page
+    // doesn't move, and the newly opened accordion's header ends up above the screen — you land in the
+    // middle or at the bottom of what you just opened. So when an accordion opens with its header hidden
+    // under the top bar or above it, scroll the header back into view. "toggle" doesn't bubble, hence
+    // the capture listener; it fires after the sibling has closed, so the measurement is current.
+    const topBar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--top-bar')) || 0
+    document.addEventListener('toggle', e => {
+      const opened = e.target
+      if (!(opened instanceof HTMLDetailsElement) || !opened.open || !opened.name)
+        return
+      const summary = opened.querySelector(':scope > summary')
+      if (summary.getBoundingClientRect().top < topBar)
+        summary.scrollIntoView({ block: 'start' })
+    }, true)
 
     // A plain-text directory tree (├── / └── lines, "# comment" at the end) becomes a real tree:
     // a folder or file icon per line, indented by depth, its comment in a column of its own.
