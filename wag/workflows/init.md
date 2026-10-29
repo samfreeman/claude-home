@@ -119,6 +119,8 @@ Phase B runs in two steps, in this order: **B1** checks the idea can be built at
 
 For a **non-app project** (docs-only, research-only) there is nothing to scaffold — skip this phase.
 
+For a **POC-origin project** (one handed off by `/wag:poc`), skip this phase too: standing up the app is its backlog's PBI 000.001, worked like any other PBI (see `wag/workflows/poc.md`, Steps 5 and 8).
+
 **Output:** A running baseline app at the project root, under the root git repo.
 
 **Transition:** User confirms the baseline is stood up. Do not proceed to the backlog until the app exists (app projects).
@@ -166,6 +168,8 @@ When a proposed PBI looks horizontal, say so and propose the vertical recut befo
 An epic is a **business objective** — a coherent outcome that delivers value to users or the business. Not a category of tasks. A single epic's PBIs may span backend, frontend, schema, infra, and docs; what makes them an epic together is the shared outcome they deliver. Names like `epic-NNN-database` or `epic-NNN-refactoring` or `epic-NNN-bugs` are anti-patterns — those PBIs either serve a real business epic, or live in `epic-000-general`.
 
 **Output:** `.wag/backlog/` (epic folders, including `epic-000-general/` and `epic-501-future/`)
+
+**POC-origin projects** don't draft a backlog here. The user approved it during the POC, as `.wag/docs/Backlog.md`, and the POC handoff converts it into these epic folders (`wag/workflows/poc.md`, Step 8). Use the converted backlog as this phase's output. Its Epic 000 opens with the three standard POC PBIs — stand up the app, port the POC, run from dev and test from QA — the one deliberate exception to "no infrastructure PBI", because a POC's app doesn't exist when its backlog is written.
 
 **Transition:** User approves the backlog. Do not proceed without approval.
 
@@ -286,7 +290,7 @@ When init finishes the baseline is already standing and the backlog is authored 
 ## Rules
 
 1. **User approves every phase transition.** Never auto-advance.
-2. **The baseline falls out of discovery, and init scaffolds it.** Intake + research decide the baseline (Phase B); init stands it up (Phase C) before the backlog is authored. The baseline is init's output, not a backlog item — there is no infrastructure PBI.
+2. **The baseline falls out of discovery, and init scaffolds it.** Intake + research decide the baseline (Phase B); init stands it up (Phase C) before the backlog is authored. The baseline is init's output, not a backlog item — there is no infrastructure PBI. (POC-origin projects are the exception: their app is stood up by PBI 000.001. See Phase C.)
 3. **Documents are seeded, not empty.** Every document should contain real content derived from the phases that produced it.
 4. **Research grounds decisions.** Requirements and architecture should trace back to research findings, not assumptions.
 5. **The user drives scope.** You propose, they decide. Especially for v1 vs v2 and non-goals.

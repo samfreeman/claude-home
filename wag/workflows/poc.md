@@ -5,7 +5,7 @@
 Take a product idea to a **running, clickable POC** that business people can open from a link,
 before any real application exists. The POC shows the look and feel and the user experience:
 every page in the PRD, realistic fake data, working links, the user flow end to end, and the
-project's PRD and Architecture readable (and downloadable) inside it. First the user is happy
+project's PRD, Architecture and draft backlog readable (and downloadable) inside it. First the user is happy
 with it; then they send the link and see if the business people are.
 
 Only once the POC is approved does the real build start. Then the POC becomes the real app's
@@ -59,24 +59,26 @@ sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as 
 - **To look at a file,** read its `NAME.md` and read U+2039 and U+203A as less-than and
   greater-than.
 - **The siblings are for voice only.** The site never links to them, and they aren't
-  deployed: `.vercelignore` excludes `*.html.md` and `*.js.md` (see Step 6).
+  deployed: `.vercelignore` excludes `*.html.md` and `*.js.md` (see Step 7).
 
 ### The docs copies (voice)
 
-`.wag/docs/PRD.md` and `.wag/docs/Architecture.md` are the sources of truth. The POC shows
-them on its Project Documents page from **generated copies**, `.wag/poc/docs/PRD.js` and
-`.wag/poc/docs/Architecture.js`. These are build output: never edit them by hand.
+`.wag/docs/PRD.md`, `.wag/docs/Architecture.md` and `.wag/docs/Backlog.md` are the sources
+of truth. The POC shows them on its Project Documents page from **generated copies**,
+`.wag/poc/docs/PRD.js`, `Architecture.js` and `Backlog.js`. These are build output: never
+edit them by hand.
 
 - **Why a `.js` copy.** A page opened from disk (`file://`) can't fetch a `.md` file, and
   there's no local server. A script tag can load a `.js` file from disk.
-- **Every write regenerates.** Any step that writes `PRD.md` or `Architecture.md` regenerates
-  its copy in the same step, never one without the other. Create `.wag/poc/docs/` first if
-  it doesn't exist yet.
+- **Every write regenerates.** Any step that writes `PRD.md`, `Architecture.md` or
+  `Backlog.md` regenerates its copy in the same step, never one without the other. Create
+  `.wag/poc/docs/` first if it doesn't exist yet.
 - **No readable sibling.** Like `data.js`, they carry no markup, so voice reads them back
   intact.
 - **The format.** `PRD.js` sets `prd`, from `.wag/docs/PRD.md`; `Architecture.js` sets
-  `architecture`, from `.wag/docs/Architecture.md`. `generated` is the date written as
-  `Mon D, YYYY`, and `markdown` is the whole source:
+  `architecture`, from `.wag/docs/Architecture.md`; `Backlog.js` sets `backlog`, from
+  `.wag/docs/Backlog.md`. `generated` is the date written as `Mon D, YYYY`, and `markdown`
+  is the whole source:
 
   ```js
   // GENERATED from .wag/docs/PRD.md — DO NOT EDIT. PRD.md is the source of truth; this is a copy
@@ -97,7 +99,7 @@ them on its Project Documents page from **generated copies**, `.wag/poc/docs/PRD
 ## Where it lives
 
 The project is a folder in **Dropbox**, so voice can reach it. There's **no git repo** until
-the POC is approved.
+the POC is approved and PBI 000.001 stands up the app.
 
 ```
 <Dropbox>/Claude/<…>/<Project>/
@@ -106,7 +108,8 @@ the POC is approved.
     ├── docs/
     │   ├── PRD.md
     │   ├── RESEARCH.md
-    │   └── Architecture.md
+    │   ├── Architecture.md
+    │   └── Backlog.md          the draft backlog, one file until the handoff
     ├── mockups/
     │   └── option-1.html … option-5.html    the round-one looks (+ .html.md siblings)
     └── poc/                    the site — this folder is what gets deployed
@@ -123,7 +126,8 @@ the POC is approved.
         ├── .vercelignore       keeps the .md siblings off the site
         └── docs/
             ├── PRD.js              generated copy of docs/PRD.md, never edited
-            └── Architecture.js     generated copy of docs/Architecture.md, never edited
+            ├── Architecture.js     generated copy of docs/Architecture.md, never edited
+            └── Backlog.js          generated copy of docs/Backlog.md, never edited
 ```
 
 Every file with markup in it (the pages, the root redirect, `shell.js`) has a readable
@@ -143,7 +147,7 @@ docs-copies rule above).
 
 - **No folder yet:** ask for the project's name and where in Dropbox it goes, and create it.
 - **`.wag/state.json` exists:** read its `poc` stage and resume there. If it says
-  `approved`, the next step is CC's handoff (Step 7).
+  `approved`, the next step is CC's handoff (Step 8).
 - **Docs exist but no state:** work out how far the project got from what's on disk — a PRD,
   RESEARCH, Architecture, mockups, a POC — and resume at the first step whose output is
   missing or doesn't meet its template.
@@ -227,7 +231,87 @@ Write `.wag/poc/docs/Architecture.js` with the Architecture, and again on every 
 
 **Transition:** the user approves the architecture.
 
-### Step 5: Build the POC → a working site — Voice
+### Step 5: Draft the backlog → Backlog.md — Voice
+
+The real build's backlog, drafted now so the business people see the plan beside the POC.
+Write it to `.wag/docs/Backlog.md`, and `.wag/poc/docs/Backlog.js` with it (the docs-copies
+rule). It's **one file**, not WAG's backlog folders; the handoff converts it (Step 8).
+
+- **Init's backlog principles** (`wag/workflows/init.md`, Phase D): an epic is a business
+  outcome, a PBI is a vertical slice, and there are no horizontal-layer PBIs. Epic numbers
+  follow init too: `000` General, `001`–`199` for feature epics, `501` Future for deferred
+  work. Every PBI traces to the PRD or the Architecture.
+- **Full epics and PBIs,** with the sections of `~/.claude/wag/templates/backlog-epic.md` and
+  `backlog-pbi.md`, not just names. **No status lines:** nothing is done at POC time.
+- **Feature PBIs build on the POC.** Each one turns a feature's fake data into real data and
+  names the POC pages it builds on.
+
+**The fixed shape.** The Project Documents page parses it, so keep to it exactly:
+
+- **An epic** is `## Epic EEE — Name`, its one-line business goal on the next line, then its
+  detail: the `**Priority:**` and `**Depends on:**` lines, and `#### Deliverables`,
+  `#### Design Input Required` and `#### Non-goals`.
+- **A PBI** is `### PBI EEE.PPP — Title`, its one-line description on the next line, then
+  its detail: the `**Priority:**` and `**Dependencies:**` lines, and `#### Description`,
+  `#### Deliverables`, `#### Acceptance Criteria`, `#### Testing Requirements` and, if
+  there's anything to note, `#### Technical Notes`.
+- **Before the first epic,** only the title `# Backlog — PROJECT` and an optional short
+  intro.
+
+```markdown
+# Backlog — PROJECT
+
+## Epic 000 — General
+Standing up the real app from the approved POC, plus loose work with no epic of its own.
+
+**Priority:** P1
+**Depends on:** None
+
+#### Deliverables
+…
+
+### PBI 000.001 — Stand up the app
+The real app runs locally on the Architecture's tech stack, in its own GitHub repo.
+
+**Priority:** P1
+**Dependencies:** None
+
+#### Description
+…
+```
+
+**Epic 000 General always starts with these three PBIs,** written out in full for the
+project:
+
+1. **PBI 000.001 — Stand up the app.**
+   - **First, understand the POC:** its pages, shell, data and theme, and how they affect
+     every PBI in the backlog. Update any PBI they change.
+   - **Then get the Next.js app running on Architecture.md's tech stack.** `/wag:create-nextjs`
+     is a reference for how, not a requirement. The PBI spells out what gets installed
+     (each layer of the stack, by name) and what's left for the feature epics, and why.
+   - **One git repo** at `~/source/<project>`, tracking the app and `.wag/`, with `main`,
+     `qa` and `dev` branches and a private GitHub repo, pushed. It's the repo's first commit,
+     so this PBI is committed to those branches rather than through a feature branch.
+   - **The theme** installs from `.wag/poc/theme.css`. If the stack has a database, dev and QA
+     seed and reset from `.wag/poc/data.js`'s data set.
+   - **The latest version of every CLI it runs** (`create-next-app`, `shadcn`, `gh` and the
+     rest), checked at the time.
+2. **PBI 000.002 — Port the POC.** The real app looks and clicks like the POC, still on its
+   fake data. Each POC page goes to its app route (`pages/x.html` to `/x`, `?id=` to
+   `/x/[id]`), `shell.js`'s shell to the app's layout (with the standard chrome), and each
+   `data-slot` element is swapped for its shadcn component.
+3. **PBI 000.003 — Run from dev, test from QA.** The app runs locally from the `dev` branch,
+   and the `qa` branch deploys to Vercel so it can be tested: link the Vercel project (naming
+   the plan tier it assumes), set the environment variables, and make the first QA build,
+   using the latest `vercel` CLI. **Production is out of scope:** it's a separate, rare,
+   manual process.
+
+**Epic 501 Future** holds the PRD's later items as PBIs, each with a deferral dependency, as
+init does.
+
+**Transition:** the user approves the backlog. The POC isn't built until they do.
+
+### Step 6: Build the POC → a working site — Voice
 
 **One small file per page.** Voice can't write one large file in a single call, so the POC is
 a set of small pages sharing a few common files, never a single big `index.html`.
@@ -295,10 +379,9 @@ The POC is:
   - the light/dark toggle;
   - a **Development** section holding **Project Documents**.
 - **Project Documents** is the starter's `pages/project-documents.html`, an accordion:
-  - **PRD** and **Architecture**, each rendered in place from its docs copy (see *The docs
-    on the page* below), with a Download button that saves the markdown as `PRD.md` or
-    `Architecture.md`.
-  - **Backlog**, which says the backlog (epics and PBIs) is written once the POC is approved.
+  - **PRD**, **Architecture** and **Backlog**, each rendered in place from its docs copy (see
+    *The docs on the page* below), with a Download button that saves the markdown as
+    `PRD.md`, `Architecture.md` or `Backlog.md`.
 - **Written in the real app's vocabulary**, so porting it is translation rather than redesign:
   - Tailwind classes, theme tokens only, no hardcoded colors;
   - every control marked `data-slot` (plus `data-variant`) with the shadcn component it
@@ -308,15 +391,18 @@ The POC is:
 
 **The docs on the page.** Project Documents doesn't use `/wag:html-prd` or
 `/wag:html-architecture`, and has no frames or links to rendered HTML docs. It loads `marked`
-from the CDN, then `../docs/PRD.js` and `../docs/Architecture.js`, and renders each doc's
-markdown into its accordion item, in the POC's own theme. The starter page does all of this;
-keep its script and its `.doc` styles (they restore the heading, list, table and code
-styling that Tailwind strips), and restyle only to the chosen look.
+from the CDN, then `../docs/PRD.js`, `../docs/Architecture.js` and `../docs/Backlog.js`, and
+renders each doc's markdown into its accordion item, in the POC's own theme. The starter page
+does all of this; keep its script and its `.doc` styles (they restore the heading, list,
+table and code styling that Tailwind strips), and restyle only to the chosen look.
 
 - **A note above each doc:** "Rendered from SOURCE · generated DATE · a copy, do not edit
   here". A missing copy shows "Not generated yet."
 - **Download** saves the markdown itself, under the source's name (`PRD.md`,
-  `Architecture.md`).
+  `Architecture.md`, `Backlog.md`).
+- **The backlog nests.** Built from its fixed shape (Step 5), each epic is a collapsible item
+  showing its name and one-line goal; open, it shows its detail and its PBIs. Each PBI is a
+  collapsible item showing its one-line description; open, it shows the whole PBI.
 - **Directory trees are drawn, not printed.** A code block containing `├──` or `└──` is shown
   as a two-column tree: the names in monospace, indented by depth, with a Lucide `folder`
   icon (filled) or `file` icon (outline) in the same muted colour, and the comment after
@@ -328,12 +414,16 @@ voice writes and edits. The pages and `shell.js` are decoded from them every tim
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
-that disagree. When that happens, fix the PRD in the same session, alongside the POC,
-regenerate `poc/docs/PRD.js`, and tell the user what changed.
+that disagree. When that happens, fix the PRD in the same session, alongside the POC, and
+tell the user what changed.
+
+**A PRD change carries through everything after it.** Whenever the PRD changes, at any
+step, bring the Architecture, the backlog and the POC into line with it in the same session,
+and regenerate the docs copy of each doc that changed.
 
 **Transition:** the user has clicked through the whole POC locally and is happy with it.
 
-### Step 6: Deploy → a link to send — CC
+### Step 7: Deploy → a link to send — CC
 
 From the project root:
 
@@ -356,32 +446,31 @@ vercel deploy --prod --yes --cwd .wag/poc
 
 **Transition:** the user sends the link. The business people's answer is the approval.
 
-### Step 7: Approved → the handoff — CC
+### Step 8: Approved → the handoff — CC
 
 **The signal.** `state.json`'s `poc` is set to `approved`. Voice sets it when the user says
 the POC is approved, or CC does. The user then runs `/wag:poc` in CC from the project's
-Dropbox folder. It sees `approved` and does the handoff:
+Dropbox folder. It sees `approved` and does the handoff. It doesn't stand up the app:
+that's PBI 000.001.
 
-1. **Copy `.wag/` into the repo folder.** Create `~/source/<project>/` and copy the
+1. **Copy `.wag/` into the project folder.** Create `~/source/<project>/` and copy the
    project's `.wag/` into it, leaving `poc/.vercel/` behind.
-2. **Scaffold the real app.** Run `/wag:create-nextjs` there, init's **Phase C**. It creates
-   the single root git repo (which tracks the copied `.wag/`), scaffolds the baseline from
-   Architecture.md, and offers the GitHub repo. The theme layer installs from
-   `.wag/poc/theme.css` (`/wag:add-theme` reads it). If the baseline includes a database,
-   `/wag:add-db` sets up seed and reset; the seed is `.wag/poc/data.js`'s data set.
-3. **Write the backlog.** Init's **Phase D**, with one addition:
-   - **The first PBI ports the POC into the real app**, still on its fake data. Each POC page
-     goes to its app route (`pages/x.html` to `/x`, `?id=` to `/x/[id]`), `shell.js`'s shell to
-     the app's layout (`layout.tsx`, with the standard chrome), and each `data-slot` element
-     is swapped for its shadcn component. The real app then looks and clicks like the POC from
-     the start.
-   - **Later PBIs swap fake data for real**, one feature at a time. Each UI PBI names the
-     POC page it ports.
-4. **Finalise `.wag/`.** Init's **Phase E**. `state.json` keeps its `poc` and `poc_url` fields;
-   set `poc` to `handed-off`.
+2. **Convert the backlog.** Turn the approved `.wag/docs/Backlog.md` into WAG's backlog
+   folders under `.wag/backlog/`, as init's Phase D and E define them, rather than writing a
+   backlog from scratch:
+   - each `## Epic EEE — Name` becomes `epic-EEE-word/epic.md` (one-word folder name, as
+     init names them), headed `# Epic EEE: Name`. Its one-line goal opens `## Goal`, and it
+     gains `**Status:** Ready` under its priority;
+   - each `### PBI EEE.PPP — Title` becomes `PBI-PPP.md` in its epic's folder, headed
+     `# PBI EEE.PPP: Title`. Its one-line description opens `## Description`;
+   - every `####` section becomes `##`, as in the templates, and nothing else changes;
+   - then delete `.wag/docs/Backlog.md` from the copy. The folders are the backlog now; the
+     approved draft stays in Dropbox.
+3. **Finalise `.wag/`.** Init's **Phase E**, with the backlog already in place.
+   `state.json` keeps its `poc` and `poc_url` fields; set `poc` to `handed-off`.
 
-**From here on the repo's `.wag/` is the source of truth.** The Dropbox folder stays as the
-POC that was approved, not kept in step with the repo.
+**From here on `~/source/<project>/.wag/` is the source of truth.** The Dropbox folder stays
+as the POC that was approved, not kept in step with it.
 
 **Data in the real app:** production has real data and is never seeded or reset. Dev and QA
 run on real databases (or local server-side ones) seeded from the POC's fake data, and
@@ -392,11 +481,13 @@ resettable back to it.
 ## Rules
 
 1. **The user approves every transition.** Never auto-advance.
-2. **Viability before mockups; a look before the POC.**
+2. **Viability before mockups; a look, then an approved backlog, before the POC.**
 3. **The POC is a showcase, not the app.** It's plain HTML with no build step and no backend:
    one small file per route in `pages/`, plus a shared `shell.js`. After approval it's the visual spec the
    real app ports, never the real app's code.
-4. **No repo until approval.** The project lives in Dropbox until the handoff.
+4. **No repo until PBI 000.001.** The project lives in Dropbox until the handoff, and the
+   handoff creates no repo; standing up the app, repo included, is the backlog's first PBI.
 5. **One data set, one user's view.** It's what the POC shows, what the ported shell shows,
    and what dev and QA are seeded with.
-6. **Flow problems are fixed in the PRD on the spot.** The PRD stays the source of truth.
+6. **Flow problems are fixed in the PRD on the spot.** The PRD stays the source of truth, and
+   a change to it carries through the Architecture, the backlog and the POC.

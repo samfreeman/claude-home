@@ -1,12 +1,13 @@
 ---
-description: Build a working POC before the real app — intake, viability, mockups, architecture, then a clickable HTML showcase deployed for business review; once approved, hands off to the real Next.js build. The alternative to /wag:init.
+description: Build a working POC before the real app — intake, viability, mockups, architecture, a draft backlog, then a clickable HTML showcase deployed for business review; once approved, hands off to the real build, which starts at PBI 000.001. The alternative to /wag:init.
 allowed-tools: Read, Write, Edit, Bash, Agent, WebSearch, WebFetch, Grep, Glob, Skill
 ---
 
 # WAG POC — a working showcase before the real build
 
 You are running the WAG POC flow. It takes an idea to a running, clickable HTML POC with fake
-data, working links, the user flow, and the PRD and Architecture readable inside it. Business
+data, working links, the user flow, and the PRD, Architecture and draft backlog readable
+inside it. Business
 people open it from a link. Once they approve it, the real application is built from it the
 WAG way.
 
@@ -39,8 +40,12 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
 
 ## Non-negotiables
 
-- **Viability before mockups; a chosen look before the POC.**
-- **No repo until approval.** The project lives in Dropbox; the handoff creates the repo.
+- **Viability before mockups; a chosen look, then an approved backlog, before the POC.** The
+  backlog is drafted after the Architecture is approved (workflow Step 5), in one file,
+  `.wag/docs/Backlog.md`, in the fixed shape the Project Documents page parses.
+- **No repo until PBI 000.001.** The project lives in Dropbox. The handoff copies `.wag/` to
+  `~/source/<project>` and converts the backlog into WAG's folders; standing up the app, repo
+  included, is the backlog's first PBI.
 - **The POC is plain HTML from `wag/templates/poc/`.** It has no build step and no backend,
   and it's written in the real app's vocabulary (Tailwind, theme tokens, shadcn `data-slot`,
   Lucide).
@@ -55,16 +60,16 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   greater-than signs written as U+2039 and U+203A, because voice's Dropbox reader strips
   anything tag-like. The `NAME.md` is voice's source: it's written or edited first, and the
   file is decoded from it, never the other way round. See the workflow's readable-copy rule.
-- **The PRD and Architecture shown in the POC are generated copies.** `.wag/docs/PRD.md` and
-  `.wag/docs/Architecture.md` stay the sources of truth. `.wag/poc/docs/PRD.js` and
-  `Architecture.js` carry their markdown so the Project Documents page can render it in
-  place, even opened from disk. Whatever writes either doc regenerates its copy in the same
-  step, and the copies are never edited by hand. See the workflow's docs-copies rule. The
+- **The PRD, Architecture and backlog shown in the POC are generated copies.**
+  `.wag/docs/PRD.md`, `Architecture.md` and `Backlog.md` stay the sources of truth.
+  `.wag/poc/docs/PRD.js`, `Architecture.js` and `Backlog.js` carry their markdown so the
+  Project Documents page can render it in place, even opened from disk. Whatever writes a
+  doc regenerates its copy in the same step, and the copies are never edited by hand. See the workflow's docs-copies rule. The
   POC doesn't use `/wag:html-prd`, `/wag:html-architecture` or `/wag:html-docs`.
 
 ## When you're done
 
 - **After the deploy:** give the user the POC's URL to review and send.
-- **After the handoff:** tell the user what was created and where: the repo at
-  `~/source/<project>`, the scaffolded app, and the backlog whose first PBI ports the POC.
-  Suggest running `/wag:adr` on that first PBI.
+- **After the handoff:** tell the user what was created and where: `~/source/<project>/.wag/`
+  with the backlog converted into its epic folders. Suggest running `/wag:adr` on PBI
+  000.001, which stands up the app.
