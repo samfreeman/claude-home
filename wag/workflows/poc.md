@@ -245,6 +245,11 @@ The POC is:
   experience, not permissions. After approval this data set becomes the real app's dev and
   QA seed, so make it realistic.
 - **The landing page** per the standard's landing-page spec, signed out at `/`.
+- **The POC notice, always,** on the landing page, directly under the top bar and visible
+  without scrolling: the starter's `data-poc-notice` strip in `pages/index.html`. It tells
+  business readers this is a preview for their buy-in, not the product: every page can be
+  clicked through, but the data is made up, nothing is saved, and nothing is sent anywhere.
+  Keep its meaning and plain language; restyle it to the chosen look, but don't remove it.
 - **Simulated sign-in.** The sign-in page's button signs you in; there's no real auth.
 - **The standard signed-in chrome**, in every POC:
   - sign out;
