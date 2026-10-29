@@ -21,10 +21,14 @@ Every step below is marked **Voice** or **CC**.
 
 - **Voice** (Claude voice) reads and writes the project's files in Dropbox, reads these WAG
   files from the claude-home copy in Dropbox, and renders HTML. It can't run commands. Voice
-  gets the project all the way to a working HTML site. Voice's Dropbox reader strips HTML
-  tags (even inside code fences), so it reads the starter through copies in the same folder:
-  `data.js.md` is `data.js` unmodified, and `index.html.md` is `index.html` with every `<`
-  written as `‹` and every `>` as `›`. Voice turns them back when it writes `.wag/poc/index.html`.
+  gets the project all the way to a working HTML site.
+- **Voice's Dropbox reader strips anything that looks like a tag,** in any file, Markdown
+  included. So the claude-home copy in Dropbox is encoded for it: in every Markdown file there
+  (this one too), each less-than sign (U+003C) appears as the single left-pointing angle
+  quotation mark (U+2039), and each greater-than sign (U+003E) as the single right-pointing one
+  (U+203A). Read them as less-than and greater-than. When copying code or markup out of these
+  files, turn them back. The starter's `index.html` and `data.js` are read through their
+  encoded copies, `index.html.md` and `data.js.md`, in the same folder.
 - **CC** (Claude Code) runs commands: it deploys the POC, and after approval it does the
   handoff to the real build.
 
@@ -35,14 +39,14 @@ When the user works in CC alone, CC does the voice steps too.
 The same reader stops voice from reading back HTML it wrote. So **every time voice writes or
 edits an `.html` file** in the project, under `.wag/mockups/` (every option, the chosen one
 included) or `.wag/poc/` (including `poc/docs/`), it also writes a sibling `<name>.html.md`.
-The sibling holds the same source with every `<` written as `‹` (U+2039) and every `>` as
-`›` (U+203A), and nothing else.
+The sibling holds the same source with every less-than sign (U+003C) replaced by U+2039 and
+every greater-than sign (U+003E) by U+203A, and nothing else.
 
 - **Keep the pair in step.** Every edit to the `.html` rewrites its `.html.md` in the same
   turn. A sibling that's out of date is worse than none.
 - **Read the sibling, write the original.** To look at or change a page, voice reads the
-  `.html.md` and turns `‹›` back into `<>`. It then writes the result to the `.html`, and the
-  re-encoded version to the `.html.md`.
+  `.html.md` and turns U+2039 and U+203A back into less-than and greater-than. It then writes
+  the result to the `.html`, and the re-encoded version to the `.html.md`.
 - **The siblings are for voice only.** The site never links to them, and they aren't
   deployed: `.vercelignore` excludes `*.html.md` (see Step 6).
 
@@ -169,7 +173,8 @@ tweakcn preset, or says `custom` if the theme was edited.
 Copy the starter from `~/.claude/wag/templates/poc/` into `.wag/poc/`, **all of it except
 `theme.css`**:
 
-- **Copy:** `index.html` (read through `index.html.md`, with `‹›` turned back into `<>`),
+- **Copy:** `index.html` (read through `index.html.md`, with U+2039 and U+203A turned back
+  into less-than and greater-than),
   `data.js`, `vercel.json` and `.vercelignore`.
 - **Don't copy:** `theme.css`, because Step 4 already wrote the project's theme there and the
   starter's neutral one would overwrite it. Also leave the starter's own `index.html.md` and

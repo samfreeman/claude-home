@@ -13,10 +13,14 @@
 # Only files whose content changed are rewritten, so a routine run touches a
 # handful of files.
 #
-# Voice's Dropbox reader strips HTML tags, even inside code fences, so every
-# .html and .js under wag/templates/ also gets a readable <name>.md copy, with
-# < and > written as ‹ and › (scripts/readable-copies.mjs). The copies exist
-# only in Dropbox.
+# Voice's Dropbox reader strips anything tag-like from any file it reads, even
+# inside code fences. So the Dropbox copy is encoded for it
+# (scripts/readable-copies.mjs): in every .md file, less-than and greater-than
+# become U+2039 and U+203A, and every .html and .js under wag/templates/ gets a
+# readable NAME.md copy encoded the same way. Only the Dropbox copy is encoded;
+# the repo keeps real angle brackets. Standing rule: tracked Markdown never
+# contains U+2039 or U+203A itself (write "less-than" in words), or the sync
+# stops.
 #
 # The Dropbox folder differs per machine (C:\Users\samfr\Dropbox here,
 # D:\Dropbox elsewhere). It is resolved in order:
@@ -79,7 +83,7 @@ git -C "$repo" fetch --quiet origin
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 git -C "$repo" archive "$branch" | tar -x -C "$tmp"
-node "$tmp/scripts/readable-copies.mjs" "$tmp/wag/templates"
+node "$tmp/scripts/readable-copies.mjs" "$tmp"
 
 echo "$branch ($(git -C "$repo" rev-parse --short "$branch")) -> $dest"
 rsync "${rsync_flags[@]}" "$tmp/" "$dest/"

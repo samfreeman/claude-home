@@ -46,8 +46,9 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   Lucide).
 - **Approval-gated.** No step advances without the user's approval.
 - **Voice keeps a readable copy of every `.html` it writes.** Each one gets an `.html.md`
-  sibling with `<` and `>` written as `‹` and `›`, rewritten on every edit, because voice's
-  Dropbox reader strips tags. See the workflow's readable-copy rule.
+  sibling with less-than and greater-than signs written as U+2039 and U+203A, rewritten on
+  every edit, because voice's Dropbox reader strips anything tag-like. See the workflow's
+  readable-copy rule.
 
 ## When you're done
 
