@@ -1,7 +1,11 @@
 <!doctype html>
 <!-- WAG POC starter: the standard Development page, "/project-plan-status". Every POC has it.
-     PRD.html and Architecture.html in ../docs/ are self-contained renders, shown here and
-     downloadable as is. The markup contract is the comment at the top of shell.js. -->
+     The PRD and the Architecture are rendered in place, not in frames: ../docs/PRD.js and
+     ../docs/Architecture.js are generated copies of .wag/docs/PRD.md and .wag/docs/Architecture.md
+     (the sources of truth — never edit the copies, regenerate them), and marked turns their markdown
+     into the page's own HTML, in the page's own theme. A plain-text directory tree in a code block is
+     drawn as a real tree here; the markdown keeps its text tree. Download saves the markdown under the
+     source's name. The markup contract is the comment at the top of shell.js. -->
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -11,7 +15,10 @@
   <link rel="stylesheet" href="../theme.css">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
   <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
   <script src="../data.js"></script>
+  <script src="../docs/PRD.js"></script>
+  <script src="../docs/Architecture.js"></script>
   <script src="../shell.js"></script>
   <style type="text/tailwindcss">
     @custom-variant dark (&:where(.dark, .dark *));
@@ -30,27 +37,60 @@
     }
     @layer base { * { @apply border-border; } }
   </style>
+  <!-- Tailwind strips heading, list, table and code styling; this puts it back for a rendered document. -->
+  <style>
+    .doc { max-width: 56rem; font-size: 0.9375rem; }
+    .doc h1, .doc h2, .doc h3 { font-weight: 600; letter-spacing: -0.01em; }
+    .doc h1 { font-size: 2rem; margin: 0 0 0.75rem; }
+    .doc h2 { font-size: 1.5rem; margin: 2rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border); }
+    .doc h3 { font-size: 1.2rem; margin: 1.5rem 0 0.5rem; }
+    .doc p { margin: 0.5rem 0; line-height: 1.65; }
+    .doc ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
+    .doc ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
+    .doc li { margin: 0.25rem 0; line-height: 1.6; }
+    .doc li > ul, .doc li > ol { margin: 0.25rem 0; }
+    .doc strong { font-weight: 600; }
+    .doc a { text-decoration: underline; text-underline-offset: 2px; }
+    .doc code { font-size: 0.85em; padding: 0.1rem 0.3rem; border-radius: 0.25rem; background: var(--muted); }
+    .doc pre { margin: 1rem 0; padding: 0.75rem 1rem; border-radius: 0.5rem; background: var(--muted); overflow-x: auto; font-size: 0.8rem; line-height: 1.5; }
+    .doc pre code { padding: 0; background: none; font-size: inherit; }
+    .doc table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    .doc th, .doc td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+    .doc th { background: var(--muted); font-weight: 600; }
+    .doc .tree { display: grid; grid-template-columns: max-content 1fr; column-gap: 2rem; row-gap: 0.2rem; margin: 1rem 0; padding: 0.75rem 1rem; border-radius: 0.5rem; background: var(--muted); font-size: 0.8125rem; overflow-x: auto; }
+    .doc .tree-name { display: inline-flex; align-items: center; gap: 0.4rem; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .doc .tree-name svg { flex: none; color: var(--muted-foreground); }
+    .doc .tree-name .tree-folder { fill: currentColor; }
+    .doc .tree-note { color: var(--muted-foreground); }
+  </style>
 </head>
 <body class="bg-background text-foreground antialiased" data-auth="in">
 
   <main data-page="Project Plan & Status">
     <h1 class="text-2xl font-semibold">Project Plan &amp; Status</h1>
+    <p class="mt-1 text-sm text-muted-foreground">The documents behind this POC.</p>
     <div class="mt-6 space-y-3">
       <details data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
           <i data-lucide="chevron-right" class="size-4 transition-transform group-open:rotate-90"></i>
           <span class="flex-1">PRD</span>
-          <a href="../docs/PRD.html" download="PRD.html" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</a>
+          <button type="button" data-download="prd" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</button>
         </summary>
-        <iframe src="../docs/PRD.html" title="PRD" loading="lazy" class="h-[80vh] w-full rounded-b-xl border-t"></iframe>
+        <div class="border-t px-6 py-5">
+          <p data-doc-note="prd" class="mb-4 text-xs text-muted-foreground"></p>
+          <article data-doc="prd" class="doc"></article>
+        </div>
       </details>
       <details data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
           <i data-lucide="chevron-right" class="size-4 transition-transform group-open:rotate-90"></i>
           <span class="flex-1">Architecture</span>
-          <a href="../docs/Architecture.html" download="Architecture.html" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</a>
+          <button type="button" data-download="architecture" class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><i data-lucide="download" class="size-4"></i> Download</button>
         </summary>
-        <iframe src="../docs/Architecture.html" title="Architecture" loading="lazy" class="h-[80vh] w-full rounded-b-xl border-t"></iframe>
+        <div class="border-t px-6 py-5">
+          <p data-doc-note="architecture" class="mb-4 text-xs text-muted-foreground"></p>
+          <article data-doc="architecture" class="doc"></article>
+        </div>
       </details>
       <details data-slot="accordion-item" class="group rounded-xl border bg-card">
         <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-3 font-medium">
@@ -64,6 +104,51 @@
       </details>
     </div>
   </main>
+
+  <script>
+    // Render each generated doc in place, and say where it came from.
+    const docs = window.POC_DOCS ?? {}
+    for (const el of document.querySelectorAll('[data-doc]'))
+      el.innerHTML = docs[el.dataset.doc]
+        ? marked.parse(docs[el.dataset.doc].markdown)
+        : '<p>Not generated yet.</p>'
+    for (const el of document.querySelectorAll('[data-doc-note]'))
+      el.textContent = docs[el.dataset.docNote]
+        ? `Rendered from ${docs[el.dataset.docNote].source} · generated ${docs[el.dataset.docNote].generated} · a copy, do not edit here`
+        : ''
+
+    // A plain-text directory tree (├── / └── lines, "# comment" at the end) becomes a real tree:
+    // a folder or file icon per line, indented by depth, its comment in a column of its own.
+    // A line is a folder if its name ends in "/" or the next line sits deeper. Folders are filled,
+    // files are outlines, both in the same muted colour.
+    function renderTree(text) {
+      const rows = text.trimEnd().split('\n').map(line => {
+        const [, path, note = ''] = line.match(/^(.*?)(?:\s+#\s+(.*))?$/)
+        const [, indent, branch, name] = path.match(/^((?:│   |    )*)(├── |└── )?(.*)$/)
+        return { depth: indent.length / 4 + (branch ? 1 : 0), name: name.trim(), note }
+      })
+      return '<div class="tree">' + rows.map((r, i) => {
+        const folder = r.name.endsWith('/') || rows[i + 1]?.depth > r.depth
+        return `<span class="tree-name" style="padding-left: ${r.depth * 1.25}rem"><i data-lucide="${folder ? 'folder' : 'file'}" class="size-3.5${folder ? ' tree-folder' : ''}"></i>${esc(r.name)}</span><span class="tree-note">${esc(r.note)}</span>`
+      }).join('') + '</div>'
+    }
+    for (const code of document.querySelectorAll('.doc pre > code'))
+      if (/[├└]── /.test(code.textContent))
+        code.parentElement.outerHTML = renderTree(code.textContent)
+    lucide.createIcons()
+
+    // Download saves the markdown itself, under the source's name.
+    document.addEventListener('click', e => {
+      const doc = docs[e.target.closest('[data-download]')?.dataset.download]
+      if (!doc)
+        return
+      e.preventDefault()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(new Blob([doc.markdown], { type: 'text/markdown' }))
+      a.download = doc.file
+      a.click()
+    })
+  </script>
 
 </body>
 </html>

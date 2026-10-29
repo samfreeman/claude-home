@@ -40,12 +40,11 @@ When the user works in CC alone, CC does the voice steps too.
 The same reader stops voice from reading back markup it wrote. So **every project file that
 contains markup has a readable sibling `NAME.md`**: every mockup option under
 `.wag/mockups/` (the chosen one included), every POC page in `.wag/poc/pages/` (one file per
-route), the root redirect `.wag/poc/index.html`, `shell.js` (it builds the nav from markup
-strings), and the docs renders
-in `.wag/poc/docs/`. That makes `items.html.md`, `shell.js.md` and so on. The sibling holds
+route), the root redirect `.wag/poc/index.html`, and `shell.js` (it builds the nav from
+markup strings). That makes `items.html.md`, `shell.js.md` and so on. The sibling holds
 the same source with every less-than sign (U+003C) replaced by U+2039 and every greater-than
-sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as `data.js` or
-`theme.css`, needs no sibling.
+sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as `data.js`,
+`theme.css` or the docs copies in `.wag/poc/docs/` (below), needs no sibling.
 
 - **The `NAME.md` is voice's source; write it first.** The file can be derived from its
   sibling (swap the two characters back), but voice can't derive the sibling from the file,
@@ -61,6 +60,39 @@ sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as 
   greater-than.
 - **The siblings are for voice only.** The site never links to them, and they aren't
   deployed: `.vercelignore` excludes `*.html.md` and `*.js.md` (see Step 6).
+
+### The docs copies (voice)
+
+`.wag/docs/PRD.md` and `.wag/docs/Architecture.md` are the sources of truth. The POC shows
+them on its Project Plan & Status page from **generated copies**, `.wag/poc/docs/PRD.js` and
+`.wag/poc/docs/Architecture.js`. These are build output: never edit them by hand.
+
+- **Why a `.js` copy.** A page opened from disk (`file://`) can't fetch a `.md` file, and
+  there's no local server. A script tag can load a `.js` file from disk.
+- **Every write regenerates.** Any step that writes `PRD.md` or `Architecture.md` regenerates
+  its copy in the same step, never one without the other. Create `.wag/poc/docs/` first if
+  it doesn't exist yet.
+- **No readable sibling.** Like `data.js`, they carry no markup, so voice reads them back
+  intact.
+- **The format.** `PRD.js` sets `prd`, from `.wag/docs/PRD.md`; `Architecture.js` sets
+  `architecture`, from `.wag/docs/Architecture.md`. `generated` is the date written as
+  `Mon D, YYYY`, and `markdown` is the whole source:
+
+  ```js
+  // GENERATED from .wag/docs/PRD.md — DO NOT EDIT. PRD.md is the source of truth; this is a copy
+  // so the Project Plan & Status page can show it when opened from disk (a page opened from disk
+  // cannot read PRD.md itself). Regenerate this file every time PRD.md changes.
+  window.POC_DOCS = window.POC_DOCS ?? {}
+  window.POC_DOCS.prd = {
+  	source: '.wag/docs/PRD.md',
+  	file: 'PRD.md',
+  	generated: 'Oct 29, 2026',
+  	markdown: `…the whole of PRD.md…`
+  }
+  ```
+- **Escaping the markdown into the template literal,** in this order: each backslash becomes
+  two backslashes (so a table's `\|` becomes `\\|`), each backtick becomes a backslash and a
+  backtick, and each `${` becomes `\${`. Nothing else changes.
 
 ## Where it lives
 
@@ -90,12 +122,13 @@ the POC is approved.
         ├── vercel.json
         ├── .vercelignore       keeps the .md siblings off the site
         └── docs/
-            ├── PRD.html            self-contained, downloadable
-            └── Architecture.html   self-contained, downloadable
+            ├── PRD.js              generated copy of docs/PRD.md, never edited
+            └── Architecture.js     generated copy of docs/Architecture.md, never edited
 ```
 
-Every file with markup in it (the pages, `shell.js`, the docs renders) has a readable
-`NAME.md` sibling for voice (the readable-copy rule above).
+Every file with markup in it (the pages, the root redirect, `shell.js`) has a readable
+`NAME.md` sibling for voice (the readable-copy rule above). The docs copies have none (the
+docs-copies rule above).
 
 `state.json`'s `poc` field tracks the stage: `building` → `deployed` → `approved` →
 `handed-off`. It's how voice and CC know where the project is, and the approval signal.
@@ -128,6 +161,9 @@ redo intake. Check the PRD against the required-content manifest at the top of
 `~/.claude/wag/templates/prd.md`, and grill the user on whatever it leaves unanswered. The
 UI pages item (the route table and menu) matters more here than anywhere: it's the list of
 pages the POC builds.
+
+Write `.wag/poc/docs/PRD.js` with the PRD, and again on every change to it (the docs-copies
+rule).
 
 **Transition:** the user approves the PRD.
 
@@ -185,6 +221,9 @@ option, its answers to the standard's open signed-in items, and any departure wi
 reason. Write the theme to `.wag/poc/theme.css` in tweakcn's format, taking the chosen
 mockup's `:root` and `.dark` blocks as they stand. Its first line names the
 tweakcn preset, or says `custom` if the theme was edited.
+
+Write `.wag/poc/docs/Architecture.js` with the Architecture, and again on every change to it
+(the docs-copies rule).
 
 **Transition:** the user approves the architecture.
 
@@ -255,9 +294,10 @@ The POC is:
   - sign out;
   - the light/dark toggle;
   - a **Development** section holding **Project Plan & Status**.
-- **Project Plan & Status** is an accordion:
-  - **PRD** and **Architecture**, each a self-contained HTML render in `poc/docs/`, shown in
-    its accordion item and downloadable as that one file (see *The docs renders* below).
+- **Project Plan & Status** is the starter's `pages/project-plan-status.html`, an accordion:
+  - **PRD** and **Architecture**, each rendered in place from its docs copy (see *The docs
+    on the page* below), with a Download button that saves the markdown as `PRD.md` or
+    `Architecture.md`.
   - **Backlog**, which says the backlog (epics and PBIs) is written once the POC is approved.
 - **Written in the real app's vocabulary**, so porting it is translation rather than redesign:
   - Tailwind classes, theme tokens only, no hardcoded colors;
@@ -266,43 +306,30 @@ The POC is:
   - Lucide icons by name;
   - the signed-in shell lives in `shell.js` (it becomes the real app's layout).
 
-**The docs renders.** `poc/docs/PRD.html` and `poc/docs/Architecture.html` are the
-high-quality version of each doc. The point is that a reader sees the design rather than
-reading about it, so they're more than prose and tables. Render them by the `/wag:html-prd`
-and `/wag:html-architecture` procedures (`~/.claude/commands/wag/`, which use
-`~/.claude/wag/templates/html-shell.html` and `~/.claude/wag/references/html-render.md`), but
-write them to `poc/docs/` and hold them to this bar:
+**The docs on the page.** Project Plan & Status doesn't use `/wag:html-prd` or
+`/wag:html-architecture`, and has no frames or links to rendered HTML docs. It loads `marked`
+from the CDN, then `../docs/PRD.js` and `../docs/Architecture.js`, and renders each doc's
+markdown into its accordion item, in the POC's own theme. The starter page does all of this;
+keep its script and its `.doc` styles (they restore the heading, list, table and code
+styling that Tailwind strips), and restyle only to the chosen look.
 
-- **Diagrams are required, as inline SVG** using the shell's `.d-*` and `.erd-*` classes.
-  Wherever the doc has the content, draw it:
-  - **Architecture:** the data model as an entity-relationship diagram (every schema), the
-    main data flows (request → server → data, plus each external integration), a layer or
-    host diagram of the app's structure, and a sequence diagram for each multi-actor flow
-    (sign-in, anything with a third party).
-  - **PRD:** the user flow end to end, a map of the UI pages and menu (the route tree), and
-    the scope (v1 vs later vs non-goals).
+- **A note above each doc:** "Rendered from SOURCE · generated DATE · a copy, do not edit
+  here". A missing copy shows "Not generated yet."
+- **Download** saves the markdown itself, under the source's name (`PRD.md`,
+  `Architecture.md`).
+- **Directory trees are drawn, not printed.** A code block containing `├──` or `└──` is shown
+  as a two-column tree: the names in monospace, indented by depth, with a Lucide `folder`
+  icon (filled) or `file` icon (outline) in the same muted colour, and the comment after
+  ` # ` in a muted column of its own. A line is a folder if its name ends in `/` or the next
+  line is deeper. The markdown keeps its text tree; only the page changes it.
 
-  Propose the set, then review each diagram with the user, as the procedures say.
-- **Tables are HTML tables** with the shell's styling: the tech stack, routes, data
-  dictionaries, anything tabular.
-- **Numbers become charts** where the docs carry them: viability's cost and capacity
-  figures, phase timelines, volumes. Draw them as inline SVG bar or line charts, labelled,
-  with no chart library, so the file stays self-contained.
-- **On a re-render, the existing file is the baseline.** The procedures compare against git
-  history, but the POC has no git. Instead, keep every diagram in the existing
-  `poc/docs/*.html` whose section hasn't changed, and review only the changed ones with the
-  user.
-- **Self-contained and theme-matched:** no external files, and the POC's theme colours, so
-  the downloaded file looks like the site it came from.
-
-**Readable copies, written first:** every page's `NAME.html.md`, `shell.js.md`, and
-`docs/PRD.html.md` and `docs/Architecture.html.md` are where voice writes and edits. The
-pages, `shell.js` and the two renders are decoded from them every time.
+**Readable copies, written first:** every page's `NAME.html.md` and `shell.js.md` are where
+voice writes and edits. The pages and `shell.js` are decoded from them every time.
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
 that disagree. When that happens, fix the PRD in the same session, alongside the POC,
-re-render `poc/docs/PRD.html`, and tell the user what changed.
+regenerate `poc/docs/PRD.js`, and tell the user what changed.
 
 **Transition:** the user has clicked through the whole POC locally and is happy with it.
 
