@@ -40,8 +40,10 @@ When the user works in CC alone, CC does the voice steps too.
 The same reader stops voice from reading back markup it wrote. So **every project file that
 contains markup has a readable sibling `NAME.md`**: every mockup option under
 `.wag/mockups/` (the chosen one included), every POC page in `.wag/poc/pages/` (one file per
-route), the root redirect `.wag/poc/index.html`, and `shell.js` (it builds the nav from
-markup strings). That makes `items.html.md`, `shell.js.md` and so on. The sibling holds
+route), the root redirect `.wag/poc/index.html`, `shell.js` (it builds the nav from
+markup strings), and every part of the shell in `.wag/poc/scripts/` that holds markup (see
+*Splitting the shell* in Step 6). That makes `items.html.md`, `shell.js.md`,
+`scripts/cards.js.md` and so on. The sibling holds
 the same source with every less-than sign (U+003C) replaced by U+2039 and every greater-than
 sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as `data.js`,
 `theme.css` or the docs copies in `.wag/poc/docs/` (below), needs no sibling.
@@ -120,6 +122,8 @@ the POC is approved and PBI 000.001 stands up the app.
         │   ├── ROUTE.html …        one file per other route in the PRD's UI pages table
         │   └── project-documents.html     the standard Development page (the docs viewer)
         ├── shell.js            the shared signed-in shell and page behaviour
+        ├── scripts/            the rest of the shell, once shell.js is split (Step 6)
+        │   └── PART.js …           one file per kind of thing (+ .js.md siblings)
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set
         ├── vercel.json
@@ -130,9 +134,12 @@ the POC is approved and PBI 000.001 stands up the app.
             └── Backlog.js          generated copy of docs/Backlog.md, never edited
 ```
 
-Every file with markup in it (the pages, the root redirect, `shell.js`) has a readable
-`NAME.md` sibling for voice (the readable-copy rule above). The docs copies have none (the
-docs-copies rule above).
+Every file with markup in it (the pages, the root redirect, `shell.js`, the parts in
+`scripts/`) has a readable `NAME.md` sibling for voice (the readable-copy rule above). The
+docs copies have none (the docs-copies rule above).
+
+**No READMEs anywhere in `.wag/`.** It's code that gets copied into the repo at the handoff,
+not part of the `/Claude` README system, so don't write one in any folder under it.
 
 `state.json`'s `poc` field tracks the stage: `building` → `deployed` → `approved` →
 `handed-off`. It's how voice and CC know where the project is, and the approval signal.
@@ -329,6 +336,22 @@ a set of small pages sharing a few common files, never a single big `index.html`
   both the landing page and the dashboard.
 - **Each page holds only its own content.** The nav and the rest of the shell come from
   `shell.js`. Aim for under about 10 KB per file.
+- **Splitting the shell.** When `shell.js` grows too big for voice to write in one call (past
+  about 10 KB, like a page), split it by kind of thing into `.wag/poc/scripts/` (VÖROOM:
+  `cards.js`, `compose.js`, `search.js`). `shell.js` stays at the POC root and keeps storage,
+  theme, the menu, the top bar, page rendering and sign-in. Pages still load only
+  `../shell.js`; `shell.js` loads the parts itself, in order, right after itself, so no page
+  changes:
+
+  ```js
+  // The rest of the shell, loaded from scripts/ right after this file, in order, so pages load only shell.js.
+  const base = document.currentScript.src.replace(/shell\.js(\?.*)?$/, '')
+  for (const file of ['cards.js', 'compose.js', 'search.js'])
+  	document.write(`<script src="${base}scripts/${file}"></script>`)
+  ```
+
+  `shell.js`'s opening comment lists the parts and what each holds. Each part that holds
+  markup gets its `NAME.js.md` sibling, written first (the readable-copy rule).
 
 State the resulting page map back to the user (route, file, what's on it) as part of the
 build discussion, before writing any pages.
@@ -409,8 +432,9 @@ table and code styling that Tailwind strips), and restyle only to the chosen loo
   ` # ` in a muted column of its own. A line is a folder if its name ends in `/` or the next
   line is deeper. The markdown keeps its text tree; only the page changes it.
 
-**Readable copies, written first:** every page's `NAME.html.md` and `shell.js.md` are where
-voice writes and edits. The pages and `shell.js` are decoded from them every time.
+**Readable copies, written first:** every page's `NAME.html.md`, `shell.js.md` and each
+`scripts/NAME.js.md` are where voice writes and edits. The pages, `shell.js` and the parts are
+decoded from them every time.
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
