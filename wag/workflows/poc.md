@@ -300,7 +300,7 @@ project:
    fake data. Each POC page goes to its app route (`pages/x.html` to `/x`, `?id=` to
    `/x/[id]`), `shell.js`'s shell to the app's layout (with the standard chrome), and each
    `data-slot` element is swapped for its shadcn component.
-3. **PBI 000.003 — Run from dev, test from QA.** The app runs locally from the `dev` branch,
+3. **PBI 000.003 — Deploy to dev and QA.** The app runs locally from the `dev` branch,
    and the `qa` branch deploys to Vercel so it can be tested: link the Vercel project (naming
    the plan tier it assumes), set the environment variables, and make the first QA build,
    using the latest `vercel` CLI. **Production is out of scope:** it's a separate, rare,

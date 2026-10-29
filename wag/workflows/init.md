@@ -169,7 +169,7 @@ An epic is a **business objective** — a coherent outcome that delivers value t
 
 **Output:** `.wag/backlog/` (epic folders, including `epic-000-general/` and `epic-501-future/`)
 
-**POC-origin projects** don't draft a backlog here. The user approved it during the POC, as `.wag/docs/Backlog.md`, and the POC handoff converts it into these epic folders (`wag/workflows/poc.md`, Step 8). Use the converted backlog as this phase's output. Its Epic 000 opens with the three standard POC PBIs — stand up the app, port the POC, run from dev and test from QA — the one deliberate exception to "no infrastructure PBI", because a POC's app doesn't exist when its backlog is written.
+**POC-origin projects** don't draft a backlog here. The user approved it during the POC, as `.wag/docs/Backlog.md`, and the POC handoff converts it into these epic folders (`wag/workflows/poc.md`, Step 8). Use the converted backlog as this phase's output. Its Epic 000 opens with the three standard POC PBIs — stand up the app, port the POC, deploy to dev and QA — the one deliberate exception to "no infrastructure PBI", because a POC's app doesn't exist when its backlog is written.
 
 **Transition:** User approves the backlog. Do not proceed without approval.
 
