@@ -93,7 +93,7 @@ Phase B runs in two steps, in this order: **B1** checks the idea can be built at
    - **Check the manifest:** author freely, then check the draft against the **required-content manifest** at the top of `~/.claude/wag/templates/architecture.md` (the ubiquitous-language, validation-policy and design-direction items among them). Every item must be answered somewhere, or resolved before approval. The doc must leave init ADR-ready.
 6. **Settle the baseline.** Pin down ground 0 explicitly so Phase C has something concrete to scaffold:
    - what kind of app (Next.js web app, Node service, CLI, library — this selects the scaffolder);
-   - the baseline deps;
+   - the baseline deps: the Architecture template's `Tech stack` table starts pre-filled with the house default, so keep what applies and record each departure with its reason;
    - the layers that ship now vs. are deferred (a web app with a UI ships the theme layer in ground 0 — the UI standard's light/dark toggle depends on it);
    - the platform/tier, carried from B1 (name the tier and confirm the feature exists on it).
 
@@ -113,7 +113,7 @@ Phase B runs in two steps, in this order: **B1** checks the idea can be built at
 **Process:**
 1. Re-confirm the baseline from Architecture.md with the user — app kind, baseline deps, layers in ground 0.
 2. For an **app project**, stand it up by invoking the appropriate scaffolder via the Skill tool:
-   - **Next.js app:** `/wag:create-nextjs` — passes through the baseline deps and the chosen layers (db / auth / theme). It establishes the single root git repo and discards its own `.git` (see that command for the subfolder-merge mechanics and the merge-up-vs-keep-in-subfolder choice).
+   - **Next.js app:** `/wag:create-nextjs` — reads the stack and the optional layers (db / auth / theme) from Architecture.md's `Tech stack` and installs exactly those. It establishes the single root git repo and discards its own `.git` (see that command for the subfolder-merge mechanics and the merge-up-vs-keep-in-subfolder choice).
    - **Other app kinds** (Node service, CLI) may have no WAG scaffolder yet — stand them up manually per Architecture.md, still under one git repo at the project root.
 3. Confirm the app boots / builds clean before moving on.
 

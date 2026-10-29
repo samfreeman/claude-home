@@ -3,7 +3,7 @@ REQUIRED CONTENT — the conformance manifest. This is the single definition of 
 An Architecture doc conforms when every item below is ANSWERED SOMEWHERE in the doc — any headings, prose fine.
 Checked at authoring (/wag:init, /wag:docs) and at /wag:adr pre-flight. Never copied into project docs.
 
-1. Tech stack — what it's built with (languages, frameworks, key dependencies) and why
+1. Tech stack — what it's built with (languages, frameworks, key dependencies) and why. A web app starts from the house default in the suggested `Tech stack` section below and records each departure with its reason. `/wag:create-nextjs` installs exactly what this section states.
 2. App structure — how the application is organized (modules, layers, hosts)
 3. Data model & storage — what the data is and where it lives
 4. Key decisions — the load-bearing choices, alternatives considered, rationale
@@ -30,9 +30,22 @@ One name per referent, everywhere — these docs, the contract/interfaces, the d
 
 ## Tech stack
 
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| {{LAYER}} | {{TECHNOLOGY}} | {{WHY_FROM_RESEARCH}} |
+The house default for a web app, pre-filled. Keep what applies, change a row only for a reason found in research (and say so in its Rationale), drop the optional rows this project doesn't need, and add project-specific rows. `/wag:create-nextjs` scaffolds exactly what this table says: baseline rows always, optional rows only when listed.
+
+| Layer | Choice | Baseline / optional | Rationale |
+|-------|--------|---------------------|-----------|
+| Runtime | Node 24 LTS, pnpm | baseline | House default; the test toolchain needs Node 22+ |
+| Framework | Next.js (App Router, `src/`, Turbopack), TypeScript | baseline | House default; Server Components, one language end to end |
+| UI | Tailwind v4, shadcn/ui, lucide-react | baseline | Owned components, not a library dependency; the house UI standard builds on them |
+| State | MobX (`mobx-react-lite`) | baseline | Observable client state with little boilerplate |
+| Validation | Zod | baseline | One schema per trust boundary (see Validation policy) |
+| Forms | react-hook-form + `@hookform/resolvers` | baseline | Zod-backed forms |
+| Tests | Vitest (jsdom, Testing Library), Playwright | baseline | Fast unit tests plus real-browser end-to-end |
+| Hosting | Vercel | baseline | House default |
+| Database | Turso (libSQL) + Kysely — `/wag:add-db` | optional | Type-safe SQL without ORM codegen; seed and reset for dev/QA |
+| Auth | BetterAuth — `/wag:add-auth` (needs Database) | optional | Self-hosted, no vendor lock-in |
+| Theme | tweakcn + next-themes, light/dark toggle — `/wag:add-theme` | optional — ships for any web app with a UI | The house UI standard's theme and toggle depend on it |
+| {{LAYER}} | {{TECHNOLOGY}} | {{BASELINE_OR_OPTIONAL}} | {{WHY_FROM_RESEARCH}} |
 
 ## High-level architecture
 

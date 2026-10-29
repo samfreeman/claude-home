@@ -1,11 +1,13 @@
 ---
-description: Create a new Next.js app with baseline deps, optional layers, and git setup
+description: Create a new Next.js app with the stack Architecture.md states (or the house default), optional layers, and git setup
 allowed-tools: Read, Write, Bash, Glob, Grep, Skill
 ---
 
 # Create Next.js App
 
 Scaffold a new Next.js app with baseline dependencies, optional layers, and git setup.
+
+**The stack comes from the Architecture doc, not from this command.** The house default is the `Tech stack` table in `~/.claude/wag/templates/architecture.md`; a project's `.wag/docs/Architecture.md` states its own (that default, plus its departures). This command installs what the doc says. The install commands below are *how* each default row is installed. They aren't a second definition of the stack.
 
 ## Context Header
 
@@ -34,6 +36,8 @@ node --version
 ```
 
 If the major version is below 22, **stop**. Tell the user the toolchain this command is about to install will not run on the host Node, and that the fix is to move the host to the current LTS (Node 24) before scaffolding — on a NodeSource-based install that is repointing the apt source at `node_24.x` and reinstalling `nodejs`. Do not pin older test dependencies to fit the host; the house baseline is one version set.
+
+**Read the stack.** If `.wag/docs/Architecture.md` exists, read its `Tech stack` section (and its baseline decision). That list is the authority for Phases 3 and 4. With no Architecture doc (a standalone run), use the house default from the Architecture template, and ask about optional layers in Phase 4.
 
 Then detect the current state of the working directory:
 
@@ -106,7 +110,9 @@ Configure TypeScript rules (eslint.config.mjs, tsconfig.json — in the app dire
 
 ## Phase 3: Baseline Install
 
-These are always installed regardless of optional layer choices.
+These install the house default's baseline rows, always, regardless of optional layer choices.
+
+**Departures from the doc win.** If Architecture.md drops a baseline row, skip its install and don't write the scaffolded code that only it uses (e.g. no MobX means no store files). If it swaps a row, install the replacement instead. If it adds a row, install that too. Say which departures you applied. If a departure leaves the scaffolded code below inconsistent, stop and ask rather than guessing.
 
 ### Dependencies
 
@@ -307,7 +313,9 @@ engine-strict=true
 
 ## Phase 4: Optional Layers
 
-Ask the user which optional layers to install. Present as a multi-select:
+**With an Architecture doc:** install exactly the optional layers its `Tech stack` lists (Database, Auth, Theme), and don't ask. Tell the user which layers the doc called for.
+
+**Standalone (no Architecture doc):** ask the user which optional layers to install. Present as a multi-select:
 
 **"Which optional layers do you want to add?"**
 
