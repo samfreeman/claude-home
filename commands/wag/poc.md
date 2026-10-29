@@ -57,7 +57,7 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   file is decoded from it, never the other way round. See the workflow's readable-copy rule.
 - **The PRD and Architecture shown in the POC are generated copies.** `.wag/docs/PRD.md` and
   `.wag/docs/Architecture.md` stay the sources of truth. `.wag/poc/docs/PRD.js` and
-  `Architecture.js` carry their markdown so the Project Plan & Status page can render it in
+  `Architecture.js` carry their markdown so the Project Documents page can render it in
   place, even opened from disk. Whatever writes either doc regenerates its copy in the same
   step, and the copies are never edited by hand. See the workflow's docs-copies rule. The
   POC doesn't use `/wag:html-prd`, `/wag:html-architecture` or `/wag:html-docs`.

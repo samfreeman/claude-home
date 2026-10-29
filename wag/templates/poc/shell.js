@@ -26,7 +26,7 @@ const NAV = [
 ]
 
 const DEV_NAV = [
-	{ href: 'project-plan-status.html', label: 'Project Plan & Status', icon: 'file-text' }
+	{ href: 'project-documents.html', label: 'Project Documents', icon: 'clipboard-list' }
 ]
 
 const store = {

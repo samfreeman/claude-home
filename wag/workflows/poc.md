@@ -64,7 +64,7 @@ sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as 
 ### The docs copies (voice)
 
 `.wag/docs/PRD.md` and `.wag/docs/Architecture.md` are the sources of truth. The POC shows
-them on its Project Plan & Status page from **generated copies**, `.wag/poc/docs/PRD.js` and
+them on its Project Documents page from **generated copies**, `.wag/poc/docs/PRD.js` and
 `.wag/poc/docs/Architecture.js`. These are build output: never edit them by hand.
 
 - **Why a `.js` copy.** A page opened from disk (`file://`) can't fetch a `.md` file, and
@@ -80,7 +80,7 @@ them on its Project Plan & Status page from **generated copies**, `.wag/poc/docs
 
   ```js
   // GENERATED from .wag/docs/PRD.md — DO NOT EDIT. PRD.md is the source of truth; this is a copy
-  // so the Project Plan & Status page can show it when opened from disk (a page opened from disk
+  // so the Project Documents page can show it when opened from disk (a page opened from disk
   // cannot read PRD.md itself). Regenerate this file every time PRD.md changes.
   window.POC_DOCS = window.POC_DOCS ?? {}
   window.POC_DOCS.prd = {
@@ -115,7 +115,7 @@ the POC is approved.
         │   ├── index.html          the "/" route: landing (signed out) + dashboard (signed in)
         │   ├── sign-in.html        the "/sign-in" route
         │   ├── ROUTE.html …        one file per other route in the PRD's UI pages table
-        │   └── project-plan-status.html   the standard Development page (the docs viewer)
+        │   └── project-documents.html     the standard Development page (the docs viewer)
         ├── shell.js            the shared signed-in shell and page behaviour
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set
@@ -253,7 +253,7 @@ build discussion, before writing any pages.
 
 - **Files with markup, readable copy first,** each to the same place in `.wag/poc/`: the root
   `index.html` (the redirect), `shell.js`, and `pages/index.html`, `pages/sign-in.html` and
-  `pages/project-plan-status.html`. For each one, take the encoded block from the starter's
+  `pages/project-documents.html`. For each one, take the encoded block from the starter's
   `NAME.md` (the part inside the code fence, without the note or the fence) and write it as the
   project's `NAME.md` beside where the file goes. Then decode that into the file.
 - **The sample route page, `pages/items.html`,** shows how a list and its detail share one
@@ -293,8 +293,8 @@ The POC is:
 - **The standard signed-in chrome**, in every POC:
   - sign out;
   - the light/dark toggle;
-  - a **Development** section holding **Project Plan & Status**.
-- **Project Plan & Status** is the starter's `pages/project-plan-status.html`, an accordion:
+  - a **Development** section holding **Project Documents**.
+- **Project Documents** is the starter's `pages/project-documents.html`, an accordion:
   - **PRD** and **Architecture**, each rendered in place from its docs copy (see *The docs
     on the page* below), with a Download button that saves the markdown as `PRD.md` or
     `Architecture.md`.
@@ -306,7 +306,7 @@ The POC is:
   - Lucide icons by name;
   - the signed-in shell lives in `shell.js` (it becomes the real app's layout).
 
-**The docs on the page.** Project Plan & Status doesn't use `/wag:html-prd` or
+**The docs on the page.** Project Documents doesn't use `/wag:html-prd` or
 `/wag:html-architecture`, and has no frames or links to rendered HTML docs. It loads `marked`
 from the CDN, then `../docs/PRD.js` and `../docs/Architecture.js`, and renders each doc's
 markdown into its accordion item, in the POC's own theme. The starter page does all of this;
