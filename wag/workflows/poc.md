@@ -186,9 +186,7 @@ markup contract; follow it. The POC is:
   - a **Development** section holding **Project Plan & Status**.
 - **Project Plan & Status** is an accordion:
   - **PRD** and **Architecture**, each a self-contained HTML render in `poc/docs/`, shown in
-    its accordion item and downloadable as that one file. Render them by the
-    `/wag:html-prd` and `/wag:html-architecture` procedure (`~/.claude/commands/wag/`), but
-    write them to `poc/docs/`.
+    its accordion item and downloadable as that one file (see *The docs renders* below).
   - **Backlog**, which says the backlog (epics and PBIs) is written once the POC is approved.
 - **Written in the real app's vocabulary**, so porting it is translation rather than redesign:
   - Tailwind classes, theme tokens only, no hardcoded colors;
@@ -196,6 +194,35 @@ markup contract; follow it. The POC is:
     stands in for, its classes taken from that component;
   - Lucide icons by name;
   - the signed-in shell as one region (it becomes the real app's `layout.tsx`).
+
+**The docs renders.** `poc/docs/PRD.html` and `poc/docs/Architecture.html` are the
+high-quality version of each doc. The point is that a reader sees the design rather than
+reading about it, so they're more than prose and tables. Render them by the `/wag:html-prd`
+and `/wag:html-architecture` procedures (`~/.claude/commands/wag/`, which use
+`~/.claude/wag/templates/html-shell.html` and `~/.claude/wag/references/html-render.md`), but
+write them to `poc/docs/` and hold them to this bar:
+
+- **Diagrams are required, as inline SVG** using the shell's `.d-*` and `.erd-*` classes.
+  Wherever the doc has the content, draw it:
+  - **Architecture:** the data model as an entity-relationship diagram (every schema), the
+    main data flows (request → server → data, plus each external integration), a layer or
+    host diagram of the app's structure, and a sequence diagram for each multi-actor flow
+    (sign-in, anything with a third party).
+  - **PRD:** the user flow end to end, a map of the UI pages and menu (the route tree), and
+    the scope (v1 vs later vs non-goals).
+
+  Propose the set, then review each diagram with the user, as the procedures say.
+- **Tables are HTML tables** with the shell's styling: the tech stack, routes, data
+  dictionaries, anything tabular.
+- **Numbers become charts** where the docs carry them: viability's cost and capacity
+  figures, phase timelines, volumes. Draw them as inline SVG bar or line charts, labelled,
+  with no chart library, so the file stays self-contained.
+- **On a re-render, the existing file is the baseline.** The procedures compare against git
+  history, but the POC has no git. Instead, keep every diagram in the existing
+  `poc/docs/*.html` whose section hasn't changed, and review only the changed ones with the
+  user.
+- **Self-contained and theme-matched:** no external files, and the POC's theme colours, so
+  the downloaded file looks like the site it came from.
 
 **Readable copies:** `index.html`, `docs/PRD.html` and `docs/Architecture.html` each get
 their `.html.md` sibling, rewritten on every edit.
