@@ -16,9 +16,12 @@
 //   data-list="KEY"                  repeat the child template once per item in POC_DATA[KEY]
 //   data-record="KEY"                fill the child template with the POC_DATA[KEY] item whose id is ?id=
 //   data-fill                        fill {{path}} placeholders once from POC_DATA
+//   data-logo                        the app's logo (mark and name); data-logo="tagline" adds data.app.tagline
 //   data-slot, data-variant          the shadcn component a control stands in for
 //   data-action="sign-in|sign-out|toggle-theme"
+//   data-action="open-docs"          on a link to project-documents.html: signs in first, so it skips sign-in
 // NAV is the app's menu: edit it to match the PRD's menu. DEV_NAV is the standard Development section.
+// MARK is the logo's mark, used by logo() and as the favicon: replace it, once, here.
 
 const NAV = [
 	{ href: 'index.html', label: 'Dashboard', icon: 'layout-dashboard' },
@@ -28,6 +31,10 @@ const NAV = [
 const DEV_NAV = [
 	{ href: 'project-documents.html', label: 'Project Documents', icon: 'clipboard-list' }
 ]
+
+// PLACEHOLDER: a generic mark until the brand has one (poc.md, Step 3).
+const MARK = (bg, fg) =>
+	`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${bg}"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="${fg}" stroke-width="3"/></svg>`
 
 const store = {
 	get(area, key) {
@@ -62,6 +69,26 @@ const fill = (html, item) =>
 	html.replace(/\{\{([\w.]+)\}\}/g, (_, path) =>
 		esc(path.split('.').reduce((v, k) => v?.[k], item) ?? ''))
 
+const logo = ({ tagline = false } = {}) => `
+	<span class="inline-flex items-center gap-2">
+		<span class="size-7 shrink-0 [&>svg]:size-full">${MARK('var(--primary)', 'var(--primary-foreground)')}</span>
+		<span class="flex flex-col leading-tight">
+			<span class="font-semibold">${esc(data.app?.name ?? '')}</span>
+			${tagline && data.app?.tagline ? `<span class="text-xs text-muted-foreground">${esc(data.app.tagline)}</span>` : ''}
+		</span>
+	</span>`
+
+// The favicon is the mark itself. A data: image can't read CSS variables, so the theme's colours
+// are written in as the page loaded them.
+function addFavicon() {
+	const css = getComputedStyle(document.documentElement)
+	const color = name => css.getPropertyValue(name).trim()
+	const link = document.createElement('link')
+	link.rel = 'icon'
+	link.href = `data:image/svg+xml,${encodeURIComponent(MARK(color('--primary'), color('--primary-foreground')))}`
+	document.head.append(link)
+}
+
 const navLink = item => `
 	<a href="${item.href}" ${item.href == here ? 'aria-current="page"' : ''}
 		class="flex items-center gap-2 rounded-md px-3 py-2 text-muted-foreground hover:bg-accent aria-[current=page]:bg-accent aria-[current=page]:font-medium aria-[current=page]:text-accent-foreground">
@@ -77,7 +104,7 @@ function drawShell(main) {
 	wrap.className = 'flex min-h-screen'
 	wrap.innerHTML = `
 		<aside class="flex w-60 shrink-0 flex-col border-r bg-card">
-			<a href="index.html" class="flex h-14 items-center px-4 font-semibold">${esc(data.app?.name ?? '')}</a>
+			<a href="index.html" class="flex h-14 items-center px-4">${logo()}</a>
 			<nav class="flex-1 space-y-1 px-2 text-sm">
 				${NAV.map(navLink).join('')}
 				<div class="px-3 pt-6 pb-1 text-xs font-medium text-muted-foreground">Development</div>
@@ -96,6 +123,8 @@ function drawShell(main) {
 }
 
 function render() {
+	for (const el of document.querySelectorAll('[data-logo]'))
+		el.innerHTML = logo({ tagline: el.dataset.logo == 'tagline' })
 	for (const el of document.querySelectorAll('[data-fill]'))
 		el.innerHTML = fill(el.innerHTML, data)
 	for (const el of document.querySelectorAll('[data-list]')) {
@@ -120,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		return location.replace('sign-in.html')
 	if (auth == 'out' && signedIn)
 		return location.replace('index.html')
+	addFavicon()
 	for (const el of document.querySelectorAll('[data-view]'))
 		el.hidden = el.dataset.view != (signedIn ? 'in' : 'out')
 	const main = document.querySelector('main[data-page]:not([hidden])')
@@ -141,4 +171,6 @@ document.addEventListener('click', e => {
 		store.set('sessionStorage', 'poc-signed-in', action == 'sign-in' ? '1' : null)
 		location.href = 'index.html'
 	}
+	else if (action == 'open-docs')
+		store.set('sessionStorage', 'poc-signed-in', '1')
 })

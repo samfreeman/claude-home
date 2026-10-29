@@ -22,8 +22,9 @@ Every step below is marked **Voice** or **CC**.
 - **Voice** (Claude voice) reads and writes the project's files in Dropbox, reads these WAG
   files from the claude-home copy in Dropbox, and renders HTML. It can't run commands. Voice
   gets the project all the way to a working HTML site.
-- **Voice's Dropbox reader strips anything that looks like a tag,** in any file, Markdown
-  included. So the claude-home copy in Dropbox is encoded for it: in every Markdown file there
+- **Voice's Dropbox reader strips anything that looks like a tag** from some file types,
+  HTML and Markdown included, but not from others (a JavaScript file full of markup came back
+  intact). So the claude-home copy in Dropbox is encoded for it: in every Markdown file there
   (this one too), each less-than sign (U+003C) appears as the single left-pointing angle
   quotation mark (U+2039), and each greater-than sign (U+003E) as the single right-pointing one
   (U+203A). Read them as less-than and greater-than. When copying code or markup out of these
@@ -37,16 +38,20 @@ When the user works in CC alone, CC does the voice steps too.
 
 ### The readable-copy rule (voice)
 
-The same reader stops voice from reading back markup it wrote. So **every project file that
-contains markup has a readable sibling `NAME.md`**: every mockup option under
-`.wag/mockups/` (the chosen one included), every POC page in `.wag/poc/pages/` (one file per
-route), the root redirect `.wag/poc/index.html`, `shell.js` (it builds the nav from
-markup strings), and every part of the shell in `.wag/poc/scripts/` that holds markup (see
-*Splitting the shell* in Step 6). That makes `items.html.md`, `shell.js.md`,
-`scripts/cards.js.md` and so on. The sibling holds
-the same source with every less-than sign (U+003C) replaced by U+2039 and every greater-than
-sign (U+003E) by U+203A, and nothing else. A file with no markup in it, such as `data.js`,
-`theme.css` or the docs copies in `.wag/poc/docs/` (below), needs no sibling.
+The same reader can stop voice from reading back markup it wrote. So:
+
+- **Every HTML file has a readable sibling `NAME.md`:** every mockup option under
+  `.wag/mockups/` (the chosen one included), every POC page in `.wag/poc/pages/` (one file per
+  route), and the root redirect `.wag/poc/index.html`. That makes `items.html.md`,
+  `index.html.md` and so on.
+- **Any other file is tested by reading it back.** When voice first writes it, it reads it
+  back and compares. If it comes back exactly as written, it gets no sibling, and voice works
+  on the file directly. If anything was stripped (then, or on any later read), it gets a
+  readable `NAME.md` from then on, written first, as below. `shell.js` and the parts in
+  `.wag/poc/scripts/` have come back intact so far.
+
+The sibling holds the same source with every less-than sign (U+003C) replaced by U+2039 and
+every greater-than sign (U+003E) by U+203A, and nothing else.
 
 - **The `NAME.md` is voice's source; write it first.** The file can be derived from its
   sibling (swap the two characters back), but voice can't derive the sibling from the file,
@@ -123,7 +128,7 @@ the POC is approved and PBI 000.001 stands up the app.
         │   └── project-documents.html     the standard Development page (the docs viewer)
         ├── shell.js            the shared signed-in shell and page behaviour
         ├── scripts/            the rest of the shell, once shell.js is split (Step 6)
-        │   └── PART.js …           one file per kind of thing (+ .js.md siblings)
+        │   └── PART.js …           one file per kind of thing
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set
         ├── vercel.json
@@ -134,9 +139,9 @@ the POC is approved and PBI 000.001 stands up the app.
             └── Backlog.js          generated copy of docs/Backlog.md, never edited
 ```
 
-Every file with markup in it (the pages, the root redirect, `shell.js`, the parts in
-`scripts/`) has a readable `NAME.md` sibling for voice (the readable-copy rule above). The
-docs copies have none (the docs-copies rule above).
+Every HTML file (the mockups, the pages, the root redirect) has a readable `NAME.md` sibling
+for voice, and any other file only if it failed the read-back test (the readable-copy rule
+above). The docs copies have none (the docs-copies rule above).
 
 **No READMEs anywhere in `.wag/`.** It's code that gets copied into the repo at the handoff,
 not part of the `/Claude` README system, so don't write one in any folder under it.
@@ -186,6 +191,10 @@ Init's **Phase B1**. Don't mock up an app that hasn't passed viability.
 
 ### Step 3: Mockups → a look — Voice
 
+**First, the brand.** Before building any look, check what the brand already has: a logo
+mark or emblem, a wordmark, a favicon and an icon style. Tell the user what you found, or say
+plainly that none of it exists; Step 4 records it. The looks use what exists.
+
 Build **4–5 looks** in `.wag/mockups/option-N.html`.
 
 - **Each look shows** the landing page's hero plus a few signed-in pages, chosen to cover the
@@ -229,7 +238,9 @@ blocks are what Step 4 writes to `theme.css`.
 
 Init's **Phase B2**. Architecture's `Design direction` records the chosen look: which
 option, its answers to the standard's open signed-in items, and any departure with its
-reason. Write the theme to `.wag/poc/theme.css` in tweakcn's format, taking the chosen
+reason. It also records the brand from Step 3: which of a logo mark, a wordmark, a favicon
+and an icon style exist, or plainly that none do, and that the POC's mark is then a
+placeholder. Write the theme to `.wag/poc/theme.css` in tweakcn's format, taking the chosen
 mockup's `:root` and `.dark` blocks as they stand. Its first line names the
 tweakcn preset, or says `custom` if the theme was edited.
 
@@ -320,6 +331,10 @@ init does.
 
 ### Step 6: Build the POC → a working site — Voice
 
+**Expect to go back and forth.** The final POC isn't the first build. It's reached by going
+back and forth with the user on look and layout, page by page, until they're happy. Plan for
+that.
+
 **One small file per page.** Voice can't write one large file in a single call, so the POC is
 a set of small pages sharing a few common files, never a single big `index.html`.
 
@@ -337,8 +352,9 @@ a set of small pages sharing a few common files, never a single big `index.html`
 - **Each page holds only its own content.** The nav and the rest of the shell come from
   `shell.js`. Aim for under about 10 KB per file.
 - **Splitting the shell.** When `shell.js` grows too big for voice to write in one call (past
-  about 10 KB, like a page), split it by kind of thing into `.wag/poc/scripts/` (VÖROOM:
-  `cards.js`, `compose.js`, `search.js`). `shell.js` stays at the POC root and keeps storage,
+  about 10 KB, like a page), split it by kind of thing into `.wag/poc/scripts/`: for example,
+  the message card in `card.js`, the compose dialogs in `compose.js`, and search in
+  `search.js`. `shell.js` stays at the POC root and keeps storage,
   theme, the menu, the top bar, page rendering and sign-in. Pages still load only
   `../shell.js`; `shell.js` loads the parts itself, in order, right after itself, so no page
   changes:
@@ -346,23 +362,26 @@ a set of small pages sharing a few common files, never a single big `index.html`
   ```js
   // The rest of the shell, loaded from scripts/ right after this file, in order, so pages load only shell.js.
   const base = document.currentScript.src.replace(/shell\.js(\?.*)?$/, '')
-  for (const file of ['cards.js', 'compose.js', 'search.js'])
+  for (const file of ['card.js', 'compose.js', 'search.js'])
   	document.write(`<script src="${base}scripts/${file}"></script>`)
   ```
 
-  `shell.js`'s opening comment lists the parts and what each holds. Each part that holds
-  markup gets its `NAME.js.md` sibling, written first (the readable-copy rule).
+  `shell.js`'s opening comment lists the parts and what each holds. Each new part gets the
+  read-back test (the readable-copy rule).
 
 State the resulting page map back to the user (route, file, what's on it) as part of the
 build discussion, before writing any pages.
 
 **Then the starter.** Copy from `~/.claude/wag/templates/poc/` into `.wag/poc/`:
 
-- **Files with markup, readable copy first,** each to the same place in `.wag/poc/`: the root
-  `index.html` (the redirect), `shell.js`, and `pages/index.html`, `pages/sign-in.html` and
+- **The HTML files, readable copy first,** each to the same place in `.wag/poc/`: the root
+  `index.html` (the redirect), `pages/index.html`, `pages/sign-in.html` and
   `pages/project-documents.html`. For each one, take the encoded block from the starter's
   `NAME.md` (the part inside the code fence, without the note or the fence) and write it as the
   project's `NAME.md` beside where the file goes. Then decode that into the file.
+- **`shell.js`, directly.** Take the encoded block from the starter's `shell.js.md`, decode it,
+  and write it as the project's `shell.js`, with no sibling. Then give it the read-back test
+  (the readable-copy rule).
 - **The sample route page, `pages/items.html`,** shows how a list and its detail share one
   file. Use it as the pattern for each route in the page map: write each page's
   `pages/ROUTE.html.md` first, then decode it. Don't keep `items.html` unless the app has an
@@ -371,13 +390,26 @@ build discussion, before writing any pages.
 - **Don't copy:** `theme.css`, because Step 4 already wrote the project's theme there and the
   starter's neutral one would overwrite it. Also skip the starter's `data.js.md`; `data.js`
   has no markup, so the project doesn't need a copy of it.
-- **Set the menu:** edit `NAV` at the top of `shell.js.md` (then decode `shell.js`) to match the
-  PRD's menu, and put the app's name in `data.js`.
+- **Set the menu:** edit `NAV` at the top of `shell.js` directly to match the PRD's menu, and
+  put the app's name, and its tagline if it has one, in `data.js`.
 
 `shell.js`'s opening comment is the markup contract: each page's `data-auth`, `data-view`,
-`data-page`, `data-list`/`data-record`/`data-fill`, and `data-if`/`data-unless` for the id.
-Follow it. Every page loads `theme.css`, `data.js` and `shell.js` in its head, exactly as the
-starter pages do.
+`data-page`, `data-list`/`data-record`/`data-fill`, `data-if`/`data-unless` for the id,
+`data-logo` and `data-action`. Follow it. Every page loads `theme.css`, `data.js` and
+`shell.js` in its head, exactly as the starter pages do.
+
+**The logo is one shared piece, in `shell.js`.** Its `logo()` function draws the mark and the
+app's name (and, where asked, `data.app.tagline` under it). The sidebar uses it, and it fills
+any element marked `data-logo`, such as the landing page's header. Change the mark there, once,
+and it changes everywhere.
+
+- **The favicon is the same SVG.** `shell.js` adds it to every page's head as a
+  `data:image/svg+xml` link: no icon file, no page changes. A `data:` image can't read the
+  theme's CSS variables, so `shell.js` writes in the theme's `--primary` colour as the page
+  loaded it.
+- **No vector art yet?** If Step 3 found no logo mark as SVG, draw a simple placeholder SVG
+  inline in `logo()`, mark it `PLACEHOLDER` in a comment, and say so in Architecture's Design
+  direction. The starter's mark is such a placeholder.
 
 The POC is:
 
@@ -391,11 +423,16 @@ The POC is:
   experience, not permissions. After approval this data set becomes the real app's dev and
   QA seed, so make it realistic.
 - **The landing page** per the standard's landing-page spec, signed out at `/`.
-- **The POC notice, always,** on the landing page, directly under the top bar and visible
-  without scrolling: the starter's `data-poc-notice` strip in `pages/index.html`. It tells
-  business readers this is a preview for their buy-in, not the product: every page can be
-  clicked through, but the data is made up, nothing is saved, and nothing is sent anywhere.
-  Keep its meaning and plain language; restyle it to the chosen look, but don't remove it.
+- **The POC notice, always,** on the landing page, visible without scrolling: the starter's
+  `data-poc-notice` in `pages/index.html`. How it looks is worked out with the user; what it
+  says isn't optional. In plain language, it says:
+  - what this is and isn't: a clickable preview, not the product;
+  - why it exists: to agree on the flows and the design before the real build;
+  - that sign-in is simulated, everyone sees the same made-up data, and nothing is saved or
+    sent anywhere;
+  - a link to **Project Documents** (the PRD, Architecture and Backlog), marked
+    `data-action="open-docs"`, so it skips sign-in, with a small note that the link signs
+    you in to the preview.
 - **Simulated sign-in.** The sign-in page's button signs you in; there's no real auth.
 - **The standard signed-in chrome**, in every POC:
   - sign out;
@@ -432,9 +469,9 @@ table and code styling that Tailwind strips), and restyle only to the chosen loo
   ` # ` in a muted column of its own. A line is a folder if its name ends in `/` or the next
   line is deeper. The markdown keeps its text tree; only the page changes it.
 
-**Readable copies, written first:** every page's `NAME.html.md`, `shell.js.md` and each
-`scripts/NAME.js.md` are where voice writes and edits. The pages, `shell.js` and the parts are
-decoded from them every time.
+**Readable copies, written first:** every page's `NAME.html.md` is where voice writes and
+edits, and the page is decoded from it every time. `shell.js`, the parts in `scripts/` and
+`data.js` are edited directly, unless one has failed the read-back test and has a sibling.
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
