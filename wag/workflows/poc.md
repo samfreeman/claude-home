@@ -126,6 +126,8 @@ Build **4–5 looks** in `.wag/mockups/option-N.html`.
   and its `theme.css` so each look renders the way the POC will.
 - **Static.** Lay the pages out one after another, with a small label above each naming its
   route. No routing yet.
+- **Dark mode first.** Build every look in dark mode only: put the `dark` class on `<html>`
+  and fill in the `.dark` colour block. Light mode comes after the pick.
 - **Inside the house UI standard** (`~/.claude/wag/references/ui-standard.md`). The looks vary
   what the standard leaves open for signed-in pages: layout and navigation chrome, density,
   how cards, tables and forms look, and which landing-page traits carry over. They also vary
@@ -134,16 +136,30 @@ Build **4–5 looks** in `.wag/mockups/option-N.html`.
 The user picks one, then you go back and forth on it until they're happy. The other options
 stay in `mockups/` as the record of what was considered.
 
+**Then design the light mode, in the same file.** The standard wants both modes *designed*,
+not one derived from the other, so light is worked out with the user rather than generated
+from dark:
+
+- **The colours.** Fill in the chosen look's `:root` (light) colour block alongside its
+  `.dark` block, with the same tokens.
+- **The toggle.** Add a working light/dark toggle: the starter's `toggle-theme` button and
+  its theme script. It's the only control in a mockup that works; nothing navigates.
+- **Check both modes.** Go back and forth until every page in the look reads well in both.
+
+The finished mockup is **one file with both modes and a working toggle**. Its two colour
+blocks are what Step 4 writes to `theme.css`.
+
 **Readable copies:** every option file, and every edit to one (the chosen look's tweaks
 included), gets its `.html.md` sibling written in the same turn.
 
-**Transition:** the user picks and approves a look.
+**Transition:** the user approves the chosen look in both light and dark.
 
 ### Step 4: Research + Architecture — Voice
 
 Init's **Phase B2**. Architecture's `Design direction` records the chosen look: which
 option, its answers to the standard's open signed-in items, and any departure with its
-reason. Write the theme to `.wag/poc/theme.css` in tweakcn's format. Its first line names the
+reason. Write the theme to `.wag/poc/theme.css` in tweakcn's format, taking the chosen
+mockup's `:root` and `.dark` blocks as they stand. Its first line names the
 tweakcn preset, or says `custom` if the theme was edited.
 
 **Transition:** the user approves the architecture.
