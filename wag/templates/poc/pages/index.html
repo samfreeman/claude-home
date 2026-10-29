@@ -1,0 +1,75 @@
+<!doctype html>
+<!-- WAG POC starter: the "/" route, signed-out landing and signed-in dashboard in one file.
+     The markup contract is the comment at the top of shell.js. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{PROJECT_NAME}}</title>
+  <link rel="stylesheet" href="../theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="../data.js"></script>
+  <script src="../shell.js"></script>
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+    @theme inline {
+      --color-background: var(--background); --color-foreground: var(--foreground);
+      --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+      --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+      --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+      --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
+      --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+      --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+      --color-destructive: var(--destructive); --color-border: var(--border);
+      --color-input: var(--input); --color-ring: var(--ring);
+      --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px);
+      --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
+    }
+    @layer base { * { @apply border-border; } }
+  </style>
+</head>
+<body class="bg-background text-foreground antialiased" data-auth="any">
+
+  <section data-view="out">
+    <header class="border-b">
+      <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+        <span data-fill class="font-semibold">{{app.name}}</span>
+        <div class="flex items-center gap-2">
+          <button data-slot="button" data-variant="ghost" data-action="toggle-theme" aria-label="Toggle light or dark mode"
+            class="inline-flex size-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground">
+            <i data-lucide="sun" class="size-4 hidden dark:block"></i><i data-lucide="moon" class="size-4 dark:hidden"></i>
+          </button>
+          <a href="sign-in.html" data-slot="button" data-variant="default"
+            class="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90">Sign in</a>
+        </div>
+      </div>
+    </header>
+    <section class="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center px-6 py-24 text-center">
+      <div class="mx-auto max-w-5xl">
+        <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1 font-mono text-xs">
+          <span class="size-2 animate-pulse rounded-full bg-primary"></span> Now in beta
+        </span>
+        <h1 class="mt-6 text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
+          Headline with <span class="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">one phrase</span> lifted
+        </h1>
+        <p class="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl">Subtext in muted foreground.</p>
+        <div class="mt-10 flex justify-center gap-4">
+          <a href="sign-in.html" data-slot="button" data-variant="default"
+            class="inline-flex h-12 items-center rounded-md bg-primary px-8 text-base font-semibold text-primary-foreground shadow-lg">Get started</a>
+          <a href="#how" data-slot="button" data-variant="outline"
+            class="inline-flex h-12 items-center rounded-md border bg-background px-8 text-base font-semibold">How it works</a>
+        </div>
+      </div>
+    </section>
+    <!-- …stats, how it works, pricing, FAQ, final CTA, footer: the UI standard's landing sections, in its order -->
+  </section>
+
+  <main data-view="in" data-page="Dashboard">
+    <h1 data-fill class="text-2xl font-semibold">Welcome back, {{user.first}}</h1>
+    <p class="mt-1 text-sm text-muted-foreground">Since you were last here</p>
+  </main>
+
+</body>
+</html>

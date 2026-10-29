@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- WAG POC starter: a sample signed-in route, "/items", with its dynamic "/items/[id]" folded in
+     as items.html?id=. Rename and reshape it per the PRD. The markup contract is the comment at
+     the top of shell.js. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{PROJECT_NAME}}</title>
+  <link rel="stylesheet" href="../theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.11"></script>
+  <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+  <script src="../data.js"></script>
+  <script src="../shell.js"></script>
+  <style type="text/tailwindcss">
+    @custom-variant dark (&:where(.dark, .dark *));
+    @theme inline {
+      --color-background: var(--background); --color-foreground: var(--foreground);
+      --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+      --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+      --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+      --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
+      --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+      --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+      --color-destructive: var(--destructive); --color-border: var(--border);
+      --color-input: var(--input); --color-ring: var(--ring);
+      --radius-sm: calc(var(--radius) - 4px); --radius-md: calc(var(--radius) - 2px);
+      --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
+    }
+    @layer base { * { @apply border-border; } }
+  </style>
+</head>
+<body class="bg-background text-foreground antialiased" data-auth="in">
+
+  <main data-page="Items">
+
+    <section data-unless="id">
+      <h1 class="text-2xl font-semibold">Items</h1>
+      <div data-list="items" class="mt-6 space-y-3">
+        <template>
+          <a href="items.html?id={{id}}" data-slot="card" class="block rounded-xl border bg-card p-4 text-card-foreground shadow-sm hover:border-primary/40">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-medium">{{title}}</span>
+              <span data-slot="badge" data-variant="outline" class="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium">{{status}}</span>
+            </div>
+            <p class="mt-2 text-sm text-muted-foreground">{{owner}} · {{updated}}</p>
+          </a>
+        </template>
+      </div>
+    </section>
+
+    <section data-if="id">
+      <a href="items.html" class="text-sm text-muted-foreground hover:text-foreground">← Items</a>
+      <div data-record="items" class="mt-4">
+        <template>
+          <h1 class="text-2xl font-semibold">{{title}}</h1>
+          <p class="mt-1 text-sm text-muted-foreground">{{owner}} · {{status}} · {{updated}}</p>
+          <p class="mt-6">{{body}}</p>
+        </template>
+      </div>
+    </section>
+
+  </main>
+
+</body>
+</html>

@@ -45,11 +45,16 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   and it's written in the real app's vocabulary (Tailwind, theme tokens, shadcn `data-slot`,
   Lucide).
 - **Approval-gated.** No step advances without the user's approval.
-- **Voice writes the readable copy first.** Every `.html` in the project, the POC's
-  `index.html` included, has an `.html.md` sibling with less-than and greater-than signs
-  written as U+2039 and U+203A, because voice's Dropbox reader strips anything tag-like. The
-  `.html.md` is voice's source: it's written or edited first, and the `.html` is decoded from
-  it, never the other way round. See the workflow's readable-copy rule.
+- **One small file per page, in `pages/`.** The POC is one HTML file per route, all in
+  `.wag/poc/pages/` (`/` is `pages/index.html`, `/x` is `pages/x.html`, and `/x/[id]` is
+  `pages/x.html?id=`), plus the shared files one level up (`shell.js`, `data.js`,
+  `theme.css`). It's never one large page, because voice can't write a large file in one go.
+  The root `.wag/poc/index.html` only redirects to `pages/index.html`.
+- **Voice writes the readable copy first.** Every project file with markup in it (each page,
+  `shell.js`, the docs renders, the mockups) has a `NAME.md` sibling with less-than and
+  greater-than signs written as U+2039 and U+203A, because voice's Dropbox reader strips
+  anything tag-like. The `NAME.md` is voice's source: it's written or edited first, and the
+  file is decoded from it, never the other way round. See the workflow's readable-copy rule.
 
 ## When you're done
 
