@@ -166,8 +166,17 @@ tweakcn preset, or says `custom` if the theme was edited.
 
 ### Step 5: Build the POC → a working site — Voice
 
-Copy `~/.claude/wag/templates/poc/` to `.wag/poc/` and build on it. Its opening comment is the
-markup contract; follow it. The POC is:
+Copy the starter from `~/.claude/wag/templates/poc/` into `.wag/poc/`, **all of it except
+`theme.css`**:
+
+- **Copy:** `index.html` (read through `index.html.md`, with `‹›` turned back into `<>`),
+  `data.js`, `vercel.json` and `.vercelignore`.
+- **Don't copy:** `theme.css`, because Step 4 already wrote the project's theme there and the
+  starter's neutral one would overwrite it. Also leave the starter's own `index.html.md` and
+  `data.js.md` behind. They're claude-home's readable copies, with a note and a code fence;
+  write the project's `index.html.md` fresh under the readable-copy rule.
+
+Then build on it. `index.html`'s opening comment is the markup contract; follow it. The POC is:
 
 - **Every route in the PRD's UI pages table**, as `data-route` sections in `index.html`, in
   the chosen look, with the menu as the PRD describes it.
