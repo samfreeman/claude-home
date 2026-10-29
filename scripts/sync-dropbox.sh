@@ -13,6 +13,11 @@
 # Only files whose content changed are rewritten, so a routine run touches a
 # handful of files.
 #
+# Voice's Dropbox reader strips HTML tags, even inside code fences, so every
+# .html and .js under wag/templates/ also gets a readable <name>.md copy, with
+# < and > written as ‹ and › (scripts/readable-copies.mjs). The copies exist
+# only in Dropbox.
+#
 # The Dropbox folder differs per machine (C:\Users\samfr\Dropbox here,
 # D:\Dropbox elsewhere). It is resolved in order:
 #   1. CLAUDE_DROPBOX env var — explicit override
@@ -74,6 +79,7 @@ git -C "$repo" fetch --quiet origin
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 git -C "$repo" archive "$branch" | tar -x -C "$tmp"
+node "$tmp/scripts/readable-copies.mjs" "$tmp/wag/templates"
 
 echo "$branch ($(git -C "$repo" rev-parse --short "$branch")) -> $dest"
 rsync "${rsync_flags[@]}" "$tmp/" "$dest/"
