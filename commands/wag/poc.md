@@ -45,10 +45,11 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   and it's written in the real app's vocabulary (Tailwind, theme tokens, shadcn `data-slot`,
   Lucide).
 - **Approval-gated.** No step advances without the user's approval.
-- **Voice keeps a readable copy of every `.html` it writes.** Each one gets an `.html.md`
-  sibling with less-than and greater-than signs written as U+2039 and U+203A, rewritten on
-  every edit, because voice's Dropbox reader strips anything tag-like. See the workflow's
-  readable-copy rule.
+- **Voice writes the readable copy first.** Every `.html` in the project, the POC's
+  `index.html` included, has an `.html.md` sibling with less-than and greater-than signs
+  written as U+2039 and U+203A, because voice's Dropbox reader strips anything tag-like. The
+  `.html.md` is voice's source: it's written or edited first, and the `.html` is decoded from
+  it, never the other way round. See the workflow's readable-copy rule.
 
 ## When you're done
 

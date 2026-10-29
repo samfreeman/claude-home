@@ -36,17 +36,24 @@ When the user works in CC alone, CC does the voice steps too.
 
 ### The readable-copy rule (voice)
 
-The same reader stops voice from reading back HTML it wrote. So **every time voice writes or
-edits an `.html` file** in the project, under `.wag/mockups/` (every option, the chosen one
-included) or `.wag/poc/` (including `poc/docs/`), it also writes a sibling `<name>.html.md`.
-The sibling holds the same source with every less-than sign (U+003C) replaced by U+2039 and
-every greater-than sign (U+003E) by U+203A, and nothing else.
+The same reader stops voice from reading back HTML it wrote. So **every `.html` file in the
+project has a readable sibling `<name>.html.md`**: every mockup option under `.wag/mockups/`
+(the chosen one included), the POC's own **`.wag/poc/index.html`**, and the docs renders in
+`.wag/poc/docs/`. The sibling holds the same source with every less-than sign (U+003C)
+replaced by U+2039 and every greater-than sign (U+003E) by U+203A, and nothing else.
 
-- **Keep the pair in step.** Every edit to the `.html` rewrites its `.html.md` in the same
-  turn. A sibling that's out of date is worse than none.
-- **Read the sibling, write the original.** To look at or change a page, voice reads the
-  `.html.md` and turns U+2039 and U+203A back into less-than and greater-than. It then writes
-  the result to the `.html`, and the re-encoded version to the `.html.md`.
+- **The `.html.md` is voice's source; write it first.** The `.html` can be derived from the
+  sibling (swap the two characters back), but voice can't derive the sibling from the
+  `.html`, because it can't read the `.html`. So for every new page and every edit:
+  1. Write or edit the `.html.md`.
+  2. Decode it into the `.html`.
+
+  Never edit the `.html` directly. A change made there is invisible to voice and gets lost
+  the next time the `.html` is regenerated from the sibling.
+- **Keep the pair in step.** Both files change in the same turn, every time. If they ever
+  disagree, the `.html.md` is right; regenerate the `.html` from it.
+- **To look at a page,** read its `.html.md` and read U+2039 and U+203A as less-than and
+  greater-than.
 - **The siblings are for voice only.** The site never links to them, and they aren't
   deployed: `.vercelignore` excludes `*.html.md` (see Step 6).
 
@@ -153,8 +160,8 @@ from dark:
 The finished mockup is **one file with both modes and a working toggle**. Its two colour
 blocks are what Step 4 writes to `theme.css`.
 
-**Readable copies:** every option file, and every edit to one (the chosen look's tweaks
-included), gets its `.html.md` sibling written in the same turn.
+**Readable copies, written first:** every option starts as its `.html.md`, and every edit
+(the chosen look's tweaks included) is made there, then decoded into the `.html`.
 
 **Transition:** the user approves the chosen look in both light and dark.
 
@@ -173,13 +180,15 @@ tweakcn preset, or says `custom` if the theme was edited.
 Copy the starter from `~/.claude/wag/templates/poc/` into `.wag/poc/`, **all of it except
 `theme.css`**:
 
-- **Copy:** `index.html` (read through `index.html.md`, with U+2039 and U+203A turned back
-  into less-than and greater-than),
-  `data.js`, `vercel.json` and `.vercelignore`.
+- **`index.html`, readable copy first:** take the encoded block from the starter's
+  `index.html.md` (the part inside the code fence, without the note or the fence) and write
+  it as the project's **`.wag/poc/index.html.md`**. Then decode that into
+  `.wag/poc/index.html`. From here on, every change to the POC page is made in
+  `index.html.md` first and decoded into `index.html`.
+- **Copy as is:** `data.js`, `vercel.json` and `.vercelignore`.
 - **Don't copy:** `theme.css`, because Step 4 already wrote the project's theme there and the
-  starter's neutral one would overwrite it. Also leave the starter's own `index.html.md` and
-  `data.js.md` behind. They're claude-home's readable copies, with a note and a code fence;
-  write the project's `index.html.md` fresh under the readable-copy rule.
+  starter's neutral one would overwrite it. Also don't copy the starter's `data.js.md`;
+  `data.js` has no tags to strip, so the project doesn't need a copy of it.
 
 Then build on it. `index.html`'s opening comment is the markup contract; follow it. The POC is:
 
@@ -238,8 +247,9 @@ write them to `poc/docs/` and hold them to this bar:
 - **Self-contained and theme-matched:** no external files, and the POC's theme colours, so
   the downloaded file looks like the site it came from.
 
-**Readable copies:** `index.html`, `docs/PRD.html` and `docs/Architecture.html` each get
-their `.html.md` sibling, rewritten on every edit.
+**Readable copies, written first:** `index.html.md`, `docs/PRD.html.md` and
+`docs/Architecture.html.md` are where voice writes and edits; `index.html`, `docs/PRD.html`
+and `docs/Architecture.html` are decoded from them every time.
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
