@@ -86,15 +86,19 @@
        darker than the level around it: the top three open onto the card colour, an epic onto the page
        background darkened a little, and a PBI onto it darkened more. Stepping from the background
        itself keeps the levels apart even in a theme whose card and background are the same colour.
-       Dark mode steps down further, since a dark background needs more to show the change. */
+       Dark mode steps down further, since a dark background needs more to show the change.
+       A closed header is never the colour of what it sits on: it's that colour nudged toward the text
+       colour (lighter in dark mode, darker in light), so where an epic or a PBI starts is plain to see. */
+    :root { --level-2: color-mix(in srgb, var(--background), black 3%); --level-3: color-mix(in srgb, var(--background), black 6%); }
+    .dark { --level-2: color-mix(in srgb, var(--background), black 20%); --level-3: color-mix(in srgb, var(--background), black 40%); }
     details[name] { overflow: hidden; }
     details[name][open] > summary { background: var(--accent); }
     details[name][open] > summary > svg.lucide-chevron-right { color: var(--accent-foreground); }
     .level-1-body { background: var(--card); }
-    .level-2-body { background: color-mix(in srgb, var(--background), black 3%); }
-    .level-3-body { background: color-mix(in srgb, var(--background), black 6%); }
-    .dark .level-2-body { background: color-mix(in srgb, var(--background), black 20%); }
-    .dark .level-3-body { background: color-mix(in srgb, var(--background), black 40%); }
+    .level-2-body { background: var(--level-2); }
+    .level-3-body { background: var(--level-3); }
+    .level-2-head { background: color-mix(in srgb, var(--foreground) 8%, var(--card)); }
+    .level-3-head { background: color-mix(in srgb, var(--foreground) 8%, var(--level-2)); }
   </style>
 </head>
 <body class="bg-background text-foreground antialiased" data-auth="in">
@@ -157,25 +161,27 @@
     const backlog = window.POC_BACKLOG
     const backlogEl = document.querySelector('[data-backlog]')
     const chevron = group => `<i data-lucide="chevron-right" class="size-4 transition-transform group-open/${group}:rotate-90"></i>`
+    // The accordion's header already names the epic or PBI, so its file's own "# " title isn't shown again.
+    const body = markdown => marked.parse(markdown.replace(/^#\s.*\n+/, ''))
     if (backlog?.epics.length) {
       document.querySelector('[data-backlog-note]').textContent =
         `Rendered from ${backlog.source} · generated ${backlog.generated} · a copy, do not edit here`
       backlogEl.innerHTML = backlog.epics.map(epic => `
         <details name="backlog-epics" data-slot="accordion-item" class="group/epic rounded-lg border">
-          <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-2 font-medium">
+          <summary class="level-2-head flex cursor-pointer list-none items-center gap-3 px-4 py-2 font-medium">
             ${chevron('epic')}
             <span class="flex-1">Epic ${esc(epic.id)} — ${esc(epic.title)}</span>
             <span class="text-xs text-muted-foreground">${epic.pbis.length} PBIs</span>
           </summary>
           <div class="level-2-body border-t px-5 py-4">
-            <article class="doc doc-nested">${marked.parse(epic.markdown)}</article>
+            <article class="doc doc-nested">${body(epic.markdown)}</article>
             <div class="mt-4 space-y-2">${epic.pbis.map(pbi => `
               <details name="epic-${esc(epic.id)}-pbis" data-slot="accordion-item" class="group/pbi rounded-lg border">
-                <summary class="flex cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm font-medium">
+                <summary class="level-3-head flex cursor-pointer list-none items-center gap-3 px-4 py-2 text-sm font-medium">
                   ${chevron('pbi')}
                   <span class="flex-1">PBI ${esc(pbi.id)} — ${esc(pbi.title)}</span>
                 </summary>
-                <article class="level-3-body doc doc-nested border-t px-5 py-4">${marked.parse(pbi.markdown)}</article>
+                <article class="level-3-body doc doc-nested border-t px-5 py-4">${body(pbi.markdown)}</article>
               </details>`).join('')}
             </div>
           </div>

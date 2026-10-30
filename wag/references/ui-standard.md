@@ -58,6 +58,12 @@ horizontal scroll at any width.
   Theme tokens only: for example, the card colour, then the page background mixed a little
   darker, then darker still. Step from the background itself rather than from a second token,
   so the levels stay apart even in a theme whose card and background are the same colour.
+- **The header names it; the content doesn't repeat it.** An accordion's content never
+  opens with the same title its header already shows.
+- **A closed header never matches what it sits on.** Fill it with the surrounding colour
+  nudged toward the text colour (`color-mix` with `--foreground`, about 8%), which is lighter
+  in dark mode and darker in light, so each item's start is plain to see. A border alone
+  isn't enough.
 
 **Visual changes are shown, not described** (Sam's preference). A change to how something
 looks is shown to the user, as the page itself or a screenshot of it, before it's called

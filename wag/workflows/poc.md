@@ -501,6 +501,12 @@ restyle only to the chosen look.
   - **Nesting shows by colour.** An open header gets the theme's accent tint and an accent
     chevron, and each level's open content is a shade darker than its parent: the card colour,
     then the page background darkened a little, then darkened more.
+  - **The title shows once.** The header names the epic or PBI, so the page drops the file's
+    own `# ` title line when it renders the content. The files keep their titles.
+  - **A closed header stands out from what it sits on.** It's filled with the colour around
+    it nudged toward the text colour (lighter in dark mode, darker in light), never the same
+    colour as the content it sits in, so you can see where each epic and PBI starts. When
+    restyling to the chosen look, check this in both modes.
 - **Directory trees are drawn, not printed.** A code block containing `├──` or `└──` is shown
   as a two-column tree: the names in monospace, indented by depth, with a Lucide `folder`
   icon (filled) or `file` icon (outline) in the same muted colour, and the comment after
