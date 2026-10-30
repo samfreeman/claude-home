@@ -184,7 +184,7 @@ the POC is approved and PBI 000.001 stands up the app.
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set
         ├── vercel.json
-        ├── .vercelignore       keeps the .md siblings off the site
+        ├── .vercelignore       keeps the .md siblings and any .env file off the site
         └── docs/
             ├── PRD.js              generated copy of docs/PRD.md, never edited
             ├── Architecture.js     generated copy of docs/Architecture.md, never edited
@@ -540,9 +540,14 @@ vercel deploy --prod --yes --cwd .wag/poc
 - **The URL.** The first deploy creates the Vercel project. A production deploy is public at
   `https://<project>-poc.vercel.app`; previews sit behind a Vercel login by default, so they
   won't open for business people.
-- **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `*.html.md` and
-  `*.js.md` (copy it from `~/.claude/wag/templates/poc/` if not), so voice's readable copies
-  stay off the site.
+- **After linking, delete what `vercel link` leaves behind.** It writes `.wag/poc/.env.local`
+  (a Vercel access token) and `.wag/poc/.gitignore`. A static POC needs neither, and Vercel
+  doesn't skip `.env.local` on its own, so the token would be published on the open site.
+  Delete both before every deploy, not just the first: a later link or `vercel env pull`
+  writes the token again.
+- **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `*.html.md`,
+  `*.js.md` and `.env*` (copy it from `~/.claude/wag/templates/poc/` if not), so voice's
+  readable copies, and any token missed above, stay off the site.
 - **Unlisted, not protected.** The URL is open to anyone who has it. The POC asks not to be
   indexed (a `noindex` meta tag, plus the `X-Robots-Tag` header in `vercel.json`).
 - **Record it.** Write the URL to `state.json`'s `poc_url` and set `poc` to `deployed`.
