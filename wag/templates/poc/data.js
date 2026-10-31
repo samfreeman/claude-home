@@ -2,6 +2,14 @@
 // real app's dev and QA seed, so keep it realistic: one cast of people and items, never lorem ipsum.
 window.POC_DATA = {
 	app: { name: '{{PROJECT_NAME}}', tagline: '' },
+	// Development only, not the app's data: who the Comment dialog lists, and whose Dropbox comments
+	// land in. Filled in at Step 6.
+	poc: {
+		owner: 'Sam',
+		reviewers: [
+			{ name: 'Sam', initials: 'SF' }
+		]
+	},
 	user: { name: 'Ana Reyes', first: 'Ana', initials: 'AR', email: 'ana@example.com' },
 	items: [
 		{ id: 'i1', title: 'Quarterly review deck', owner: 'Ben Ortiz', status: 'In review', updated: 'Today, 10:42', body: 'Draft is ready for comments before Thursday.' },

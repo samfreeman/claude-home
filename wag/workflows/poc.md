@@ -21,7 +21,8 @@ Every step below is marked **Voice** or **CC**.
 
 - **Voice** (Claude voice) reads and writes the project's files in Dropbox, reads these WAG
   files from the claude-home copy in Dropbox, and renders HTML. It can't run commands. Voice
-  gets the project all the way to a working HTML site.
+  does everything it can: it gets the project all the way to a working HTML site, and it makes
+  every change to the POC after that.
 - **Voice's Dropbox reader strips anything that looks like a tag** from some file types,
   HTML and Markdown included, but not from others (a JavaScript file full of markup came back
   intact). So the claude-home copy in Dropbox is encoded for it: in every Markdown file there
@@ -29,12 +30,12 @@ Every step below is marked **Voice** or **CC**.
   quotation mark (U+2039), and each greater-than sign (U+003E) as the single right-pointing one
   (U+203A). Read them as less-than and greater-than. When copying code or markup out of these
   files, turn them back. The starter's files (the root `index.html`, `shell.js`, `data.js`,
-  and the pages in `pages/`) are read through their encoded copies, `NAME.md`, beside each
-  file.
-- **CC** (Claude Code) runs commands: it deploys the POC, and after approval it does the
-  handoff to the real build.
-
-When the user works in CC alone, CC does the voice steps too.
+  the pages in `pages/`, `scripts/comments.js` and `api/comment.js`) are read through their
+  encoded copies, `NAME.md`, beside each file.
+- **CC** (Claude Code) does only what voice can't: it deploys the POC, runs servers such as
+  `vercel dev`, does the handoff to the real build after approval, and changes the WAG commands
+  themselves. It never changes the POC, even when the user is working in CC: a POC change is
+  voice's.
 
 ### The readable-copy rule (voice)
 
@@ -179,10 +180,13 @@ the POC is approved and PBI 000.001 stands up the app.
         │   ├── ROUTE.html …        one file per other route in the PRD's UI pages table
         │   └── project-documents.html     the standard Development page (the docs viewer)
         ├── shell.js            the shared signed-in shell and page behaviour
-        ├── scripts/            the rest of the shell, once shell.js is split (Step 6)
-        │   └── PART.js …           one file per kind of thing
+        ├── scripts/            the rest of the shell, loaded by shell.js
+        │   ├── PART.js …           one file per kind of thing, once shell.js is split (Step 6)
+        │   └── comments.js         development only: the Comment button and dialog
+        ├── api/
+        │   └── comment.js      development only: the function that saves a comment to Dropbox
         ├── theme.css           the theme, tweakcn format
-        ├── data.js             the one fake data set
+        ├── data.js             the one fake data set, and the comment dialog's names
         ├── vercel.json
         ├── .vercelignore       keeps the .md siblings and any .env file off the site
         └── docs/
@@ -385,17 +389,20 @@ a set of small pages sharing a few common files, never a single big `index.html`
   `search.js`. `shell.js` stays at the POC root and keeps storage,
   theme, the menu, the top bar, page rendering and sign-in. Pages still load only
   `../shell.js`; `shell.js` loads the parts itself, in order, right after itself, so no page
-  changes:
+  changes. The starter's `shell.js` already loads `scripts/comments.js` this way; add the new
+  parts to its list, before `comments.js`, which stays last:
 
   ```js
   // The rest of the shell, loaded from scripts/ right after this file, in order, so pages load only shell.js.
   const base = document.currentScript.src.replace(/shell\.js(\?.*)?$/, '')
-  for (const file of ['card.js', 'compose.js', 'search.js'])
+  for (const file of ['card.js', 'compose.js', 'search.js', 'comments.js'])
   	document.write(`<script src="${base}scripts/${file}"></script>`)
   ```
 
   `shell.js`'s opening comment lists the parts and what each holds. Each new part gets the
-  read-back test (the readable-copy rule).
+  read-back test (the readable-copy rule). The parts share one set of top-level names, so a
+  name declared in one must not be declared in another: a clash stops the later script loading
+  at all.
 
 State the resulting page map back to the user (route, file, what's on it) as part of the
 build discussion, before writing any pages.
@@ -407,9 +414,10 @@ build discussion, before writing any pages.
   `pages/project-documents.html`. For each one, take the encoded block from the starter's
   `NAME.md` (the part inside the code fence, without the note or the fence) and write it as the
   project's `NAME.md` beside where the file goes. Then decode that into the file.
-- **`shell.js`, directly.** Take the encoded block from the starter's `shell.js.md`, decode it,
-  and write it as the project's `shell.js`, with no sibling. Then give it the read-back test
-  (the readable-copy rule).
+- **`shell.js`, `scripts/comments.js` and `api/comment.js`, directly.** For each, take the
+  encoded block from the starter's `NAME.md` (`shell.js.md`, `scripts/comments.js.md`,
+  `api/comment.js.md`), decode it, and write it to the same place in `.wag/poc/`, with no
+  sibling. Then give each the read-back test (the readable-copy rule).
 - **The sample route page, `pages/items.html`,** shows how a list and its detail share one
   file. Use it as the pattern for each route in the page map: write each page's
   `pages/ROUTE.html.md` first, then decode it. Don't keep `items.html` unless the app has an
@@ -420,11 +428,15 @@ build discussion, before writing any pages.
   has no markup, so the project doesn't need a copy of it.
 - **Set the menu:** edit `NAV` at the top of `shell.js` directly to match the PRD's menu, and
   put the app's name, and its tagline if it has one, in `data.js`.
+- **Set the comment names:** in `data.js`'s `poc` block, `owner` is whose Dropbox the comments
+  land in (the user), and `reviewers` lists everyone who'll review the POC, with their
+  initials. Ask the user who they are. The block is development only, kept apart from the
+  app's fake data.
 
 `shell.js`'s opening comment is the markup contract: each page's `data-auth`, `data-view`,
 `data-page`, `data-list`/`data-record`/`data-fill`, `data-if`/`data-unless` for the id,
-`data-logo` and `data-action`. Follow it. Every page loads `theme.css`, `data.js` and
-`shell.js` in its head, exactly as the starter pages do.
+`data-logo`, `data-dev`, `data-topbar` and `data-action`. Follow it. Every page loads
+`theme.css`, `data.js` and `shell.js` in its head, exactly as the starter pages do.
 
 **The logo is one shared piece, in `shell.js`.** Its `logo()` function draws the mark and the
 app's name (and, where asked, `data.app.tagline` under it). The sidebar uses it, and it fills
@@ -456,22 +468,26 @@ The POC is:
   says isn't optional. In plain language, it says:
   - what this is and isn't: a clickable preview, not the product;
   - why it exists: to agree on the flows and the design before the real build;
-  - that sign-in is simulated, everyone sees the same made-up data, and nothing is saved or
-    sent anywhere;
+  - that sign-in is simulated, everyone sees the same made-up data, and nothing done in it is
+    saved, except that the comments left with the Comment button are sent, to the owner;
   - a link to **Project Documents** (the PRD, Architecture and Backlog), marked
     `data-action="open-docs"`, so it skips sign-in, with a small note that the link signs
     you in to the preview.
 - **Simulated sign-in.** The sign-in page's button signs you in; there's no real auth.
 - **The standard signed-in chrome**, in every POC:
   - sign out;
-  - the light/dark toggle;
-  - a **Development** section holding **Project Documents**.
+  - a sticky **top bar** across the top of every signed-in page, marked `data-topbar`, holding
+    the light/dark toggle, with the Comment button at its end;
+  - a **Development only** section of the menu, in the development-only look, holding
+    **Project Documents**.
+- **Comments,** on every page (see *Comments* below).
 - **Project Documents** is the starter's `pages/project-documents.html`, an accordion of
   **PRD**, **Architecture** and **Backlog**, each rendered in place from its docs copies (see
   *The docs on the page* below). The PRD and Architecture each have a Download button that
   saves the markdown as `PRD.md` or `Architecture.md`.
 - **Written in the real app's vocabulary**, so porting it is translation rather than redesign:
-  - Tailwind classes, theme tokens only, no hardcoded colors;
+  - Tailwind classes, theme tokens only, no hardcoded colors (the development-only pink is
+    the one exception);
   - every control marked `data-slot` (plus `data-variant`) with the shadcn component it
     stands in for, its classes taken from that component;
   - Lucide icons by name;
@@ -513,9 +529,44 @@ restyle only to the chosen look.
   ` # ` in a muted column of its own. A line is a folder if its name ends in `/` or the next
   line is deeper. The markdown keeps its text tree; only the page changes it.
 
+**Development only stands out.** Anything that won't be in the final site, such as the
+Development section of the menu and the Comment button, wears one shared look: `data-dev`, a
+thin, muted, dashed pink outline (`shell.js`), in a colour no app's theme uses. Stripes and
+full hot pink were tried and were too jarring.
+
+**Comments.** A reviewer can leave a comment on whatever page they're on, and it reaches the
+owner as a file in Dropbox saying who left it, where they were and when, so nobody has to
+describe in words where they meant. The starter's `scripts/comments.js` (the button and
+dialog) and `api/comment.js` (the function) do all of this; keep them as they are, and
+restyle only to the chosen look.
+
+- **The button** sits top right on every page, in the development-only look: at the end of the
+  top bar on signed-in pages, just left of the header's Sign in button on the landing page, and
+  fixed in the top right corner anywhere else.
+- **The dialog** says which page the comment is about, by the page's name ("You're leaving a
+  comment about the Items page"; on the landing page, "the landing page"). Then a line saying
+  it's development only, that the comment lands as a file in the owner's Dropbox along with the
+  page they're on, and that it may be a while before the owner gets to it. Then who you are,
+  the comment box, and Send. The page's full address is sent, not shown.
+- **Who left it.** The reviewer picks their name in the dialog, from `data.js`'s
+  `poc.reviewers`. Sign-in isn't touched. The name is remembered in the browser, so it's picked
+  once. Send stays disabled until a name is picked and there's text. The app doesn't change with
+  the name picked; it only signs comments.
+- **Where it goes.** The dialog posts to `/api/comment`, a Vercel function deployed with the
+  POC, which writes the comment through the Dropbox API into the project's own Dropbox app
+  folder, `/Apps/<project>-poc/`. One file per comment (Dropbox can't append, and one shared
+  file would collide), named by the UTC time with hyphens for colons, then the sender:
+  `2026-10-30T23-50-12Z-andy.md`. It's Markdown holding the name, the page's full address
+  (query string included), the time and the comment. The folder is outside `.wag/`, so
+  comments are never deployed or copied into the repo.
+- **Where it works.** On the deployed site, and locally under `vercel dev` (Step 7). Opened
+  from disk there's no function, so Send says it didn't send and keeps the text.
+- **The setup** (the Dropbox app and its secrets) is CC's and the user's, in Step 7.
+
 **Readable copies, written first:** every page's `NAME.html.md` is where voice writes and
-edits, and the page is decoded from it every time. `shell.js`, the parts in `scripts/` and
-`data.js` are edited directly, unless one has failed the read-back test and has a sibling.
+edits, and the page is decoded from it every time. `shell.js`, the parts in `scripts/`,
+`api/comment.js` and `data.js` are edited directly, unless one has failed the read-back test
+and has a sibling.
 
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
@@ -541,8 +592,9 @@ vercel deploy --prod --yes --cwd .wag/poc
   `https://<project>-poc.vercel.app`; previews sit behind a Vercel login by default, so they
   won't open for business people.
 - **After linking, delete what `vercel link` leaves behind.** It writes `.wag/poc/.env.local`
-  (a Vercel access token) and `.wag/poc/.gitignore`. A static POC needs neither, and Vercel
-  doesn't skip `.env.local` on its own, so the token would be published on the open site.
+  (a Vercel access token) and `.wag/poc/.gitignore`. The POC needs neither (the comments
+  function reads its secrets from Vercel, not from a file), and Vercel doesn't skip
+  `.env.local` on its own, so the token would be published on the open site.
   Delete both before every deploy, not just the first: a later link or `vercel env pull`
   writes the token again.
 - **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `*.html.md`,
@@ -553,6 +605,43 @@ vercel deploy --prod --yes --cwd .wag/poc
 - **Record it.** Write the URL to `state.json`'s `poc_url` and set `poc` to `deployed`.
 - **Changes.** For a tweak, voice edits the files and CC re-runs `vercel deploy --prod`. The
   URL stays the same, so there's nothing new to send.
+
+**Comments setup, once per project, before the first deploy.** Each project gets its own
+Dropbox app, so each token reaches only that project's comments. The user does the parts that
+need a browser or handle the secrets; CC walks them through it and checks the result. The
+secrets never go in the page, in a file, or in the conversation.
+
+1. **The Dropbox app.** At dropbox.com/developers/apps, the user creates an app: **Scoped
+   access**, **App folder** (never Full Dropbox), named `<project>-poc`. Comments then land in
+   `/Apps/<project>-poc/`, and the app can reach nothing else in their Dropbox. On its
+   **Permissions** tab, tick `files.content.write` only and submit, before getting a token.
+   The **Settings** tab shows the app key and app secret.
+2. **The refresh token.** Access tokens expire after about four hours, so the function keeps a
+   refresh token and trades it for a fresh access token on each comment. The user opens
+   `https://www.dropbox.com/oauth2/authorize?client_id=APP_KEY&response_type=code&token_access_type=offline`,
+   allows it, and copies the code. Then, in their own terminal:
+   `curl https://api.dropboxapi.com/oauth2/token -d code=CODE -d grant_type=authorization_code -u APP_KEY:APP_SECRET`.
+   The `refresh_token` in the reply is the one to keep. The code works once, for a few
+   minutes.
+3. **The three Vercel environment variables.** The user adds `DROPBOX_APP_KEY`,
+   `DROPBOX_APP_SECRET` and `DROPBOX_REFRESH_TOKEN` to the Vercel project, for **Production**
+   and **Development**: in the project's Settings, under Environment Variables, or with
+   `vercel env add NAME` in their own terminal. They keep the three somewhere safe of their own.
+4. **CC checks.** `vercel env ls --cwd .wag/poc` lists all three for both Production and
+   Development (it shows names, not values). Variables only reach a deployment made after
+   they were added, so deploy (or redeploy) once they're in.
+
+**After every deploy, check comments:** `https://<project>-poc.vercel.app/api/comment`
+answers a GET with `405` and `{"error":"POST only."}`, which shows the function is deployed.
+The first time, the user also sends one comment from the site, and it lands in
+`/Apps/<project>-poc/`.
+
+**Running it locally** is CC's: `vercel dev --cwd .wag/poc` serves the pages and the function,
+using the Development variables. With Vercel CLI 65.x under WSL, plain `vercel dev` fails with
+`Error: Request failed` while installing `@vercel/node`: the CLI's native binary has its own
+package installer, and that fails here. Run it as
+`VERCEL_CLI_USE_NATIVE_BINARY=0 vercel dev --cwd .wag/poc`, which runs the CLI as plain
+JavaScript and installs with npm. Drop the prefix once plain `vercel dev` starts.
 
 **Transition:** the user sends the link. The business people's answer is the approval.
 
@@ -582,12 +671,17 @@ resettable back to it.
 
 1. **The user approves every transition.** Never auto-advance.
 2. **Viability before mockups; a look, then an approved backlog, before the POC.**
-3. **The POC is a showcase, not the app.** It's plain HTML with no build step and no backend:
-   one small file per route in `pages/`, plus a shared `shell.js`. After approval it's the visual spec the
-   real app ports, never the real app's code.
+3. **The POC is a showcase, not the app.** It's plain HTML with no build step and no backend,
+   except the one development-only comments function (`api/comment.js`): one small file per
+   route in `pages/`, plus a shared `shell.js`. After approval it's the visual spec the
+   real app ports, never the real app's code. What's development only (the Comment button and
+   function, `data.js`'s `poc` block, the Development section's look) isn't ported.
 4. **No repo until PBI 000.001.** The project lives in Dropbox until the handoff, and the
    handoff creates no repo; standing up the app, repo included, is the backlog's first PBI.
 5. **One data set, one user's view.** It's what the POC shows, what the ported shell shows,
    and what dev and QA are seeded with.
 6. **Flow problems are fixed in the PRD on the spot.** The PRD stays the source of truth, and
    a change to it carries through the Architecture, the backlog and the POC.
+7. **CC only deploys the POC; voice makes POC changes.** Voice does everything it can. CC does
+   only what voice can't: deploying, running servers like `vercel dev`, the handoff, and
+   changing the WAG commands themselves.

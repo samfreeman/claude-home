@@ -16,9 +16,11 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
 ## Who's reading this
 
 - **Voice** reads this file and the workflow from the claude-home copy in Dropbox, and does
-  every step marked Voice, getting the project to a working HTML site.
-- **CC** runs this as `/wag:poc` for the steps marked CC: deploying, and the handoff after
-  approval.
+  every step marked Voice, getting the project to a working HTML site. Voice does everything
+  it can, including every change to the POC.
+- **CC** runs this as `/wag:poc` for the steps marked CC, and does only what voice can't:
+  deploying (with the comments setup), running servers like `vercel dev`, and the handoff after
+  approval. CC never changes the POC.
 
 ## Before you start
 
@@ -46,9 +48,12 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
 - **No repo until PBI 000.001.** The project lives in Dropbox. The handoff copies `.wag/`,
   backlog included, to `~/source/<project>`; standing up the app, repo included, is the
   backlog's first PBI.
-- **The POC is plain HTML from `wag/templates/poc/`.** It has no build step and no backend,
-  and it's written in the real app's vocabulary (Tailwind, theme tokens, shadcn `data-slot`,
-  Lucide).
+- **The POC is plain HTML from `wag/templates/poc/`.** It has no build step and no backend
+  except the development-only comments function, and it's written in the real app's
+  vocabulary (Tailwind, theme tokens, shadcn `data-slot`, Lucide).
+- **Comments go to the project's own Dropbox app folder** (`/Apps/<project>-poc/`), with
+  app-folder access and `files.content.write` only, never full Dropbox access. The app key,
+  secret and refresh token live only in the Vercel project's environment variables.
 - **Approval-gated.** No step advances without the user's approval.
 - **One small file per page, in `pages/`.** The POC is one HTML file per route, all in
   `.wag/poc/pages/` (`/` is `pages/index.html`, `/x` is `pages/x.html`, and `/x/[id]` is

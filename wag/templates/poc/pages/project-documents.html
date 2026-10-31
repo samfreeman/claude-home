@@ -76,9 +76,9 @@
     .doc-nested h2 { font-size: 1.1rem; margin-top: 1.25rem; }
     .doc-nested ul:has(input[type="checkbox"]) { list-style: none; padding-left: 0.25rem; }
     .doc-nested input[type="checkbox"] { margin-right: 0.4rem; }
-    /* The height of the shell's sticky top bar, if it has one: scrolling an accordion's header into
-       view stops just under it. The starter's shell has none. */
-    :root { --top-bar: 0px; }
+    /* The height of the shell's sticky top bar (h-14): scrolling an accordion's header into view stops
+       just under it. */
+    :root { --top-bar: 3.5rem; }
     details[name] > summary { scroll-margin-top: calc(var(--top-bar) + 1rem); }
 
     /* Telling the levels apart. An open accordion's header takes the accent tint, with an accent chevron,
