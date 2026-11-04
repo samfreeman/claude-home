@@ -1,45 +1,78 @@
 ---
-description: Send an informational message to Claude Desktop
-argument-hint: <message>
-allowed-tools: AskUserQuestion, mcp__claude-inbox__inbox_send
+description: Send a message to Claude voice (Dropbox inbox) or Claude Desktop (claude-inbox-mcp)
+argument-hint: [voice|desktop] <message>
+allowed-tools: Bash(date -u +%Y-%m-%dT%H%M), mcp__fs__fs_list
 ---
 
-# Send Message to Desktop
+# Send a Message
 
-## Your Task
+## The Spec
 
-Send a message to Claude Desktop via the claude-inbox inbox.
+The inbox is specified in `~/Dropbox/Claude/inbox/README.md`. Read it before sending.
+This command follows it. If the two disagree, the README wins.
 
-**Important context:** Claude Desktop does NOT have access to files, bash commands, or any code tools. It can only read/write memory, manage the inbox, and have conversations. Messages should **inform** desktop of a situation — not tell it to take action on files or code.
+## Step 1: Pick the Recipient
 
-### Step 1: Determine the Message
+The first word of `$ARGUMENTS` may name the recipient: `voice` or `desktop`.
 
-- If `$ARGUMENTS` is provided, use it as the message content.
-- If `$ARGUMENTS` is empty, look at the recent conversation context and compose a brief informational summary of what has been done or what the current situation is.
+- If it does, that's the recipient and the rest of `$ARGUMENTS` is the message.
+- If it doesn't, ask the user in plain text who the message is for, then wait for their answer.
 
-### Step 2: Preview and Confirm
+How each recipient is reached:
 
-Before sending, show the user a preview of the message:
+- **voice**: a file in `~/Dropbox/Claude/inbox/pending/`, as the README describes.
+- **desktop**: `mcp__claude-inbox__inbox_send`. Desktop stays on claude-inbox-mcp until Sam decides whether it moves to the Dropbox inbox.
 
-```
-To: desktop
-Project: [project root]
-Title: [short summary]
-Content: [full message]
-```
+## Step 2: Write the Message
 
-Use `AskUserQuestion` to ask the user to approve or revise the message. Provide options like "Send as-is" and "Revise".
+- If there is message text, use it as the message.
+- If not, write a short summary of what has been done and where things stand, based on the recent conversation.
 
-- If the user approves, proceed to Step 3.
-- If the user wants to revise, ask what to change, update the message, and preview again.
+Messages give the other session information. Write them for what the recipient can reach:
 
-### Step 3: Send
+- **voice** reads only Dropbox under `/Claude`, through db4cv. It can't run commands or read local files outside Dropbox. claude-home is visible to it only as the mirror at `/Claude/claude-home`, which may lag behind local work.
+- **desktop** gets claude.ai connectors and its own local MCP servers. It can't run commands.
 
-Call `mcp__claude-inbox__inbox_send` with:
-- `source`: "code"
-- `target`: "desktop"
-- `title`: A short summary (under 60 chars) derived from the message
-- `content`: The full message
-- `project`: The workspace root directory from the environment context provided at the start of the conversation (the "Working directory" value). Replace the user's home directory (e.g. `/home/username`) with `~` so paths are user-agnostic. Do NOT use pwd or any bash command — use the value from the initial environment info.
+## Step 3: Show the Draft, Then Send
 
-Confirm to the user that the message was sent.
+Show the full draft in your reply, then call the send tool in the same turn. The tool's permission popup is where the user approves or rejects it. Don't ask "send this?" in text as well.
+
+If the user rejects the popup, ask what to change, revise, and show the new draft before sending again.
+
+### To voice
+
+1. Get the UTC timestamp by running `date -u +%Y-%m-%dT%H%M` as its own Bash call.
+2. Build the filename `<timestamp>-code-to-voice-<slug>.md`. The slug is a few lowercase words joined by hyphens.
+3. List `~/Dropbox/Claude/inbox/pending/` with `mcp__fs__fs_list`. If the name is taken, add `-2` (then `-3`, and so on) after the slug.
+4. Frontmatter is optional. Include only what has a value:
+   - `title`, when the slug isn't enough of a summary
+   - `project`, when the message is about a specific project: the workspace root from the environment context, with the home directory replaced by `~`. Don't use pwd or any other command for this.
+   - `thread`, when the message replies to one from voice. Copy the replied-to message's `thread` value; if it has none, use its filename. A new topic starts a new thread and has no `thread` field. Never guess a thread from titles or slugs.
+
+   Never put the timestamp, from or to in frontmatter.
+
+   Code takes its timestamp from a real clock, so it never uses the README's one-time rename. That rule is for senders unsure of the time.
+5. Show the draft:
+   ```
+   File: inbox/pending/<filename>
+   ---
+   <frontmatter, if any>
+   ---
+   <body>
+   ```
+6. Create the file with the Write tool.
+
+### To desktop
+
+1. Show the draft:
+   ```
+   To: desktop
+   Project: <workspace root with ~>
+   Title: <short summary, under 60 chars>
+   Content: <full message>
+   ```
+2. Call `mcp__claude-inbox__inbox_send` with `source: "code"`, `target: "desktop"`, `title`, `content` and `project`, all as shown in the draft.
+
+## Step 4: Confirm
+
+Tell the user the message was sent: the filename for voice, or the returned id for desktop. Give any time in America/New_York, not UTC.
