@@ -10,6 +10,7 @@ import {
 	search,
 	whoAmI
 } from '../src/tools/files'
+import type { Converter } from '../src/convert'
 import { accountId } from './fake-dropbox'
 import { block, body, setup } from './helpers'
 
@@ -99,6 +100,64 @@ describe('fetch', () => {
 		const result = await fetchFile(ctx, { id: '/Claude/a.bin' })
 		expect(body(result).encoding).toBe('base64')
 		expect(block(result, 1)).toBe('AP8B')
+	})
+
+	it('extracts a PDF\'s text as Markdown, identified by content', async () => {
+		const seen: { name: string, bytes: Uint8Array, mimeType: string }[] = []
+		const convert: Converter = async document => {
+			seen.push(document)
+			return { markdown: '# Certificate\n\nCompleted September 16.', tokens: 9 }
+		}
+		const { fake, ctx } = setup({ convert })
+		const pdf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37, 0xe2, 0xe3])
+		await fake.addFile('/Claude/Summary', pdf)
+		const result = await fetchFile(ctx, { id: '/Claude/Summary' })
+		expect(body(result)).toMatchObject({ encoding: 'extracted', extracted_from: 'application/pdf', tokens: 9 })
+		expect(body(result).contents).toMatch(/not the file as stored/)
+		expect(block(result, 1)).toBe('# Certificate\n\nCompleted September 16.')
+		expect(seen).toEqual([{ name: 'Summary', bytes: pdf, mimeType: 'application/pdf' }])
+	})
+
+	it('extracts Office and OpenDocument files by extension', async () => {
+		const types: string[] = []
+		const { fake, ctx } = setup({ convert: async document => {
+			types.push(document.mimeType)
+			return { markdown: 'text' }
+		} })
+		await fake.addFile('/Claude/plan.docx', new Uint8Array([0x50, 0x4b, 3, 4, 0xff]))
+		await fake.addFile('/Claude/sheet.XLSX', new Uint8Array([0x50, 0x4b, 3, 4, 0xfe]))
+		await fake.addFile('/Claude/notes.odt', new Uint8Array([0x50, 0x4b, 3, 4, 0xfd]))
+		for (const name of ['plan.docx', 'sheet.XLSX', 'notes.odt'])
+			expect(body(await fetchFile(ctx, { id: `/Claude/${name}` })).encoding).toBe('extracted')
+		expect(types).toEqual([
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+			'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'application/vnd.oasis.opendocument.text'
+		])
+	})
+
+	it('reports a failed extraction with a Dropbox link instead of returning anything', async () => {
+		const { fake, ctx } = setup({ convert: async () => {
+			throw new Error('Unsupported PDF')
+		} })
+		await fake.addFile('/Claude/Summary.pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0xff]))
+		await expect(fetchFile(ctx, { id: '/Claude/Summary.pdf' })).rejects.toThrow(/Couldn't extract text from Summary.pdf: Unsupported PDF\. Open it in Dropbox: https:\/\/www\.dropbox\.com\//)
+	})
+
+	it('says so when no converter is configured', async () => {
+		const { fake, ctx } = setup()
+		await fake.addFile('/Claude/Summary.pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0xff]))
+		await expect(fetchFile(ctx, { id: '/Claude/Summary.pdf' })).rejects.toThrow(/Text extraction isn't configured/)
+	})
+
+	it('keeps UTF-8 text verbatim even when its extension is convertible', async () => {
+		const { fake, ctx } = setup({ convert: async () => {
+			throw new Error('should not be called')
+		} })
+		await fake.addFile('/Claude/data.xls', 'a,b\n1,2\n')
+		const result = await fetchFile(ctx, { id: '/Claude/data.xls' })
+		expect(body(result).encoding).toBe('utf-8')
+		expect(block(result, 1)).toBe('a,b\n1,2\n')
 	})
 
 	it('returns a verbatim line range', async () => {

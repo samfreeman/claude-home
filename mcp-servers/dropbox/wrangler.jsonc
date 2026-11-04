@@ -4,6 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "ai": { "binding": "AI" },
   "kv_namespaces": [
     { "binding": "OAUTH_KV", "id": "125240d3ef2a424e9e2a9a933123f0e6" }
   ],

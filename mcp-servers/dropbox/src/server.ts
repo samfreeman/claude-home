@@ -25,7 +25,7 @@ const instructions = (root: string) => `Dropbox file tools scoped to ${root}: no
 
 Use this server for every Dropbox file under ${root}, not any other Dropbox connector. Others may strip HTML and markup from what they read, and can't edit files in place. If this server can't do something, say so; don't fall back to another Dropbox connector.
 
-Reads are verbatim. fetch returns two content blocks: a JSON header (metadata, including rev and content_hash) and the file's contents exactly as stored, byte for byte, with no HTML-to-text conversion or sanitizing. Binary files come back base64-encoded.
+Reads are verbatim. fetch returns two content blocks: a JSON header (metadata, including rev and content_hash) and the file's contents exactly as stored, byte for byte, with no HTML-to-text conversion or sanitizing. PDF, Word, Excel, OpenDocument and Numbers files come back as extracted Markdown text (header encoding "extracted"; no layout or images, not editable in place). Other binary files come back base64-encoded.
 
 Edits are rev-safe. str_replace, append, insert and overwrite each take expected_rev (from fetch or get_file_metadata) and use Dropbox's rev-pinned update mode: if the file changed since you read it, the write fails and nothing is written. Every write returns the new rev plus Dropbox's content_hash, checked against the bytes sent (verified: true). Bytes outside the edited text are preserved exactly.
 
@@ -112,7 +112,7 @@ export function buildServer(ctx: ToolContext) {
 		server,
 		'fetch',
 		'Read a file verbatim. Returns a JSON header (rev, content_hash, size, path) followed by a second content block holding the file '
-		+ 'exactly as stored: HTML, XML, SVG and markdown come back byte for byte, angle brackets intact. Non-UTF-8 files come back base64. '
+		+ 'exactly as stored: HTML, XML, SVG and markdown come back byte for byte, angle brackets intact. PDF, Word, Excel, OpenDocument and Numbers files come back as extracted Markdown text, not editable in place. Other non-UTF-8 files come back base64. '
 		+ `Optional start_line/end_line (1-based, inclusive) return just those lines verbatim. Max ${ctx.maxReadBytes} bytes.`,
 		z.object({
 			id: path,

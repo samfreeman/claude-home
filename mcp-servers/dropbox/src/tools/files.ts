@@ -1,4 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/server'
+import { convertibleType } from '../convert'
 import { DropboxError } from '../dropbox/client'
 import { contentHash } from '../dropbox/hash'
 import type { DbxAccount, DbxListFolderResult, DbxMetadata, DbxSearchResult } from '../dropbox/types'
@@ -205,11 +206,15 @@ export async function fetchFile(ctx: ToolContext, args: FetchArgs): Promise<Call
 	catch (error) {
 		throw new ToolError((error as Error).message)
 	}
+	const extractFrom = text == undefined ? convertibleType(metadata.name, bytes) : undefined
+	const extracted = extractFrom == undefined ? undefined : await extractText(ctx, metadata, bytes, extractFrom)
 	const header = {
 		id: args.id,
 		title: metadata.name,
 		url: openUrl(metadata),
-		encoding: text == undefined ? 'base64' : 'utf-8',
+		encoding: extracted != undefined ? 'extracted' : text == undefined ? 'base64' : 'utf-8',
+		extracted_from: extracted == undefined ? undefined : extractFrom,
+		tokens: extracted?.tokens,
 		metadata: {
 			path_display: metadata.path_display,
 			path: metadata.path_display == null ? undefined : nsPath(ctx.scope, metadata.path_display),
@@ -221,14 +226,28 @@ export async function fetchFile(ctx: ToolContext, args: FetchArgs): Promise<Call
 			client_modified: metadata.client_modified
 		},
 		lines: lines == null ? undefined : { start: lines.start, end: lines.end, total: lines.total },
-		contents: 'The next content block is the file exactly as stored'
-			+ (text == undefined ? ', base64-encoded because it is not UTF-8 text.' : ', byte for byte. Pass metadata.rev as expected_rev to edit it.')
+		contents: extracted != undefined
+			? 'The next content block is text extracted from this file as Markdown, not the file as stored: layout and images are not included, and it can\'t be edited in place.'
+			: 'The next content block is the file exactly as stored'
+				+ (text == undefined ? ', base64-encoded because it is not UTF-8 text.' : ', byte for byte. Pass metadata.rev as expected_rev to edit it.')
 	}
 	return {
 		content: [
 			{ type: 'text', text: JSON.stringify(header, null, 2) },
-			{ type: 'text', text: lines?.text ?? text ?? toBase64(bytes) }
+			{ type: 'text', text: lines?.text ?? text ?? extracted?.markdown ?? toBase64(bytes) }
 		]
+	}
+}
+
+async function extractText(ctx: ToolContext, metadata: DbxMetadata, bytes: Uint8Array, mimeType: string) {
+	const url = openUrl(metadata)
+	if (ctx.convert == undefined)
+		throw new ToolError(`Text extraction isn't configured on this server, so ${metadata.name} can't be read here. Open it in Dropbox: ${url}`)
+	try {
+		return await ctx.convert({ name: metadata.name, bytes, mimeType })
+	}
+	catch (error) {
+		throw new ToolError(`Couldn't extract text from ${metadata.name}: ${(error as Error).message}. Open it in Dropbox: ${url}`)
 	}
 }
 

@@ -1,4 +1,5 @@
 import { createMcpHandler } from '@modelcontextprotocol/server'
+import { aiConverter } from './convert'
 import { DropboxClient, type FetchFn } from './dropbox/client'
 import { accessTokenSource } from './dropbox/token'
 import { defaultScopeRoot, maxReadBytes, maxRequestBodyBytes, maxWriteBytes, type Env, type Props } from './env'
@@ -21,7 +22,8 @@ export const mcpApiHandler = {
 			dropbox: new DropboxClient(workerFetch, getToken),
 			scope: makeScope(env.SCOPE_ROOT || defaultScopeRoot, props.rootNamespaceId),
 			maxReadBytes,
-			maxWriteBytes
+			maxWriteBytes,
+			convert: env.AI == undefined ? undefined : aiConverter(env.AI)
 		}
 		const handler = createMcpHandler(() => buildServer(toolContext), { maxRequestBodySize: maxRequestBodyBytes })
 		return handler.fetch(request)

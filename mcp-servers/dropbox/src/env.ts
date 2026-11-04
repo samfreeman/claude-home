@@ -2,6 +2,7 @@ import type { OAuthHelpers } from '@cloudflare/workers-oauth-provider'
 
 export interface Env {
 	OAUTH_KV: KVNamespace
+	AI?: Ai
 	OAUTH_PROVIDER: OAuthHelpers
 	DROPBOX_APP_KEY: string
 	DROPBOX_APP_SECRET: string

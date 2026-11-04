@@ -1,4 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/server'
+import type { Converter } from '../convert'
 import { DropboxError, type DropboxClient } from '../dropbox/client'
 import { contentHash } from '../dropbox/hash'
 import type { DbxMetadata } from '../dropbox/types'
@@ -9,6 +10,7 @@ export interface ToolContext {
 	scope: Scope
 	maxReadBytes: number
 	maxWriteBytes: number
+	convert?: Converter
 }
 
 export class ToolError extends Error {}

@@ -2,7 +2,7 @@
 
 A remote MCP server for Dropbox, deployed on Cloudflare Workers and added to claude.ai as a custom connector, so it works on every Claude surface, including voice on iPhone and iPad. It replaces the official Dropbox connector for file work and adds what that connector lacks:
 
-- **Verbatim reads.** `fetch` returns the file exactly as stored, byte for byte. HTML, XML, SVG and markdown keep their angle brackets. Non-UTF-8 files come back base64.
+- **Verbatim reads.** `fetch` returns the file exactly as stored, byte for byte. HTML, XML, SVG and markdown keep their angle brackets. PDF, Word, Excel, OpenDocument and Numbers files come back as Markdown text extracted by Workers AI's `toMarkdown` (text only, like the built-in connector; not editable in place). Other non-UTF-8 files come back base64.
 - **Rev-safe in-place edits.** `str_replace`, `append`, `insert` and `overwrite` each take `expected_rev` and write with Dropbox's rev-pinned update mode, so a stale rev fails instead of clobbering. Bytes outside the edit are preserved exactly.
 - **Proof a write landed.** Every write returns the new `rev` and Dropbox's `content_hash`, checked against a hash of the bytes sent (`verified: true`). If they disagree, the call fails.
 - **A hard scope.** Only `/Claude` (`SCOPE_ROOT`) and what's inside it can be read or changed. Paths, ns paths and file ids are all resolved and checked before anything is sent.
@@ -50,6 +50,8 @@ npm run typecheck
 ```
 
 ## Deploy
+
+**Nothing goes live until it's pushed to GitHub.** `wrangler deploy` uploads whatever is on disk and never checks git, so deploy only from a clean working tree whose branch is level with `origin`. Being pushed doesn't authorize a deploy: it happens only on Sam's express say-so.
 
 1. Log in to Cloudflare: `npx wrangler login`.
 2. Create the KV namespace: `npx wrangler kv namespace create OAUTH_KV`. Put its id in `wrangler.jsonc`.
