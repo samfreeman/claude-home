@@ -49,6 +49,8 @@ Filenames are UTC. Every time you show the user is in America/New_York: `2026-11
 
 The current project is the workspace root from the environment context, with the home directory replaced by `~`. Don't use pwd or any other command for this.
 
+A `project` matches when it is the current project or a path inside it: `~/.claude/mcp-servers/dropbox` matches `~/.claude`. Compare whole path segments, so `~/.claude-old` doesn't match `~/.claude`.
+
 - **Dropbox messages:** keep a message if its frontmatter `project` matches the current project, or if it has no `project`.
 - **Desktop messages:** keep only items whose `project` field matches. Drop items with a different project or none.
 
