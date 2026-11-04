@@ -67,6 +67,14 @@ Before any mutating git operation (stage, commit, push, `git rm`), confirm the w
 
 Why: targeting a repo by assumption is how a commit lands in the wrong project. This holds regardless of command form — a stale cwd misfires a plain `git commit`, and a typo'd `git -C <path>` misfires just as easily. Verifying repo identity is the real safeguard. It also makes plain git (relying on the cwd) preferable to `git -C <abspath>`, which bakes a project path into every command and forces a duplicated, per-project allow-list.
 
+### 10. Nothing Goes Live Until It's Pushed to GitHub
+
+Never deploy, publish or otherwise put code live (`wrangler deploy`, `npm run deploy`, `vercel --prod`, anything that changes what a live service runs) unless that exact code is committed and pushed to GitHub. Being pushed is required but is never permission: a deploy happens only on Sam's express say-so, every time. A deploy request is not a commit or push request: if the code isn't pushed yet, stop and say so. Never commit or push as a side effect of being asked to deploy. Before deploying, confirm the working tree is clean and the branch is level with its remote.
+
+The one exception is a Vercel rule: where Sam has set up Vercel to deploy on its own (e.g. its Git integration deploying a pushed branch), that rule is his standing say-so, and the push may trigger it. The code still has to be pushed; nothing else deploys without him.
+
+Why: deploy tools like wrangler upload whatever is on disk and never check git. Code once went live from an uncommitted working tree, so what was running had no record anywhere. GitHub is the record of what's live; nothing runs that isn't in it.
+
 ---
 
 ## Knowledge Base
