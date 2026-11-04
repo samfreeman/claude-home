@@ -117,7 +117,7 @@ Then go straight on to **Working the Messages** for everything pending. Don't as
    - Look at configs, the environment and runtime state.
    - Consider causes the message didn't explore.
 3. **Bring what you found to the user:** where it agrees or disagrees with the message, and what you think is going on. Discuss options. Make no changes without the user's input.
-4. Once a message has been dealt with, mark it done:
+4. Once a message has been dealt with, mark it done. Don't leave it pending because it needs a reply: `/reply` works on messages in `done/`, like email.
    - **Dropbox message:** move it from `pending/` to `done/` with `mcp__fs__fs_move`, keeping the filename. Never edit or delete it.
    - **Desktop item:** call `mcp__claude-inbox__inbox_update` with its id and `status: "done"`.
 
