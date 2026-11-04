@@ -23,51 +23,27 @@ Every step below is marked **Voice** or **CC**.
   files from the claude-home copy in Dropbox, and renders HTML. It can't run commands. Voice
   does everything it can: it gets the project all the way to a working HTML site, and it makes
   every change to the POC after that.
-- **Voice's Dropbox reader strips anything that looks like a tag** from some file types,
-  HTML and Markdown included, but not from others (a JavaScript file full of markup came back
-  intact). So the claude-home copy in Dropbox is encoded for it: in every Markdown file there
-  (this one too), each less-than sign (U+003C) appears as the single left-pointing angle
-  quotation mark (U+2039), and each greater-than sign (U+003E) as the single right-pointing one
-  (U+203A). Read them as less-than and greater-than. When copying code or markup out of these
-  files, turn them back. The starter's files (the root `index.html`, `shell.js`, `data.js`,
-  the pages in `pages/`, `scripts/comments.js` and `api/comment.js`) are read through their
-  encoded copies, `NAME.md`, beside each file.
 - **CC** (Claude Code) does only what voice can't: it deploys the POC, runs servers such as
   `vercel dev`, does the handoff to the real build after approval, and changes the WAG commands
   themselves. It never changes the POC, even when the user is working in CC: a POC change is
   voice's.
 
-### The readable-copy rule (voice)
+### The Dropbox rule (voice)
 
-The same reader can stop voice from reading back markup it wrote. So:
+**Voice uses db4cv for every Dropbox file, never the built-in Dropbox connector.** db4cv is
+Sam's own Dropbox connector, reaching `/Claude` and everything in it. The built-in connector
+strips anything that looks like a tag from what it reads and can't edit a file in place, so
+voice can't work on HTML through it. If db4cv isn't available in the session, stop and say
+so; don't fall back to the built-in connector.
 
-- **Every HTML file has a readable sibling `NAME.md`:** every mockup option under
-  `.wag/mockups/` (the chosen one included), every POC page in `.wag/poc/pages/` (one file per
-  route), and the root redirect `.wag/poc/index.html`. That makes `items.html.md`,
-  `index.html.md` and so on.
-- **Any other file is tested by reading it back.** When voice first writes it, it reads it
-  back and compares. If it comes back exactly as written, it gets no sibling, and voice works
-  on the file directly. If anything was stripped (then, or on any later read), it gets a
-  readable `NAME.md` from then on, written first, as below. `shell.js` and the parts in
-  `.wag/poc/scripts/` have come back intact so far.
-
-The sibling holds the same source with every less-than sign (U+003C) replaced by U+2039 and
-every greater-than sign (U+003E) by U+203A, and nothing else.
-
-- **The `NAME.md` is voice's source; write it first.** The file can be derived from its
-  sibling (swap the two characters back), but voice can't derive the sibling from the file,
-  because it can't read the file. So for every new file and every edit:
-  1. Write or edit the `NAME.md`.
-  2. Decode it into the file.
-
-  Never edit the file directly. A change made there is invisible to voice and gets lost the
-  next time the file is regenerated from its sibling.
-- **Keep the pair in step.** Both files change in the same turn, every time. If they ever
-  disagree, the `NAME.md` is right; regenerate the file from it.
-- **To look at a file,** read its `NAME.md` and read U+2039 and U+203A as less-than and
-  greater-than.
-- **The siblings are for voice only.** The site never links to them, and they aren't
-  deployed: `.vercelignore` excludes `*.html.md` and `*.js.md` (see Step 7).
+- **Reads are exact.** `fetch` returns a file byte for byte, angle brackets and all, so
+  voice reads HTML, Markdown and JavaScript directly, including this file and the starter's.
+- **Edits go in place.** Read the file, then change it with `str_replace`, `insert`,
+  `append` or `overwrite`, passing the rev the read returned. If the file changed since, the
+  write fails and nothing is written: read it again and redo the edit. Every write returns
+  the new rev; use that for the next edit.
+- **No readable copies.** Nothing gets a `NAME.md` sibling. Voice writes and edits each file
+  itself.
 
 ### The docs copies (voice)
 
@@ -81,8 +57,6 @@ copies**: `.wag/poc/docs/PRD.js` and `Architecture.js`, and the backlog's copies
 - **Every write regenerates.** Any step that writes `PRD.md` or `Architecture.md`
   regenerates its copy in the same step, never one without the other. The same goes for the
   backlog (below). Create `.wag/poc/docs/` first if it doesn't exist yet.
-- **No readable sibling.** Like `data.js`, they carry no markup, so voice reads them back
-  intact.
 - **The format.** `PRD.js` sets `prd`, from `.wag/docs/PRD.md`, and `Architecture.js` sets
   `architecture`, from `.wag/docs/Architecture.md`. `generated` is the date written as
   `Mon D, YYYY`, and `markdown` is the whole source:
@@ -171,7 +145,7 @@ the POC is approved and PBI 000.001 stands up the app.
     │   ├── epic-NNN-word/ …        one folder per feature epic
     │   └── epic-501-future/
     ├── mockups/
-    │   └── option-1.html … option-5.html    the round-one looks (+ .html.md siblings)
+    │   └── option-1.html … option-5.html    the round-one looks
     └── poc/                    the site — this folder is what gets deployed
         ├── index.html          only redirects to pages/index.html (the site's front door)
         ├── pages/              every page, one file per route
@@ -188,7 +162,7 @@ the POC is approved and PBI 000.001 stands up the app.
         ├── theme.css           the theme, tweakcn format
         ├── data.js             the one fake data set, and the comment dialog's names
         ├── vercel.json
-        ├── .vercelignore       keeps the .md siblings and any .env file off the site
+        ├── .vercelignore       keeps any .env file off the site
         └── docs/
             ├── PRD.js              generated copy of docs/PRD.md, never edited
             ├── Architecture.js     generated copy of docs/Architecture.md, never edited
@@ -196,10 +170,6 @@ the POC is approved and PBI 000.001 stands up the app.
                 ├── index.js            lists and loads the epic files
                 └── epic-NNN-word.js …  one per epic folder
 ```
-
-Every HTML file (the mockups, the pages, the root redirect) has a readable `NAME.md` sibling
-for voice, and any other file only if it failed the read-back test (the readable-copy rule
-above). The docs copies have none (the docs-copies rule above).
 
 **No READMEs anywhere in `.wag/`.** It's code that gets copied into the repo at the handoff,
 not part of the `/Claude` README system, so don't write one in any folder under it.
@@ -286,9 +256,6 @@ from dark:
 
 The finished mockup is **one file with both modes and a working toggle**. Its two colour
 blocks are what Step 4 writes to `theme.css`.
-
-**Readable copies, written first:** every option starts as its `.html.md`, and every edit
-(the chosen look's tweaks included) is made there, then decoded into the `.html`.
 
 **Transition:** the user approves the chosen look in both light and dark.
 
@@ -399,33 +366,24 @@ a set of small pages sharing a few common files, never a single big `index.html`
   	document.write(`<script src="${base}scripts/${file}"></script>`)
   ```
 
-  `shell.js`'s opening comment lists the parts and what each holds. Each new part gets the
-  read-back test (the readable-copy rule). The parts share one set of top-level names, so a
-  name declared in one must not be declared in another: a clash stops the later script loading
-  at all.
+  `shell.js`'s opening comment lists the parts and what each holds. The parts share one set
+  of top-level names, so a name declared in one must not be declared in another: a clash stops
+  the later script loading at all.
 
 State the resulting page map back to the user (route, file, what's on it) as part of the
 build discussion, before writing any pages.
 
 **Then the starter.** Copy from `~/.claude/wag/templates/poc/` into `.wag/poc/`:
 
-- **The HTML files, readable copy first,** each to the same place in `.wag/poc/`: the root
-  `index.html` (the redirect), `pages/index.html`, `pages/sign-in.html` and
-  `pages/project-documents.html`. For each one, take the encoded block from the starter's
-  `NAME.md` (the part inside the code fence, without the note or the fence) and write it as the
-  project's `NAME.md` beside where the file goes. Then decode that into the file.
-- **`shell.js`, `scripts/comments.js` and `api/comment.js`, directly.** For each, take the
-  encoded block from the starter's `NAME.md` (`shell.js.md`, `scripts/comments.js.md`,
-  `api/comment.js.md`), decode it, and write it to the same place in `.wag/poc/`, with no
-  sibling. Then give each the read-back test (the readable-copy rule).
+- **Copy as is,** each to the same place in `.wag/poc/`: the root `index.html` (the
+  redirect), `pages/index.html`, `pages/sign-in.html`, `pages/project-documents.html`,
+  `shell.js`, `scripts/comments.js`, `api/comment.js`, `data.js`, `vercel.json` and
+  `.vercelignore`.
 - **The sample route page, `pages/items.html`,** shows how a list and its detail share one
-  file. Use it as the pattern for each route in the page map: write each page's
-  `pages/ROUTE.html.md` first, then decode it. Don't keep `items.html` unless the app has an
-  items route.
-- **Copy as is:** `data.js`, `vercel.json` and `.vercelignore`.
-- **Don't copy:** `theme.css`, because Step 4 already wrote the project's theme there and the
-  starter's neutral one would overwrite it. Also skip the starter's `data.js.md`; `data.js`
-  has no markup, so the project doesn't need a copy of it.
+  file. Use it as the pattern for each route in the page map. Don't keep `items.html` unless
+  the app has an items route.
+- **Don't copy** `theme.css`, because Step 4 already wrote the project's theme there and the
+  starter's neutral one would overwrite it.
 - **Set the menu:** edit `NAV` at the top of `shell.js` directly to match the PRD's menu, and
   put the app's name, and its tagline if it has one, in `data.js`.
 - **Set the comment names:** in `data.js`'s `poc` block, `owner` is whose Dropbox the comments
@@ -563,11 +521,6 @@ restyle only to the chosen look.
   from disk there's no function, so Send says it didn't send and keeps the text.
 - **The setup** (the Dropbox app and its secrets) is CC's and the user's, in Step 7.
 
-**Readable copies, written first:** every page's `NAME.html.md` is where voice writes and
-edits, and the page is decoded from it every time. `shell.js`, the parts in `scripts/`,
-`api/comment.js` and `data.js` are edited directly, unless one has failed the read-back test
-and has a sibling.
-
 **Flow problems get fixed now.** Building the pages can expose a gap: a flow step with no
 page, a page with no way in, data a page shows that no flow creates, or two parts of the PRD
 that disagree. When that happens, fix the PRD in the same session, alongside the POC, and
@@ -597,9 +550,8 @@ vercel deploy --prod --yes --cwd .wag/poc
   `.env.local` on its own, so the token would be published on the open site.
   Delete both before every deploy, not just the first: a later link or `vercel env pull`
   writes the token again.
-- **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `*.html.md`,
-  `*.js.md` and `.env*` (copy it from `~/.claude/wag/templates/poc/` if not), so voice's
-  readable copies, and any token missed above, stay off the site.
+- **Before deploying,** make sure `.wag/poc/.vercelignore` exists and holds `.env*` (copy it
+  from `~/.claude/wag/templates/poc/` if not), so any token missed above stays off the site.
 - **Unlisted, not protected.** The URL is open to anyone who has it. The POC asks not to be
   indexed (a `noindex` meta tag, plus the `X-Robots-Tag` header in `vercel.json`).
 - **Record it.** Write the URL to `state.json`'s `poc_url` and set `poc` to `deployed`.

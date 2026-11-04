@@ -60,12 +60,11 @@ A project runs `/wag:poc` **or** `/wag:init`, not both.
   `pages/x.html?id=`), plus the shared files one level up (`shell.js`, `data.js`,
   `theme.css`). It's never one large page, because voice can't write a large file in one go.
   The root `.wag/poc/index.html` only redirects to `pages/index.html`.
-- **Voice writes the readable copy first.** Every HTML file (each page, the root redirect,
-  the mockups) has a `NAME.md` sibling with less-than and greater-than signs written as
-  U+2039 and U+203A, because voice's Dropbox reader strips anything tag-like from HTML. Any
-  other file gets one only if reading it back shows something stripped. The `NAME.md` is
-  voice's source: it's written or edited first, and the file is decoded from it, never the
-  other way round. See the workflow's readable-copy rule.
+- **Voice uses db4cv for Dropbox, never the built-in Dropbox connector.** db4cv reads every
+  file exactly as stored, HTML included, and edits files in place against the rev it read. The
+  built-in connector strips markup from what it reads and can't edit. If db4cv isn't
+  available, stop and say so; don't fall back. Voice reads and edits HTML directly: there are
+  no readable copies. See the workflow's Dropbox rule.
 - **The PRD, Architecture and backlog shown in the POC are generated copies.**
   `.wag/docs/PRD.md`, `Architecture.md` and the epic folders under `.wag/backlog/` stay the
   sources of truth. `.wag/poc/docs/PRD.js`, `Architecture.js` and the files in

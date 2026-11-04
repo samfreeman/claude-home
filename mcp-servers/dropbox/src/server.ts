@@ -23,6 +23,8 @@ const pathHelp = 'Accepts a path like "/Claude/notes.md", an ns_path like "ns:12
 
 const instructions = (root: string) => `Dropbox file tools scoped to ${root}: nothing outside ${root} can be read or changed.
 
+Use this server for every Dropbox file under ${root}, not any other Dropbox connector. Others may strip HTML and markup from what they read, and can't edit files in place. If this server can't do something, say so; don't fall back to another Dropbox connector.
+
 Reads are verbatim. fetch returns two content blocks: a JSON header (metadata, including rev and content_hash) and the file's contents exactly as stored, byte for byte, with no HTML-to-text conversion or sanitizing. Binary files come back base64-encoded.
 
 Edits are rev-safe. str_replace, append, insert and overwrite each take expected_rev (from fetch or get_file_metadata) and use Dropbox's rev-pinned update mode: if the file changed since you read it, the write fails and nothing is written. Every write returns the new rev plus Dropbox's content_hash, checked against the bytes sent (verified: true). Bytes outside the edited text are preserved exactly.
