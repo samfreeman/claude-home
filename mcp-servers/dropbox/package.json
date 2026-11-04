@@ -1,0 +1,25 @@
+{
+  "name": "dropbox-mcp",
+  "version": "0.1.0",
+  "description": "Remote Dropbox MCP for claude.ai — file ops, rev-safe in-place edits, verbatim reads",
+  "type": "module",
+  "private": true,
+  "author": "Sam Freeman",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "^1.2.4",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261103.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.157.0"
+  }
+}

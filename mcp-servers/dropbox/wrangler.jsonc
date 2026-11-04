@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dropbox-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "125240d3ef2a424e9e2a9a933123f0e6" }
+  ],
+  "vars": {
+    "PUBLIC_URL": "https://dropbox-mcp.samfreeman55.workers.dev",
+    "SCOPE_ROOT": "/Claude",
+    "ALLOWED_REDIRECT_HOSTS": "claude.ai,claude.com",
+    "ALLOWED_ACCOUNT_ID": "dbid:AAAH6jrIXu2mW2JrcWERuDjmx16qQmzDN5E"
+  },
+  "observability": { "enabled": true }
+}
