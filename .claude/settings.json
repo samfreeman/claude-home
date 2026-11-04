@@ -33,7 +33,10 @@
       "Skill(deep-research)",
       "Skill(deep-research:*)",
       "Workflow(deep-research)",
-      "WebFetch(domain:medium.com)"
+      "WebFetch(domain:medium.com)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "mcp__claude-memory__memory_search"
     ],
     "additionalDirectories": [
       "/home/samfr/.claude/mcp-servers/google-ai-mcp/cache/transcripts"
