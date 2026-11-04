@@ -150,6 +150,24 @@ describe('fetch', () => {
 		await expect(fetchFile(ctx, { id: '/Claude/Summary.pdf' })).rejects.toThrow(/Text extraction isn't configured/)
 	})
 
+	it('allows documents that get extracted up to the higher extract limit', async () => {
+		const { fake, ctx } = setup({ maxReadBytes: 8, maxExtractBytes: 16, convert: async () => ({ markdown: 'big' }) })
+		const pdf = new Uint8Array(12).fill(0xff)
+		pdf.set([0x25, 0x50, 0x44, 0x46, 0x2d])
+		await fake.addFile('/Claude/big.pdf', pdf)
+		expect(block(await fetchFile(ctx, { id: '/Claude/big.pdf' }), 1)).toBe('big')
+		await fake.addFile('/Claude/huge.pdf', new Uint8Array(20).fill(0xff))
+		await expect(fetchFile(ctx, { id: '/Claude/huge.pdf' })).rejects.toThrow(/read limit for this file is 16 bytes/)
+		await fake.addFile('/Claude/big.bin', new Uint8Array(12).fill(0xff))
+		await expect(fetchFile(ctx, { id: '/Claude/big.bin' })).rejects.toThrow(/read limit for this file is 8 bytes/)
+	})
+
+	it('holds text with a document extension to the verbatim limit', async () => {
+		const { fake, ctx } = setup({ maxReadBytes: 8, maxExtractBytes: 16, convert: async () => ({ markdown: 'x' }) })
+		await fake.addFile('/Claude/fake.docx', 'twelve chars')
+		await expect(fetchFile(ctx, { id: '/Claude/fake.docx' })).rejects.toThrow(/isn't a document that can be extracted/)
+	})
+
 	it('keeps UTF-8 text verbatim even when its extension is convertible', async () => {
 		const { fake, ctx } = setup({ convert: async () => {
 			throw new Error('should not be called')

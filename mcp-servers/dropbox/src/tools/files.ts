@@ -1,5 +1,5 @@
 import type { CallToolResult } from '@modelcontextprotocol/server'
-import { convertibleType } from '../convert'
+import { convertibleByName, convertibleType } from '../convert'
 import { DropboxError } from '../dropbox/client'
 import { contentHash } from '../dropbox/hash'
 import type { DbxAccount, DbxListFolderResult, DbxMetadata, DbxSearchResult } from '../dropbox/types'
@@ -190,12 +190,16 @@ export async function fetchFile(ctx: ToolContext, args: FetchArgs): Promise<Call
 	const info = await ctx.dropbox.rpc<DbxMetadata>('files/get_metadata', { path })
 	if (info['.tag'] != 'file')
 		throw new ToolError(`${args.id} is a folder, not a file. Use list_folder.`)
-	if ((info.size ?? 0) > ctx.maxReadBytes)
-		throw new ToolError(`${info.path_display} is ${info.size} bytes; the read limit is ${ctx.maxReadBytes} bytes. Use download_link instead.`)
+	// Documents that get extracted return a little text however large the file, so they get a higher limit
+	const limit = convertibleByName(info.name) != undefined ? ctx.maxExtractBytes : ctx.maxReadBytes
+	if ((info.size ?? 0) > limit)
+		throw new ToolError(`${info.path_display} is ${info.size} bytes; the read limit for this file is ${limit} bytes. Use download_link instead.`)
 	const { metadata, bytes } = await ctx.dropbox.download(path)
 	if (metadata.content_hash != null && await contentHash(bytes) != metadata.content_hash)
 		throw new ToolError(`The bytes downloaded for rev ${metadata.rev} don't match Dropbox's content_hash. Not returning possibly corrupt content.`)
 	const text = decodeText(bytes)
+	if (bytes.length > ctx.maxReadBytes && (text != undefined || convertibleType(metadata.name, bytes) == undefined))
+		throw new ToolError(`${metadata.path_display} is ${bytes.length} bytes but isn't a document that can be extracted; the read limit for it is ${ctx.maxReadBytes} bytes. Use download_link instead.`)
 	const ranged = args.start_line != null || args.end_line != null
 	if (ranged && text == undefined)
 		throw new ToolError('start_line/end_line only apply to UTF-8 text files; this file is binary.')

@@ -22,4 +22,5 @@ export const defaultScopeRoot = '/Claude'
 export const defaultRedirectHosts = 'claude.ai,claude.com'
 export const maxReadBytes = 5 * 1024 * 1024
 export const maxWriteBytes = 5 * 1024 * 1024
+export const maxExtractBytes = 25 * 1024 * 1024
 export const maxRequestBodyBytes = 8 * 1024 * 1024

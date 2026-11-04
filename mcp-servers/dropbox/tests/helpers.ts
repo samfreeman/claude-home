@@ -5,13 +5,14 @@ import { makeScope } from '../src/scope'
 import type { ToolContext } from '../src/tools/context'
 import { FakeDropbox, rootNamespaceId } from './fake-dropbox'
 
-export function setup(limits?: { maxReadBytes?: number, maxWriteBytes?: number, convert?: Converter }) {
+export function setup(limits?: { maxReadBytes?: number, maxWriteBytes?: number, maxExtractBytes?: number, convert?: Converter }) {
 	const fake = new FakeDropbox()
 	const ctx: ToolContext = {
 		dropbox: new DropboxClient(fake.fetch, async () => 'test-token'),
 		scope: makeScope('/Claude', rootNamespaceId),
 		maxReadBytes: limits?.maxReadBytes ?? 5 * 1024 * 1024,
 		maxWriteBytes: limits?.maxWriteBytes ?? 5 * 1024 * 1024,
+		maxExtractBytes: limits?.maxExtractBytes ?? 25 * 1024 * 1024,
 		convert: limits?.convert
 	}
 	return { fake, ctx }

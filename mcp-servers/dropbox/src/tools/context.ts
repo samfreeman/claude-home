@@ -10,6 +10,7 @@ export interface ToolContext {
 	scope: Scope
 	maxReadBytes: number
 	maxWriteBytes: number
+	maxExtractBytes: number
 	convert?: Converter
 }
 

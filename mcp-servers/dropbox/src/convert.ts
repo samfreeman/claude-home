@@ -25,11 +25,15 @@ const convertibleByExtension: Record<string, string> = {
 
 const pdfSignature = [0x25, 0x50, 0x44, 0x46, 0x2d]
 
+export function convertibleByName(name: string) {
+	const dot = name.lastIndexOf('.')
+	return dot < 0 ? undefined : convertibleByExtension[name.slice(dot + 1).toLowerCase()]
+}
+
 export function convertibleType(name: string, bytes: Uint8Array) {
 	if (pdfSignature.every((b, i) => bytes[i] == b))
 		return 'application/pdf'
-	const dot = name.lastIndexOf('.')
-	return dot < 0 ? undefined : convertibleByExtension[name.slice(dot + 1).toLowerCase()]
+	return convertibleByName(name)
 }
 
 export function aiConverter(ai: Ai): Converter {

@@ -113,7 +113,7 @@ export function buildServer(ctx: ToolContext) {
 		'fetch',
 		'Read a file verbatim. Returns a JSON header (rev, content_hash, size, path) followed by a second content block holding the file '
 		+ 'exactly as stored: HTML, XML, SVG and markdown come back byte for byte, angle brackets intact. PDF, Word, Excel, OpenDocument and Numbers files come back as extracted Markdown text, not editable in place. Other non-UTF-8 files come back base64. '
-		+ `Optional start_line/end_line (1-based, inclusive) return just those lines verbatim. Max ${ctx.maxReadBytes} bytes.`,
+		+ `Optional start_line/end_line (1-based, inclusive) return just those lines verbatim. Max ${ctx.maxReadBytes} bytes, or ${ctx.maxExtractBytes} bytes for documents returned as extracted text.`,
 		z.object({
 			id: path,
 			start_line: z.number().int().min(1).optional(),
