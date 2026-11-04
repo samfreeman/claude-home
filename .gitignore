@@ -15,6 +15,7 @@ ide/
 shell-snapshots/
 plugins/
 skills/synced/
+skills/.trash/
 .credentials.json
 stats-cache.json
 mcp-needs-auth-cache.json
